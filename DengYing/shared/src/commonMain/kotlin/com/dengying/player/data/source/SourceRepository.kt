@@ -29,6 +29,7 @@ import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import com.dengying.player.platform.Clock
 import com.dengying.player.platform.PlatformLock
 import com.dengying.player.platform.ioDispatcher
@@ -363,6 +364,20 @@ class SourceRepository {
     private val altSearchCache = HashMap<String, List<AltCandidate>>()
     private val inflightAlt = HashMap<String, Deferred<List<AltCandidate>>>()
     private val altSearchLock = PlatformLock()
+
+    /**
+     * 跨源搜索的**自有**作用域。
+     *
+     * 不能挂在调用方的 `coroutineScope` 上：首个发起者（详情页预取）被导航取消、
+     * 或播放链超时放弃时，共享 async 会跟着被取消 → 后到的调用方 `await()`
+     * 抛 CancellationException → 空候选 → 回落试看。这正是「首次进 app 点海报
+     * 只有 5 分钟、第二次进就恢复」的根因：首次点片撞上预取的在途搜索，
+     * 预取一取消，播放链就拿到空结果；而那轮搜索在别处跑完后写进了缓存，
+     * 所以第二次点同一片直接全片。
+     *
+     * 自有作用域下，任何调用方放弃都不影响搜索结果本身，结果照常落缓存。
+     */
+    private val altScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
      * 分类表**拉取失败**的时间戳（负缓存）。
@@ -886,9 +901,15 @@ class SourceRepository {
         // 【在途合并】详情页预取与播放链兜底几乎同时调用（用户点正片时预取
         // 往往还在搜）——两路并行各搜 12+ 源白费 2-5 秒还互相挤带宽。后到者
         // 直接 await 首搜结果。
-        altSearchLock.withLock { inflightAlt[norm] }?.let { return it.await() }
+        //
+        // 注意：这里只 await、不传自己的 Job——若共享任务被取消（理论上不该再有，
+        // 它跑在 altScope 上），CancellationException 必须吞在这层，不能让它
+        // 冒出去把调用方（播放链/预取）一起取消。
+        altSearchLock.withLock { inflightAlt[norm] }?.let { shared ->
+            return runCatching { shared.await() }.getOrDefault(emptyList())
+        }
         return coroutineScope {
-            val task = async {
+            val task = altScope.async {
 
             // 【搜索词降级链】tv189 运营片名常带「·！：」等符号（杯雪·一战成名、
             // 八仙！），采集站库存名往往不带或写法不同——首轮原名搜不到就降级
@@ -973,9 +994,10 @@ class SourceRepository {
             out
             }
             altSearchLock.withLock { inflightAlt[norm] = task }
-            val r = runCatching { task.await() }.getOrDefault(emptyList())
-            altSearchLock.withLock { inflightAlt.remove(norm) }
-            r
+            // 任务自己收尾（完成/失败/取消都摘牌）：调用方中途放弃时不要把还在
+            // 跑的任务从表里删掉——后面的调用方还要 await 同一份结果。
+            task.invokeOnCompletion { altSearchLock.withLock { inflightAlt.remove(norm) } }
+            task.await()
         }
     }
 

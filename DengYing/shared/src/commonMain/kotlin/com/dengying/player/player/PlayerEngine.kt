@@ -87,6 +87,15 @@ interface PlayerEngine {
 
     val isPlaying: Boolean
 
+    /**
+     * 当前装载的媒体地址；`null` = 未装载或已释放。
+     *
+     * 供「无缝续播」判定：调用方（发现页内嵌位）回来时若 [currentUrl] 仍是
+     * 自己的媒体，`play()` 直接续即可（不重载不缓冲）；被别的页面借走换了
+     * 媒体才需要 `setMedia` 重设。
+     */
+    val currentUrl: String?
+
     /** 注册状态回调；`release` 会一并清空 */
     fun addListener(listener: PlayerListener)
 

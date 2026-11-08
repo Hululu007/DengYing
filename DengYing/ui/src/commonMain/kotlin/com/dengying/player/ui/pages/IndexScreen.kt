@@ -159,6 +159,10 @@ fun IndexScreen(
     var discoSeed by androidx.compose.runtime.saveable.rememberSaveable {
         androidx.compose.runtime.mutableStateOf(0)
     }
+    // 发现窗格的跨页重建状态（滚动位置/解析缓存/断点）。
+    // 必须 remember 在**本层**：DiscoverPane 切到首页时会被销毁（pager 只预组合
+    // 相邻一页），状态 remember 在页内的结果就是"去首页再回来从头播"（用户实测）。
+    val discoverResume = remember { DiscoverResume() }
     // 每个分类**各持一个滚动状态**（FR-701 的配套修复）。
     //
     // 【真机反馈的 bug-1】初版不给 `LazyVerticalGrid` 传 state，它用内部默认状态，
@@ -319,6 +323,7 @@ fun IndexScreen(
                 // ---- 发现：随机推荐 + 内嵌自动播放（v5，抖音式单播） ----
                 2 -> DiscoverPane(
                     pool = picks,
+                    resume = discoverResume,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,
                     onOpenDetail = onOpenDetail,
@@ -875,9 +880,38 @@ private fun countFirstUnique(pool: List<VideoItem>, n: Int): Int {
  * 【自动播放判定（主流口径）】滚动停止后，取视口中心最近、可见面积过半的
  * 项解析起播；拖动中不播。单引擎天然保证同屏只有一个声音。
  */
+/**
+ * 发现页的「跨页重建」状态持有者。
+ *
+ * 【为什么需要】pager 只预组合相邻一页（`beyondViewportPageCount = 1`）：
+ * 从发现页（第 2 页）切到首页（第 0 页）时，发现页**整棵子树被销毁**，
+ * 页内所有 `remember` 状态（滚动位置、解析缓存、正在播的项、断点位置）全丢。
+ * 原先这些都 remember 在 [DiscoverPane] 内部 → 切回发现页从第一张重新开始、
+ * 播放也从 0 开始（用户实测反馈「去首页再回来续播状态就没了」）。
+ *
+ * 持有者 remember 在 [IndexScreen]（常驻组合），状态于是跨页销毁存活：
+ * 切回来仍是同一张卡、同一滚动位置、同一断点续播。
+ *
+ * 只在内存里，不落盘：进程重启回到首屏是合理行为（主流短视频页同款）。
+ */
+private class DiscoverResume {
+    /** 列表滚动位置（项下标 + 项内偏移）。 */
+    val listIndex = androidx.compose.runtime.mutableIntStateOf(0)
+    val listOffset = androidx.compose.runtime.mutableIntStateOf(0)
+    /** 当前自动播放的项（-1 = 无）。 */
+    val playingIdx = androidx.compose.runtime.mutableIntStateOf(-1)
+    /** 引擎里装的是不是本窗格这一项（-1 = 没起播过）。 */
+    val startedIdx = androidx.compose.runtime.mutableIntStateOf(-1)
+    /** 各项断点（下标 → ms）。 */
+    val paused = androidx.compose.runtime.mutableStateMapOf<Int, Long>()
+    /** 解析结果缓存：下标 → (直链, headers, 是否试看链)。跨重建复用，免二次解析。 */
+    val resolved = androidx.compose.runtime.mutableStateMapOf<Int, Triple<String, String, Boolean>>()
+}
+
 @Composable
 private fun DiscoverPane(
     pool: List<VideoItem>,
+    resume: DiscoverResume,
     topPadding: Dp,
     bottomPadding: Dp,
     onOpenDetail: (String) -> Unit,
@@ -890,7 +924,18 @@ private fun DiscoverPane(
     // 【v5.6】六分类预热中（池子未成型）——空池时显示"备片"加载态而非"没内容"。
     preparing: Boolean,
 ) {
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // 滚动位置跨页重建：从持有者恢复初值，滚动时回写（切到首页再回来仍在原处）
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = resume.listIndex.intValue,
+        initialFirstVisibleItemScrollOffset = resume.listOffset.intValue,
+    )
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (i, o) ->
+                resume.listIndex.intValue = i
+                resume.listOffset.intValue = o
+            }
+    }
     val deps = UiDepsHolder.get()
     val engine = remember { deps.engineHost.engine() }
     // 【无限流】显示列表 = 池子按批追加；cursor 记住池子消费到哪（取模循环）。
@@ -925,15 +970,31 @@ private fun DiscoverPane(
     // 解析结果缓存：下标 -> (直链, headers json, 是否试看链)；url 为空串 = 解析失败
     // （换源也救不回）。只缓存成功项会永久转圈——失败也要落袋。试看标记给角标
     // （v5.6：tv189 免登录片跨源救不回时不再默默只给 5 分钟）。
-    val resolved = remember(pool) { mutableStateMapOf<Int, Triple<String, String, Boolean>>() }
+    // 跨页重建复用（持有者里，池子换了由 IndexScreen 的 pick 变化自然作废——
+    // 池子变化时下面 inFlight/slots 重建，resolved 的下标语义与 items 一致，
+    // 而 items 只取决于 pool，故同 pool 重建后下标仍然对齐）
+    val resolved = resume.resolved
     // 解析在飞标记：防同一项被「可见即解析」重复发起（SnapshotStateList 主线程读写）
     val inFlight = remember(pool) { mutableStateListOf<Int>() }
     // 解析并发闸：同时只放 2 条全链解析。可见 2.5 项全并发时每项要发 6-10 个
     // 请求（详情+换链+跨源搜索/候选），20+ 请求挤 6 个出网位 → 排队 13s（实测
     // probe net-queue），中心项反而最后就绪。限流 + 中心近的先入闸。
     val resolveSlots = remember(pool) { kotlinx.coroutines.sync.Semaphore(2) }
+    // 池子换了（下拉换一批）：旧下标语义全部作废，清掉缓存与断点，
+    // 否则会把上一批的直链/断点套到新一批的卡上（同下标不同片）。
+    var seenPool by remember { mutableStateOf(pool) }
+    LaunchedEffect(pool) {
+        if (seenPool !== pool) {
+            seenPool = pool
+            resume.resolved.clear()
+            resume.paused.clear()
+            resume.startedIdx.intValue = -1
+            resume.playingIdx.intValue = -1
+        }
+    }
+
     // 当前自动播放的列表项：视口中心最近、可见面积过半的那条（滚动停止后判定）
-    var playingIdx by remember(pool) { mutableStateOf(-1) }
+    var playingIdx by resume.playingIdx
     // 视频画面是否在屏上（控制引擎的 surface 引用计数，防止后台偷解码）
     var surfaceOn by remember { mutableStateOf(false) }
     fun setSurface(on: Boolean) {
@@ -952,6 +1013,9 @@ private fun DiscoverPane(
             episodeIndex = 0,
             ioDispatcher = kotlinx.coroutines.Dispatchers.IO,
             altLimit = 3, // 发现页批量预解析：候选只试 3 个，防出网闸拥塞
+            // 批量预解析不走"先播试看再热升级"：这里在后台等全片更划算——
+            // 缓存里直接是全片，中心项落定时起播零等待（用户看不见）。
+            waitForFullSource = true,
         )?.let { Triple(it.url, it.headers, it.previewOnly) }
     }.getOrNull()
 
@@ -992,14 +1056,12 @@ private fun DiscoverPane(
     }
 
     // 【续播断点】各片暂停时的播放位置（下标 → ms）。切走/换片时记下当前片的
-    // 位置，回来（active 恢复或滚回该片）带位置 setMedia 续播，而不是从头播。
-    // setMedia 而非 play() 续：期间其它页面（详情内嵌位）可能借走共享引擎换了
-    // 媒体，只有重设媒体才能保证回到的是本片。
-    val pausedPositions = remember { mutableStateMapOf<Int, Long>() }
-    var startedIdx by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    // 位置，回来带位置续播，而不是从头播。跨页重建存活（见 [DiscoverResume]）。
+    val pausedPositions = resume.paused
+    var startedIdx by resume.startedIdx
 
     // 【中心项起播】playingIdx / active 变化：先停旧声（切中心/滑走都不许
-    // 旧片继续响），再等该项解析落袋（可见即解析已在跑）→ setMedia 播。
+    // 旧片继续响），再等该项解析落袋（可见即解析已在跑）→ 起播。
     // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废；滚回
     // （或从别的窗格滑回来）→ 协程重启命中缓存立即续播。
     LaunchedEffect(playingIdx, active) {
@@ -1012,7 +1074,14 @@ private fun DiscoverPane(
         if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
-        // 同一片切走又切回 → 从断点续播；没看过的新片从 0 起
+        // 【无缝续播】媒体还是本片的（只是 Dock 切页暂停过）→ play() 直接续：
+        // 不重载、不缓冲、不闪黑，如同全屏播放器里暂停再继续。只有媒体被
+        // 借走（进过详情/播放页，engine.currentUrl 已变）或换到别的片，
+        // 才 setMedia(断点) 重载。
+        if (startedIdx == idx && engine.currentUrl == hit.first) {
+            engine.play()
+            return@LaunchedEffect
+        }
         engine.setMedia(hit.first, hit.second, pausedPositions[idx] ?: 0L)
         engine.play()
         startedIdx = idx
@@ -1047,9 +1116,14 @@ private fun DiscoverPane(
             if (last >= items.size - 4) addBatch()
         }
     }
-    // 离开发现页（切 Dock/退出）：释放 surface 引用
+    // 离开发现页（切 Dock/退出）：记断点 + 释放 surface 引用。
+    // 页面被销毁（切到首页/分类 → 超出 pager 预组合范围）时，断点写进
+    // [DiscoverResume]，切回来才能从原位续播（原先状态随页面一起丢，从头播）。
     DisposableEffect(pool) {
-        onDispose { setSurface(false) }
+        onDispose {
+            if (startedIdx >= 0) pausedPositions[startedIdx] = engine.currentPosition
+            setSurface(false)
+        }
     }
     if (pool.isEmpty()) {
         Column(
