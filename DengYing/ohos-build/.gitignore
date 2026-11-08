@@ -1,0 +1,7 @@
+# OHOS 独立构建的本地产物 —— 不入库。
+# 主构建的 .gitignore 已排除 /build 与 /.gradle，但那是仓根路径规则，
+# 本目录是独立构建，需要自己一套。
+
+/build/
+/.gradle/
+/local.properties

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+   <title>庆余年搜索结果 - 农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网</title>
+    <meta name="keywords" content="庆余年搜索结果">
+    <meta name="description" content="庆余年搜索结果">
+     <meta charset="UTF-8">
+<meta name="renderer" content="webkit">
+<meta name="force-rendering" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<script>var maccms={"path":"","mid":"1","url":"www.nmystv.com","wapurl":"www.nmystv.com","mob_status":"0"};</script>
+<link rel="shortcut icon" href="/mxtheme/images/favicon.png">
+<link rel="stylesheet" href="/mxtheme/css/style.css" type="text/css">
+<link id="cssFile" rel="stylesheet" href="/mxtheme/css/black.css" type="text/css">
+ <script>
+    function getCookieItem(name){
+        var arr = document.cookie.match(new RegExp("(^| )"+name+"=([^;]*)(;|$)"));
+        if(arr != null){ return decodeURIComponent(arr[2]); return null; }
+    }
+    let cookieItem = getCookieItem('mx_style')
+    if(cookieItem && cookieItem !=='white') {
+        document.querySelector('#cssFile').href = '/mxtheme/css/'+getCookieItem('mx_style')+'.css'
+    }
+</script>
+<link rel="stylesheet" href="/mxtheme/css/swiper-bundle.min.css" type="text/css">
+<script src="/mxtheme/js/jquery.min.js"></script>
+<script src="/mxtheme/js/home.js"></script>
+<script src="/mxtheme/js/jquery.lazyload.js"></script>
+<script src="/static/js/jquery.cookie.js"></script>
+<script src="/static/js/jquery.clipboard.js"></script>	
+<script type="text/javascript"  src="/mxtheme/js/jquery.qrcode.min.js"></script>
+<script src="/mxtheme/js/script.js"></script>	
+<script src="/mxtheme/js/swiper-bundle.min.js"></script>	
+<script src="/mxtheme/js/layer.min.js"></script>
+<link rel="stylesheet" href="/mxtheme/js/theme/default/layer.css" type="text/css">
+<style></style>
+<style>
+ @media (max-width: 559px){
+ .homepage .navbar {width: calc(119vw - 91px);}    
+ .navbar.open, .page .navbar {width: calc(100vw - 135px);margin-top: -52px;}
+.side-op{ width:130px;}
+.homepage .side-op.open .header-op-search{display:block;}}
+</style>
+ 
+
+    </head>
+    <body>
+<div class="page list">
+	   	                	<div class="header"><!--更多免费源码https://www.maccmsbox.com/-->
+						<div class="header-box">
+							<div class="logo ">
+								<a href="/" title="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网"><img class="logo2"  src="/mxtheme/images/logo_black.png" alt="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网" >
+								<img class="logo1" src="/mxtheme/images/logo.png" /></a>
+							</div>
+						
+							<div class="search-box ">
+								<div class="searchbar-main">
+						        <form name="search" method="get" action="/index.php/vod/search.html" onSubmit="return qrsearch();">
+									<div class="searchbar">
+									   <input class="search-input"  type="text" name="wd" autocomplete="off" placeholder="农民影视在线搜索">
+							        <button class="search-btn search-go" id="searchbutton" type="submit"><i class="icon-search"></i></button>
+									  <button class="cancel-btn" type="button">取消</button></div>
+									<div class="search-recommend-box">
+										<div class="search-recommend">
+											<div class="search-recommend-title"><strong>大家都在搜</strong></div>
+											<div class="search-tag">
+																	                    <a href="/index.php/vod/search/wd/%E5%8F%98%E5%BD%A2%E9%87%91%E5%88%9A.html" class="hot "><i class="icon-hot"></i>变形金刚</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E7%81%AB%E5%BD%B1%E5%BF%8D%E8%80%85.html" class="hot "><i class="icon-hot"></i>火影忍者</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E5%A4%8D%E4%BB%87%E8%80%85%E8%81%94%E7%9B%9F.html" class="hot "><i class="icon-hot"></i>复仇者联盟</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E6%88%98%E7%8B%BC.html" class="hot "><i class="icon-hot"></i>战狼</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E7%BA%A2%E6%B5%B7%E8%A1%8C%E5%8A%A8.html" class=""><i class="icon-hot"></i>红海行动</a>
+						                    											</div>
+										</div>
+									</div>
+								</form>
+								</div>
+							</div>
+							
+							<div class="header-op">
+								<div class="header-op-list">
+									<div class="drop">
+										<div class="header-op-list-btn header-op-history"><i class="icon icon-history-o"></i><span>观看记录</span></div>
+										<div class="drop-content drop-history">
+											<div class="drop-content-box">
+												<ul class="drop-content-items historical">
+													<li class="drop-item drop-item-title"><i class="icon icon-history"></i><strong>我的观影记录</strong></li>
+												</ul>
+											</div>
+										</div>
+										<div class="shortcuts-mobile-overlay"></div>
+									</div>
+																		<div class="mac_user header-op-user"  title="会员中心">登录</div>
+																		<div class="header-op-list-btn header-op-search"><i class="icon icon-search"></i></div>
+								</div>
+							</div>
+						</div>
+					</div>
+						
+						<div class="sidebar">
+						<div class="navbar ">
+							<ul class="navbar-items swiper-wrapper">
+								<li class="swiper-slide navbar-item ">
+									<a href="/" class="links">
+										<div ></div><i class="icon-arrow-go"></i><i class="icon icon-home-o"></i><span>首页</span></a>
+								</li>
+							<li class="navbar-hr"></li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/1.html" title="电影" class="links">
+									    									<i class="icon-arrow-go"></i>
+																	   <i class="icon-dy-o"></i>
+								   								<span>电影</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/2.html" title="电视" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class="icon-tv-o"></i>
+                                								<span>电视</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/3.html" title="综艺" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class="icon-zy-o"></i>
+                                								<span>综艺</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/4.html" title="动画" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class="icon-dm-o"></i>
+                                 								<span>动画</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/5.html" title="短剧" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class=""></i>
+                                 								<span>短剧</span></a>
+								</li>
+																<li class="navbar-hr"></li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/week.html" class="links">
+									      									<i class="icon-arrow-go"></i><i class="icon icon-week-o"></i><span>追剧周表</span></a>
+								</li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/new.html" class="links">
+									      									<i class="icon-arrow-go"></i><i class="icon icon-update-o"></i><span>今日更新</span><small>0</small></a>
+								</li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/hot.html" class="links">
+									    	      									<i class="icon-arrow-go"></i><i class="icon icon-ranking-o"></i><span>热榜</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="https://www.jcydh.com/bkmh" class="links" 	>
+									<i class="icon-arrow-go"></i><i class="icon icon-phone-o"></i><span>APP</span></a>
+								</li>
+															</ul>
+						</div>
+						<div class="side-op">
+							<div class="header-op-list">
+									<div class="drop">
+										<div class="header-op-list-btn header-op-history"><i class="icon icon-history-o"></i><span>观看记录</span></div>
+										<div class="drop-content drop-history">
+											<div class="drop-content-box">
+												<ul class="drop-content-items historical">
+													<li class="drop-item drop-item-title"><i class="icon icon-history"></i><strong>我的观影记录</strong></li>
+												</ul>
+											</div>
+										</div>
+										<div class="shortcuts-mobile-overlay"></div>
+									</div>
+								<div class="header-op-list-btn header-op-search"><i class="icon icon-search"></i></div>
+									                                	<div class="member_group">
+									<div class="mac_user"><img  src="/static/images/touxiang.png" class="useimg"></div>
+									</div>
+																</div>
+						</div>
+					</div>
+					                    <script>
+	            $(document).scroll(function() {
+		        var H = $(document).scrollTop();
+		            if(H > 20) {
+		          $(".sidebar").addClass("sidebar-bg");
+	        	} else {
+		        $(".sidebar").removeClass("sidebar-bg");
+		        }
+			    if(H > 140) {
+		        $(".navbar").addClass("open");
+		    	$(".side-op").addClass("open");
+		        } else {
+		           $(".navbar").removeClass("open");
+		  	     $(".side-op").removeClass("open");
+	            	}
+	            });
+                    </script>
+                                         <style>.homepage .side-op .header-op-search{display:none;}</style>
+                                          <style>
+             @media (max-width: 559px){.homepage .header{0}.homepage .sidebar{0}}</style>
+                                        	
+	<div class="main">
+		<div class="content">
+			<div class="module">
+			     
+				<div class="module-heading module-heading-search">
+					<div class="module-heading-search-result">搜索"<strong>庆余年</strong>"，找到 <strong class="mac_total"></strong> 部影片</div>
+				</div>
+						 				<div class="module-main module-page">
+					<div class="module-items module-card-items">
+					     
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/135630.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">全45集</div>
+									<span class="public-list-prb hide"><i class="ft4">1.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://pic3.yzzyimg.online/upload/vod/2025-05-14/17472101161.jpg" alt="庆余年第一季粤语"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/135630.html"><strong>庆余年第一季粤语</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2019 <span class="slash">/</span>大陆 <span class="slash">/</span> 古装,剧情</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于谨维,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/135630/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/135630.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/133059.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">更新至31集</div>
+									<span class="public-list-prb hide"><i class="ft4">6.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://pic3.yzzyimg.online/upload/vod/2025-04-19/17450776971.jpg" alt="庆余年第二季粤语"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/133059.html"><strong>庆余年第二季粤语</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>大陆 <span class="slash">/</span> 古装,剧情</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,田雨,李小冉,俞飞鸿,袁泉,毛晓彤,郭麒麟,宋轶,辛芷蕾,宁理,刘端端,张昊唯,付辛博,高曙光,赵柯,于洋,李强,刘桦,佟梦实,郭子凡,金晨,王楚然,高露,王晓晨,隋俊波,归亚蕾,余皑磊,毕彦君,罗二羊,吴幸键,宣言,王庆祥,徐志胜,崔志刚,傅迦,姚安濂,秦焰,沈晓海,王同辉,冯兵,常铖,王建国,刘宇桥,冯恩鹤,赵振廷,董可飞,李俊贤,崔鹏,贾景晖,王天辰,代文雯,王成阳,张弛,左凌峰,刘同,张维伊,东靖川,杨彤,孙亦沐,于小鸣,魏炳桦,李珞桉</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/133059/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/133059.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/87335.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">全36集</div>
+									<span class="public-list-prb hide"><i class="ft4">7.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://img.ffzy888.com/upload/vod/20250420-1/c3a66c54d3bdd5461efe55e116df80ac.jpg" alt="庆余年第二季"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/87335.html"><strong>庆余年第二季</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span> <span class="slash">/</span> 剧情,古装</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,田雨,李小冉,俞飞鸿,袁泉,毛晓彤,郭麒麟,宋轶,辛芷蕾,宁理,刘端端,张昊唯,付辛博,高曙光,赵柯,于洋,李强,刘桦,佟梦实,郭子凡,金晨,王楚然,高露,王晓晨,隋俊波,归亚蕾,余皑磊,毕彦君,罗二羊,吴幸键,宣言,王庆祥,徐志胜,崔志刚,傅迦,姚安濂,秦焰,沈晓海,王同辉,冯兵,常铖,王建国,刘宇桥,冯恩鹤,赵振廷,董可飞,李俊贤,崔鹏,贾景晖,王天辰,代文雯,王成阳,张弛,左凌峰,刘同,张维伊,东靖川,杨彤,孙亦沐,于小鸣,魏炳桦,李珞桉</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/87335/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/87335.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/128483.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">全25集</div>
+									<span class="public-list-prb hide"><i class="ft4">8.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://pic3.yzzyimg.online/upload/vod/2024-05-07/17150760381.jpg" alt="庆余年第一季特别篇"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/128483.html"><strong>庆余年第一季特别篇</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2019 <span class="slash">/</span>大陆 <span class="slash">/</span> </div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于谨维,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/128483/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/128483.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/112734.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">全46集</div>
+									<span class="public-list-prb hide"><i class="ft4">8.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://pic3.yzzyimg.online/upload/vod/2022-03-24/16480963704.jpg" alt="庆余年"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/112734.html"><strong>庆余年</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2019 <span class="slash">/</span>大陆 <span class="slash">/</span> </div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于小伟,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/112734/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/112734.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/91541.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">已完结</div>
+									<span class="public-list-prb hide"><i class="ft4">8.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://img.ffzy888.com/upload/vod/20240509-1/be02966c8a66a57991c228c48b4705a3.jpg" alt="庆余年第一季"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/91541.html"><strong>庆余年第一季</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span> <span class="slash">/</span> 剧情,古装</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于谨维,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/91541/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/91541.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/34510.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第36集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">7.3</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250108-65/365c6866d56dac6b027725597b38ecf1.jpg" alt="庆余年 第二季"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/34510.html"><strong>庆余年 第二季</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 剧情,古装</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,田雨,李小冉,俞飞鸿,袁泉,毛晓彤,郭麒麟,宋轶,辛芷蕾,宁理,刘端端,张昊唯,付辛博,高曙光,赵柯,于洋,李强,刘桦,佟梦实,郭子凡,金晨,王楚然,高露,王晓晨,隋俊波,归亚蕾,余皑磊,毕彦君,罗二羊,吴幸键,宣言,王庆祥,徐志胜,崔志刚,傅迦,姚安濂,秦焰,沈晓海,王同辉,冯兵,常铖,王建国,刘宇桥,冯恩鹤,赵振廷,董可飞,李俊贤,崔鹏,贾景晖,王天辰,代文雯,王成阳,张弛,左凌峰,刘同,张维伊,东靖川,杨彤,孙亦沐,于小鸣,魏炳桦,李珞桉</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/34510/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/34510.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/34506.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第25集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">7.9</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250108-64/c1744ea66b64140bdb49829690c04e12.jpg" alt="庆余年第一季 特别版"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/34506.html"><strong>庆余年第一季 特别版</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2019 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 剧情,古装</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于谨维,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/34506/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/34506.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">短剧</div>
+							<a href="/index.php/vod/detail/id/85793.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第81集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">9.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250108-65/3639c9c90754c68086b1c0f28f65b2a5.jpg" alt="庆余年，全世界都以为我是废物太子（庆余年之大凉太子爷）"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/85793.html"><strong>庆余年，全世界都以为我是废物太子（庆余年之大凉太子爷）</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 短剧</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">暂无简介</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/85793/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/85793.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">短剧</div>
+							<a href="/index.php/vod/detail/id/73573.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第52集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">8.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250109-3/c6171cf11384a845e2f0fed88ea6335a.jpg" alt="庆余年之帝王业"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/73573.html"><strong>庆余年之帝王业</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 短剧</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">暂无简介</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/73573/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/73573.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">电视</div>
+							<a href="/index.php/vod/detail/id/42838.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第46集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">7.9</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250107-20/40d9398bd68f59cb0259676a293dd5d2.jpg" alt="庆余年 第一季"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/42838.html"><strong>庆余年 第一季</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2019 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 剧情.古装</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">张若昀,李沁,陈道明,吴刚,李小冉,袁泉,于荣光,辛芷蕾,李纯,宋轶,刘桦,田雨,王阳,于谨维,郭麒麟,高曙光,李强,于洋,海一天,肖战,佟梦实,刘端端,张昊唯,李俊贤,刘润南,韩玖诺,刘美彤,韩昊霖,崔志刚,贾景晖,代文雯,李子峰,崔鹏,杜玉明,赵柯,许还山,曹翠芬,李建义,郑毓芝,梁爱琪,李洪权,赫子铭,罗二羊,傅迦,赵振廷,董可飞,康杰,张恒瑞,郭家诺,常铖,于安,淮文,孙亦沐,王铮,邓童天,乔于庭,林静,于小鸣,姜洋,东靖川,阎鹤祥</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/42838/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/42838.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">短剧</div>
+							<a href="/index.php/vod/detail/id/35549.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第88集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">6.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250108-59/87e4f39d36b98a21f787c961272e0ffd.jpg" alt="庆余年之大赵逍遥王"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/35549.html"><strong>庆余年之大赵逍遥王</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 短剧</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">暂无简介</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/35549/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/35549.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">短剧</div>
+							<a href="/index.php/vod/detail/id/34252.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第75集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">2.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250109-2/d15adedb0ad0236d7a8768b2ed5c711a.jpg" alt="庆余年之少年风流"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/34252.html"><strong>庆余年之少年风流</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 短剧</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">暂无简介</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/34252/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/34252.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+                                            <div class="module-card-item module-item">
+							<div class="module-card-item-class">短剧</div>
+							<a href="/index.php/vod/detail/id/24134.html" class="module-card-item-poster">
+								<div class="module-item-cover">
+									<div class="module-item-note">第61-74集完结</div>
+									<span class="public-list-prb hide"><i class="ft4">10.0</i></span>
+									<div class="module-item-pic"><img class="lazy lazyload" data-original="https://dbzy3.com/upload/vod/20250107-15/dfd1b841011659a49917e66b354103f8.jpg" alt="庆余年之风起沧州"  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+								</div>
+							</a>
+							<div class="module-card-item-info">
+								<div class="module-card-item-title">
+									<a href="/index.php/vod/detail/id/24134.html"><strong>庆余年之风起沧州</strong></a>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">2024 <span class="slash">/</span>中国大陆 <span class="slash">/</span> 短剧</div>
+								</div>
+								<div class="module-info-item">
+									<div class="module-info-item-content">暂无简介</div>
+								</div>
+							</div>
+							<div class="module-card-item-footer">
+								<a href="/index.php/vod/play/id/24134/sid/1/nid/1.html" class="play-btn icon-btn"><i class="icon-play"></i><span>播放</span></a>
+								<a href="/index.php/vod/detail/id/24134.html" class="play-btn-o"><span>详情</span></a>
+							</div>
+						</div>
+						 
+					</div>
+					
+				</div>
+							</div>
+		</div>
+	</div>
+</div>
+	                    	 <!--更多免费源码https://www.maccmsbox.com/-->
+                    	<div class="fixedGroup">
+                    	                          	    <div class="fixedGroup-item">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div class="txt" id="changeAppearance">切换深色外观</div>
+                    	        </div>
+                    	        <i  class="icon-yejian" data-id="black"></i>
+                    	        <i class="icon-rijian" data-id="white"></i>
+                    	    </div>
+                    	    	                    	    <div class="fixedGroup-item" onclick="location='/index.php/gbook/index.html'">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div>留言</div>
+                    	        </div>
+                    	        <i class="icon-gbook"></i>
+                    	    </div>
+                    	                       	    <div class="fixedGroup-item retop">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div>回到顶部</div>
+                    	        </div>
+                    	        <i class="icon-top"></i>
+                    	    </div>
+                    	                          	</div>
+                    	                    	<div class="footer">
+                    	    
+                                        	    <div class="footer-item" onclick="location='/'">
+            <i class="iconfont icon-home"></i>
+            <span>首页</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/label/week.html'">
+            <i class="icon-info"></i>
+            <span>周表</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/label/hot.html'">
+            <i class="icon-ranking"></i>
+            <span>排行榜</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/user/index.html'">
+            <i class="icon-dm"></i>
+            <span>我的</span>
+        </div>
+    </div>	    
+                    	
+						<div class="content">
+					       							<div class="footer-content">
+								<div class="foot-logo"><img class="logo2"  src="/mxtheme/images/logo_black.png" alt="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网" >
+								<img class="logo1" src="/mxtheme/images/logo.png" /></div>
+								<div class="foot-copyright">
+								   
+		                        <a target="_blank" href="/index.php/rss/index.xml">RSS</a>
+	                        	<a target="_blank" href="/index.php/rss/baidu.xml">Baidu</a>
+		                        <a target="_blank" href="/index.php/rss/baidu.xml">Google</a>
+	                        	<a target="_blank" href="/index.php/rss/sogou.xml">Sogou</a>
+	                        									<p>农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网农民影视（旺旺影视）所有内容均来自互联网分享站点所提供的公开引用资源，未提供资源上传、存储服务	<span class="none"><script> var _mtj = _mtj || []; (function () { var mtj = document.createElement("script"); mtj.src = "https://node94.aizhantj.com:21233/tjjs/?k=tsxfm71l4ae"; var s = document.getElementsByTagName("script")[0]; s.parentNode.insertBefore(mtj, s); })(); </script></span></p>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+<script type="text/javascript">   
+	document.onkeydown=function(){
+	    
+		var e = window.event||arguments[0];
+		
+	     	}
+  </script>
+					
+       <script>
+        $('.mac_total').html('14');
+    </script>
+    </body>
+</html>

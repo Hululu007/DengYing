@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  图标前景：一枚"灯"的几何形——上窄下宽的灯罩 + 底部光晕横条。
+
+  【为什么手写矢量而不是用文字/emoji】沿用原工程的实测结论（FR-415 注释）：
+  字形体（含 emoji）在部分设备与模拟器上缺字，渲染成方框。几何图形没有字体依赖。
+
+  坐标按 108×108 自适应图标画布书写，内容收在中心 72×72 的安全区内。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 灯罩：梯形，黑 #0C0C09 -->
+    <path
+        android:fillColor="#0C0C09"
+        android:pathData="M42,34 L66,34 L74,64 L34,64 Z" />
+
+    <!-- 灯顶横杆 -->
+    <path
+        android:fillColor="#0C0C09"
+        android:pathData="M38,28 L70,28 L70,34 L38,34 Z" />
+
+    <!-- 底部光晕：两段短横，表示投出的光 -->
+    <path
+        android:fillColor="#0C0C09"
+        android:pathData="M46,70 L62,70 L62,75 L46,75 Z" />
+    <path
+        android:fillColor="#0C0C09"
+        android:pathData="M50,81 L58,81 L58,85 L50,85 Z" />
+</vector>

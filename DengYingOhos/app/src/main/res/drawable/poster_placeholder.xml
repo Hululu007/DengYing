@@ -1,0 +1,16 @@
+<!--
+  图片加载占位：海报位在加载中/失败时显示的底色块。
+  与原工程的 alt($r('app.media.background')) 同一用途。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="160dp"
+    android:viewportWidth="120"
+    android:viewportHeight="160">
+    <path
+        android:fillColor="#EAEAE5"
+        android:pathData="M0,0 L120,0 L120,160 L0,160 Z" />
+    <path
+        android:fillColor="#6E6E68"
+        android:pathData="M48,64 L72,64 L72,88 L48,88 Z" />
+</vector>

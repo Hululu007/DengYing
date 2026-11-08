@@ -1,0 +1,10 @@
+{
+  "app": {
+    "bundleName": "com.dengying.player",
+    "vendor": "dengying",
+    "versionCode": 1000215,
+    "versionName": "1.2.0",
+    "icon": "$media:layered_image",
+    "label": "$string:app_name"
+  }
+}

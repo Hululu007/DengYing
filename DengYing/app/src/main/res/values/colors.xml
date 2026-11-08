@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  窗口层用到的少量颜色。**值的唯一来源**是鸿蒙工程的
+  `entry/src/main/resources/base/element/color.json`，逐条搬运、不自行调色。
+
+  真正的主题色在 ui/theme/Color.kt；这里只复制启动窗口需要的那一个，
+  避免出现"In XML 里一个色、在 Compose 里另一个色"的双份真相。
+-->
+<resources>
+    <!-- color.json: app_bg = #F4F4F1 -->
+    <color name="app_bg">#F4F4F1</color>
+</resources>

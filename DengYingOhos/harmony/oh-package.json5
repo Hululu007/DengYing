@@ -1,0 +1,8 @@
+{
+  "modelVersion": "6.1.0",
+  "description": "DengYing HarmonyOS shell (ArkTS/ArkUI). Shared business logic comes from :shared via a future ohos klib; see harmony/README.md.",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

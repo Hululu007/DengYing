@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+<meta name="renderer" content="webkit">
+<meta name="force-rendering" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<script>var maccms={"path":"","mid":"1","url":"www.nmystv.com","wapurl":"www.nmystv.com","mob_status":"0"};</script>
+<link rel="shortcut icon" href="/mxtheme/images/favicon.png">
+<link rel="stylesheet" href="/mxtheme/css/style.css" type="text/css">
+<link id="cssFile" rel="stylesheet" href="/mxtheme/css/black.css" type="text/css">
+ <script>
+    function getCookieItem(name){
+        var arr = document.cookie.match(new RegExp("(^| )"+name+"=([^;]*)(;|$)"));
+        if(arr != null){ return decodeURIComponent(arr[2]); return null; }
+    }
+    let cookieItem = getCookieItem('mx_style')
+    if(cookieItem && cookieItem !=='white') {
+        document.querySelector('#cssFile').href = '/mxtheme/css/'+getCookieItem('mx_style')+'.css'
+    }
+</script>
+<link rel="stylesheet" href="/mxtheme/css/swiper-bundle.min.css" type="text/css">
+<script src="/mxtheme/js/jquery.min.js"></script>
+<script src="/mxtheme/js/home.js"></script>
+<script src="/mxtheme/js/jquery.lazyload.js"></script>
+<script src="/static/js/jquery.cookie.js"></script>
+<script src="/static/js/jquery.clipboard.js"></script>	
+<script type="text/javascript"  src="/mxtheme/js/jquery.qrcode.min.js"></script>
+<script src="/mxtheme/js/script.js"></script>	
+<script src="/mxtheme/js/swiper-bundle.min.js"></script>	
+<script src="/mxtheme/js/layer.min.js"></script>
+<link rel="stylesheet" href="/mxtheme/js/theme/default/layer.css" type="text/css">
+<style></style>
+<style>
+ @media (max-width: 559px){
+ .homepage .navbar {width: calc(119vw - 91px);}    
+ .navbar.open, .page .navbar {width: calc(100vw - 135px);margin-top: -52px;}
+.side-op{ width:130px;}
+.homepage .side-op.open .header-op-search{display:block;}}
+</style>
+ 
+
+		<title>庆余年第一季粤语详情介绍-庆余年第一季粤语在线观看-庆余年第一季粤语迅雷下载 - 农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网</title>
+		<meta name="keywords" content="庆余年第一季粤语在线收看,庆余年第一季粤语迅雷下载">
+		<meta name="description" content="庆余年第一季粤语剧情:　　某大学文学史专业的学生张庆熟读古典名著，但他用现代观念剖析古代文学史的论文命题不被叶教授所认可。为了让叶教授成为自己的研究生导师，张庆决定通过写小说的方式，进一步阐述自己想要表达的观点。　　在他的">
+	</head>
+
+	<body>
+		<div class="page view">
+    		                	<div class="header"><!--更多免费源码https://www.maccmsbox.com/-->
+						<div class="header-box">
+							<div class="logo ">
+								<a href="/" title="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网"><img class="logo2"  src="/mxtheme/images/logo_black.png" alt="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网" >
+								<img class="logo1" src="/mxtheme/images/logo.png" /></a>
+							</div>
+						
+							<div class="search-box ">
+								<div class="searchbar-main">
+						        <form name="search" method="get" action="/index.php/vod/search.html" onSubmit="return qrsearch();">
+									<div class="searchbar">
+									   <input class="search-input"  type="text" name="wd" autocomplete="off" placeholder="农民影视在线搜索">
+							        <button class="search-btn search-go" id="searchbutton" type="submit"><i class="icon-search"></i></button>
+									  <button class="cancel-btn" type="button">取消</button></div>
+									<div class="search-recommend-box">
+										<div class="search-recommend">
+											<div class="search-recommend-title"><strong>大家都在搜</strong></div>
+											<div class="search-tag">
+																	                    <a href="/index.php/vod/search/wd/%E5%8F%98%E5%BD%A2%E9%87%91%E5%88%9A.html" class="hot "><i class="icon-hot"></i>变形金刚</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E7%81%AB%E5%BD%B1%E5%BF%8D%E8%80%85.html" class="hot "><i class="icon-hot"></i>火影忍者</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E5%A4%8D%E4%BB%87%E8%80%85%E8%81%94%E7%9B%9F.html" class="hot "><i class="icon-hot"></i>复仇者联盟</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E6%88%98%E7%8B%BC.html" class="hot "><i class="icon-hot"></i>战狼</a>
+						                    						                    <a href="/index.php/vod/search/wd/%E7%BA%A2%E6%B5%B7%E8%A1%8C%E5%8A%A8.html" class=""><i class="icon-hot"></i>红海行动</a>
+						                    											</div>
+										</div>
+									</div>
+								</form>
+								</div>
+							</div>
+							
+							<div class="header-op">
+								<div class="header-op-list">
+									<div class="drop">
+										<div class="header-op-list-btn header-op-history"><i class="icon icon-history-o"></i><span>观看记录</span></div>
+										<div class="drop-content drop-history">
+											<div class="drop-content-box">
+												<ul class="drop-content-items historical">
+													<li class="drop-item drop-item-title"><i class="icon icon-history"></i><strong>我的观影记录</strong></li>
+												</ul>
+											</div>
+										</div>
+										<div class="shortcuts-mobile-overlay"></div>
+									</div>
+																		<div class="mac_user header-op-user"  title="会员中心">登录</div>
+																		<div class="header-op-list-btn header-op-search"><i class="icon icon-search"></i></div>
+								</div>
+							</div>
+						</div>
+					</div>
+						
+						<div class="sidebar">
+						<div class="navbar ">
+							<ul class="navbar-items swiper-wrapper">
+								<li class="swiper-slide navbar-item ">
+									<a href="/" class="links">
+										<div ></div><i class="icon-arrow-go"></i><i class="icon icon-home-o"></i><span>首页</span></a>
+								</li>
+							<li class="navbar-hr"></li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/1.html" title="电影" class="links">
+									    									<i class="icon-arrow-go"></i>
+																	   <i class="icon-dy-o"></i>
+								   								<span>电影</span></a>
+								</li>
+																<li class="swiper-slide navbar-item active">
+									<a href="/index.php/vod/type/id/2.html" title="电视" class="links">
+									    <div class="current"></div>									<i class="icon-arrow-go"></i>
+									                                <i class="icon-tv-o"></i>
+                                								<span>电视</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/3.html" title="综艺" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class="icon-zy-o"></i>
+                                								<span>综艺</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/4.html" title="动画" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class="icon-dm-o"></i>
+                                 								<span>动画</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="/index.php/vod/type/id/5.html" title="短剧" class="links">
+									    									<i class="icon-arrow-go"></i>
+									                                <i class=""></i>
+                                 								<span>短剧</span></a>
+								</li>
+																<li class="navbar-hr"></li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/week.html" class="links">
+									      									<i class="icon-arrow-go"></i><i class="icon icon-week-o"></i><span>追剧周表</span></a>
+								</li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/new.html" class="links">
+									      									<i class="icon-arrow-go"></i><i class="icon icon-update-o"></i><span>今日更新</span><small>0</small></a>
+								</li>
+																<li class="swiper-slide navbar-item  ">
+									<a href="/index.php/label/hot.html" class="links">
+									    	      									<i class="icon-arrow-go"></i><i class="icon icon-ranking-o"></i><span>热榜</span></a>
+								</li>
+																<li class="swiper-slide navbar-item ">
+									<a href="https://www.jcydh.com/bkmh" class="links" 	>
+									<i class="icon-arrow-go"></i><i class="icon icon-phone-o"></i><span>APP</span></a>
+								</li>
+															</ul>
+						</div>
+						<div class="side-op">
+							<div class="header-op-list">
+									<div class="drop">
+										<div class="header-op-list-btn header-op-history"><i class="icon icon-history-o"></i><span>观看记录</span></div>
+										<div class="drop-content drop-history">
+											<div class="drop-content-box">
+												<ul class="drop-content-items historical">
+													<li class="drop-item drop-item-title"><i class="icon icon-history"></i><strong>我的观影记录</strong></li>
+												</ul>
+											</div>
+										</div>
+										<div class="shortcuts-mobile-overlay"></div>
+									</div>
+								<div class="header-op-list-btn header-op-search"><i class="icon icon-search"></i></div>
+									                                	<div class="member_group">
+									<div class="mac_user"><img  src="/static/images/touxiang.png" class="useimg"></div>
+									</div>
+																</div>
+						</div>
+					</div>
+					                    <script>
+	            $(document).scroll(function() {
+		        var H = $(document).scrollTop();
+		            if(H > 20) {
+		          $(".sidebar").addClass("sidebar-bg");
+	        	} else {
+		        $(".sidebar").removeClass("sidebar-bg");
+		        }
+			    if(H > 140) {
+		        $(".navbar").addClass("open");
+		    	$(".side-op").addClass("open");
+		        } else {
+		           $(".navbar").removeClass("open");
+		  	     $(".side-op").removeClass("open");
+	            	}
+	            });
+                    </script>
+                                         <style>.homepage .side-op .header-op-search{display:none;}</style>
+                                          <style>
+             @media (max-width: 559px){.homepage .header{0}.homepage .sidebar{0}}</style>
+                                        	
+			<div class="main">
+				<div class="content">
+					<div class="module module-info">
+	   
+						<div class="module-main">
+							<div class="module-info-poster">
+								<div class="module-item-cover">
+									<div class="module-item-pic"><img class="ls-is-cached lazy lazyload"  data-original="https://pic3.yzzyimg.online/upload/vod/2025-05-14/17472101161.jpg"  src="/mxtheme/images/load.gif" alt="庆余年第一季粤语"></div>
+								</div>
+							</div>
+							<div class="module-info-main">
+								<div class="module-info-heading">
+									<h1>庆余年第一季粤语</h1>
+									<div class="module-info-tag">
+										<div class="module-info-tag-link"><a title="2019" href="/index.php/vod/show/id/2/year/2019.html">2019</a></div>
+										<div class="module-info-tag-link"><a title="大陆" href="/index.php/vod/show/area/%E5%A4%A7%E9%99%86/id/2.html">大陆</a></div>
+										<div class="module-info-tag-link">
+										    
+					                	<a href="/index.php/vod/show/class/%E5%8F%A4%E8%A3%85/id/2.html">古装</a><span class="slash">/</span>
+						            	    
+					                	<a href="/index.php/vod/show/class/%E5%89%A7%E6%83%85/id/2.html">剧情</a><span class="slash">/</span>
+						            										</div>
+									</div>
+								
+			                    		<div class="module-mobile-play">
+			                    	  										<a href="/index.php/vod/play/id/135630/sid/1/nid/1.html" class="main-btn" title="立刻播放庆余年第一季粤语"><i class="icon-play"></i>立即播放</a>
+																	<a href="javascript:void(0);"  data-type="2" data-mid="1" data-id="135630" class="mac_ulog btn-large btn-collect"><i class="icon-shoucang"></i>收藏</a>
+																	</div>
+								
+								</div>
+								<div class="module-info-content">
+									<div class="module-info-items">
+										<div class="module-info-item module-info-introduction">
+											<div class="module-info-introduction-content">
+												<p>　　某大学文学史专业的学生张庆熟读古典名著，但他用现代观念剖析古代文学史的论文命题不被叶教授所认可。为了让叶教授成为自己的研究生导师，张庆决定通过写小说的方式，进一步阐述自己想要表达的观点。　　在他的小说中，身世神秘的少年——范闲，自小跟随奶奶生活在海边小城澹州，随着一位老师的突然造访，他看似平静的生活开始直面重重的危机与考验。在神秘老师和一位蒙眼守护者的指点下，范闲熟识药性药理，修炼霸道真气并精进武艺，而后接连化解了诸多危局。因对身世之谜的好奇，范闲离开澹州，前赴京都。　　在京都，范闲凭借过人的智谋与勇武成为年轻一代的佼佼者，他先以诗文冠绝京都，而后出使邻国，营救人质，整合谍报网，查处震动朝野的走私案……这个过程中，范闲饱尝人间冷暖并坚守对正义、良善的坚持，历经家族、江湖、庙堂的种种考验与锤炼，书写了光彩的人生传奇。</p>
+											</div>
+										<!--</div>-->
+										<!--<div class="module-info-item"><span class="module-info-item-title">导演：</span>-->
+										<!--	<div class="module-info-item-content">-->
+										<!--    <a href="/index.php/vod/search/director/%E5%AD%99%E7%9A%93.html" target="_blank">孙皓</a><span class="slash">/</span>-->
+										<!--	</div>-->
+										<!--</div>-->
+										<!---->
+										<!--<div class="module-info-item"><span class="module-info-item-title">主演：</span>-->
+										<!--	<div class="module-info-item-content">-->
+										<!--	    <a href="/index.php/vod/search/actor/%E5%BC%A0%E8%8B%A5%E6%98%80.html" target="_blank">张若昀</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E6%B2%81.html" target="_blank">李沁</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%99%88%E9%81%93%E6%98%8E.html" target="_blank">陈道明</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%90%B4%E5%88%9A.html" target="_blank">吴刚</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E5%B0%8F%E5%86%89.html" target="_blank">李小冉</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%A2%81%E6%B3%89.html" target="_blank">袁泉</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BA%8E%E8%8D%A3%E5%85%89.html" target="_blank">于荣光</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%BE%9B%E8%8A%B7%E8%95%BE.html" target="_blank">辛芷蕾</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E7%BA%AF.html" target="_blank">李纯</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%AE%8B%E8%BD%B6.html" target="_blank">宋轶</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%88%98%E6%A1%A6.html" target="_blank">刘桦</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E7%94%B0%E9%9B%A8.html" target="_blank">田雨</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E7%8E%8B%E9%98%B3.html" target="_blank">王阳</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BA%8E%E8%B0%A8%E7%BB%B4.html" target="_blank">于谨维</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%83%AD%E9%BA%92%E9%BA%9F.html" target="_blank">郭麒麟</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%AB%98%E6%9B%99%E5%85%89.html" target="_blank">高曙光</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E5%BC%BA.html" target="_blank">李强</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BA%8E%E6%B4%8B.html" target="_blank">于洋</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%B5%B7%E4%B8%80%E5%A4%A9.html" target="_blank">海一天</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%82%96%E6%88%98.html" target="_blank">肖战</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BD%9F%E6%A2%A6%E5%AE%9E.html" target="_blank">佟梦实</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%88%98%E7%AB%AF%E7%AB%AF.html" target="_blank">刘端端</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%BC%A0%E6%98%8A%E5%94%AF.html" target="_blank">张昊唯</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E4%BF%8A%E8%B4%A4.html" target="_blank">李俊贤</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%88%98%E6%B6%A6%E5%8D%97.html" target="_blank">刘润南</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%9F%A9%E7%8E%96%E8%AF%BA.html" target="_blank">韩玖诺</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%88%98%E7%BE%8E%E5%BD%A4.html" target="_blank">刘美彤</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%9F%A9%E6%98%8A%E9%9C%96.html" target="_blank">韩昊霖</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%B4%94%E5%BF%97%E5%88%9A.html" target="_blank">崔志刚</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%B4%BE%E6%99%AF%E6%99%96.html" target="_blank">贾景晖</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BB%A3%E6%96%87%E9%9B%AF.html" target="_blank">代文雯</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E5%AD%90%E5%B3%B0.html" target="_blank">李子峰</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%B4%94%E9%B9%8F.html" target="_blank">崔鹏</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%9C%E7%8E%89%E6%98%8E.html" target="_blank">杜玉明</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%B5%B5%E6%9F%AF.html" target="_blank">赵柯</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%AE%B8%E8%BF%98%E5%B1%B1.html" target="_blank">许还山</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9B%B9%E7%BF%A0%E8%8A%AC.html" target="_blank">曹翠芬</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E5%BB%BA%E4%B9%89.html" target="_blank">李建义</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%83%91%E6%AF%93%E8%8A%9D.html" target="_blank">郑毓芝</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%A2%81%E7%88%B1%E7%90%AA.html" target="_blank">梁爱琪</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9D%8E%E6%B4%AA%E6%9D%83.html" target="_blank">李洪权</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%B5%AB%E5%AD%90%E9%93%AD.html" target="_blank">赫子铭</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E7%BD%97%E4%BA%8C%E7%BE%8A.html" target="_blank">罗二羊</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%82%85%E8%BF%A6.html" target="_blank">傅迦</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%B5%B5%E6%8C%AF%E5%BB%B7.html" target="_blank">赵振廷</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E8%91%A3%E5%8F%AF%E9%A3%9E.html" target="_blank">董可飞</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%BA%B7%E6%9D%B0.html" target="_blank">康杰</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%BC%A0%E6%81%92%E7%91%9E.html" target="_blank">张恒瑞</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%83%AD%E5%AE%B6%E8%AF%BA.html" target="_blank">郭家诺</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%B8%B8%E9%93%96.html" target="_blank">常铖</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BA%8E%E5%AE%89.html" target="_blank">于安</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%B7%AE%E6%96%87.html" target="_blank">淮文</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%AD%99%E4%BA%A6%E6%B2%90.html" target="_blank">孙亦沐</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E7%8E%8B%E9%93%AE.html" target="_blank">王铮</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%82%93%E7%AB%A5%E5%A4%A9.html" target="_blank">邓童天</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%B9%94%E4%BA%8E%E5%BA%AD.html" target="_blank">乔于庭</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E6%9E%97%E9%9D%99.html" target="_blank">林静</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%BA%8E%E5%B0%8F%E9%B8%A3.html" target="_blank">于小鸣</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E5%A7%9C%E6%B4%8B.html" target="_blank">姜洋</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E4%B8%9C%E9%9D%96%E5%B7%9D.html" target="_blank">东靖川</a><span class="slash">/</span><a href="/index.php/vod/search/actor/%E9%98%8E%E9%B9%A4%E7%A5%A5.html" target="_blank">阎鹤祥</a><span class="slash">/</span>-->
+										<!--	</div>-->
+										</div>
+																				<div class="module-info-item"><span class="module-info-item-title">片长：</span>
+											<div class="module-info-item-content">每集45分钟</div>
+										</div>
+																				<div class="module-info-item"><span class="module-info-item-title">更新：</span>
+											<div class="module-info-item-content">2026-03-10</div>
+										</div>
+										<div class="module-info-item"><span class="module-info-item-title">集数：</span>
+											<div class="module-info-item-content">全45集</div>
+										</div>
+																				</div>
+
+									<div class="module-info-footer">
+										<div class="module-info-play">
+								    											<a href="/index.php/vod/play/id/135630/sid/1/nid/1.html" class="main-btn" title="立刻播放庆余年第一季粤语"><i class="icon-play"></i>立即播放 </a>
+																				<a href="javascript:void(0);"  data-type="2" data-mid="1" data-id="135630" class="mac_ulog btn-large btn-collect"><i class="icon-shoucang"></i>收藏</a>
+																		</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="module-poster-bg">
+							<div class="module-item-cover">
+								<div class="module-item-pic"><img class="lazy lazyload" data-original="https://pic3.yzzyimg.online/upload/vod/2025-05-14/17472101161.jpg" alt=""  referrerpolicy="no-referrer" src="/mxtheme/images/load.gif"></div>
+							</div>
+						</div>
+					</div>
+				  					                  
+	                  
+	                    <div class="module">
+						<div class="module-heading player-heading">
+							<h2 class="module-title">选集播放</h2>
+							<div class="module-tab"><label class="module-tab-name"><span id="y-first-name" class="module-tab-value"></span><i class="icon-arrow"></i></label>
+								<div class="module-tab-items">
+									<div class="module-tab-title">选择播放源<span class="close-drop"><i class="icon-close"></i></span></div>
+									<div class="module-tab-items-box hisSwiper" id="y-playList">
+								    	  
+                                    <div class="module-tab-item tab-item" data-dropdown-value="农民副线"><span>农民副线</span><small>45</small></div>
+                                   		
+									</div>
+								</div>
+							</div>
+							<div class="shortcuts-mobile-overlay"></div>
+						</div>
+						 	
+						<div class="module-list sort-list tab-list his-tab-list" id="panel1">
+							<div class="module-play-list">
+								<div class="module-play-list-content  module-play-list-base">
+								      
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/1.html" title="播放庆余年第一季粤语第01集"><span>第01集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/2.html" title="播放庆余年第一季粤语第02集"><span>第02集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/3.html" title="播放庆余年第一季粤语第03集"><span>第03集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/4.html" title="播放庆余年第一季粤语第04集"><span>第04集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/5.html" title="播放庆余年第一季粤语第05集"><span>第05集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/6.html" title="播放庆余年第一季粤语第06集"><span>第06集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/7.html" title="播放庆余年第一季粤语第07集"><span>第07集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/8.html" title="播放庆余年第一季粤语第08集"><span>第08集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/9.html" title="播放庆余年第一季粤语第09集"><span>第09集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/10.html" title="播放庆余年第一季粤语第10集"><span>第10集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/11.html" title="播放庆余年第一季粤语第11集"><span>第11集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/12.html" title="播放庆余年第一季粤语第12集"><span>第12集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/13.html" title="播放庆余年第一季粤语第13集"><span>第13集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/14.html" title="播放庆余年第一季粤语第14集"><span>第14集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/15.html" title="播放庆余年第一季粤语第15集"><span>第15集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/16.html" title="播放庆余年第一季粤语第16集"><span>第16集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/17.html" title="播放庆余年第一季粤语第17集"><span>第17集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/18.html" title="播放庆余年第一季粤语第18集"><span>第18集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/19.html" title="播放庆余年第一季粤语第19集"><span>第19集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/20.html" title="播放庆余年第一季粤语第20集"><span>第20集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/21.html" title="播放庆余年第一季粤语第21集"><span>第21集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/22.html" title="播放庆余年第一季粤语第22集"><span>第22集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/23.html" title="播放庆余年第一季粤语第23集"><span>第23集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/24.html" title="播放庆余年第一季粤语第24集"><span>第24集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/25.html" title="播放庆余年第一季粤语第25集"><span>第25集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/26.html" title="播放庆余年第一季粤语第26集"><span>第26集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/27.html" title="播放庆余年第一季粤语第27集"><span>第27集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/28.html" title="播放庆余年第一季粤语第28集"><span>第28集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/29.html" title="播放庆余年第一季粤语第29集"><span>第29集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/30.html" title="播放庆余年第一季粤语第30集"><span>第30集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/31.html" title="播放庆余年第一季粤语第31集"><span>第31集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/32.html" title="播放庆余年第一季粤语第32集"><span>第32集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/33.html" title="播放庆余年第一季粤语第33集"><span>第33集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/34.html" title="播放庆余年第一季粤语第34集"><span>第34集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/35.html" title="播放庆余年第一季粤语第35集"><span>第35集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/36.html" title="播放庆余年第一季粤语第36集"><span>第36集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/37.html" title="播放庆余年第一季粤语第37集"><span>第37集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/38.html" title="播放庆余年第一季粤语第38集"><span>第38集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/39.html" title="播放庆余年第一季粤语第39集"><span>第39集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/40.html" title="播放庆余年第一季粤语第40集"><span>第40集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/41.html" title="播放庆余年第一季粤语第41集"><span>第41集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/42.html" title="播放庆余年第一季粤语第42集"><span>第42集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/43.html" title="播放庆余年第一季粤语第43集"><span>第43集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/44.html" title="播放庆余年第一季粤语第44集"><span>第44集</span></a>
+                                         
+                                     <a  class="module-play-list-link" href="/index.php/vod/play/id/135630/sid/1/nid/45.html" title="播放庆余年第一季粤语第45集"><span>第45集</span></a>
+                                              
+								</div>
+							</div>
+						</div>
+						 					</div>
+				   				 <script type="text/javascript">$(".tab-item:first,.module-list:first").addClass("active");</script>
+					                <div class="module">
+						<div class="module-heading">
+							<h2 class="module-title">相关推荐</h2></div>
+						<div class="module-main ">
+							<div class="module-items module-poster-items-base ">
+												</div>
+						</div>
+					</div>
+				</div>
+			</div>
+	        	                    	 <!--更多免费源码https://www.maccmsbox.com/-->
+                    	<div class="fixedGroup">
+                    	                          	    <div class="fixedGroup-item">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div class="txt" id="changeAppearance">切换深色外观</div>
+                    	        </div>
+                    	        <i  class="icon-yejian" data-id="black"></i>
+                    	        <i class="icon-rijian" data-id="white"></i>
+                    	    </div>
+                    	    	                    	    <div class="fixedGroup-item" onclick="location='/index.php/gbook/index.html'">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div>留言</div>
+                    	        </div>
+                    	        <i class="icon-gbook"></i>
+                    	    </div>
+                    	                       	    <div class="fixedGroup-item retop">
+                    	        <div class="fixedGroup__cell">
+                    	            <span class="fixedGroup__triangle"></span>
+                    	            <div>回到顶部</div>
+                    	        </div>
+                    	        <i class="icon-top"></i>
+                    	    </div>
+                    	                          	</div>
+                    	                    	<div class="footer">
+                    	    
+                                        	    <div class="footer-item" onclick="location='/'">
+            <i class="iconfont icon-home"></i>
+            <span>首页</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/label/week.html'">
+            <i class="icon-info"></i>
+            <span>周表</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/label/hot.html'">
+            <i class="icon-ranking"></i>
+            <span>排行榜</span>
+        </div>
+        <div class="footer-item" onclick="location='/index.php/user/index.html'">
+            <i class="icon-dm"></i>
+            <span>我的</span>
+        </div>
+    </div>	    
+                    	
+						<div class="content">
+					       							<div class="footer-content">
+								<div class="foot-logo"><img class="logo2"  src="/mxtheme/images/logo_black.png" alt="农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网" >
+								<img class="logo1" src="/mxtheme/images/logo.png" /></div>
+								<div class="foot-copyright">
+								   
+		                        <a target="_blank" href="/index.php/rss/index.xml">RSS</a>
+	                        	<a target="_blank" href="/index.php/rss/baidu.xml">Baidu</a>
+		                        <a target="_blank" href="/index.php/rss/baidu.xml">Google</a>
+	                        	<a target="_blank" href="/index.php/rss/sogou.xml">Sogou</a>
+	                        									<p>农民影视-在线电影网,旺旺影视,无广告免费电影,农民影视官网农民影视（旺旺影视）所有内容均来自互联网分享站点所提供的公开引用资源，未提供资源上传、存储服务	<span class="none"><script> var _mtj = _mtj || []; (function () { var mtj = document.createElement("script"); mtj.src = "https://node94.aizhantj.com:21233/tjjs/?k=tsxfm71l4ae"; var s = document.getElementsByTagName("script")[0]; s.parentNode.insertBefore(mtj, s); })(); </script></span></p>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+<script type="text/javascript">   
+	document.onkeydown=function(){
+	    
+		var e = window.event||arguments[0];
+		
+	     	}
+  </script>
+					
+		</div>
+		<span style="display:none" class="mac_ulog_set" alt="设置内容页浏览记录" data-type="1" data-mid="1" data-id="135630" data-sid="0" data-nid="0"></span>
+<span style="display:none" class="mac_history_set" alt="设置History历史记录" data-name="[电视]庆余年第一季粤语" data-pic="https://pic3.yzzyimg.online/upload/vod/2025-05-14/17472101161.jpg"></span>
+	</body>
+</html>

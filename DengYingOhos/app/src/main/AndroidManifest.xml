@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  应用清单 —— 权限面刻意保持最小。
+
+  【权限对照】原鸿蒙工程的 module.json5 只申请两条：
+    ohos.permission.INTERNET            → android.permission.INTERNET
+    ohos.permission.GET_NETWORK_INFO    → android.permission.ACCESS_NETWORK_STATE
+
+  不多申请一条：无定位、无存储读写、无电话状态。产品定位是
+  "无广告、无账号、无埋点"（SEC-001），权限面是这句话的可检查形式。
+
+  不申请存储权限的原因：收藏/历史用应用私有目录的 SharedPreferences，
+  天生不需要外部存储权限。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      明文流量：部分采集源只有 http（如桔子 103.36.167.27:18004、
+      米米4k 43.248.128.122:8080），HTTPS 无法替代——这些站点不提供 TLS。
+      故放开明文，并在 network_security_config 里保持系统默认信任链。
+      注意：这是数据源侧的现实约束，不是"绕过 TLS"。
+    -->
+    <application
+        android:name="com.dengying.player.app.DengYingApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.DengYing"
+        tools:targetApi="36">
+
+        <!--
+          单 Activity + Compose 导航：与原工程「6 个页面 + 路由」一一对应，
+          路由表见 ui/navigation/DengYingNavHost.kt。
+
+          configChanges 承接三件事，缺一不可：
+            orientation|screenSize  —— 播放页全屏切换横屏时不重建 Activity（FR-413）
+            keyboardHidden
+            uiMode                  —— 深浅色切换交给 Compose 主题，不重建
+          screenLayout|smallestScreenSize 供平板/折叠屏形态判定（FR-424）。
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:theme="@style/Theme.DengYing">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          投屏接收端发现由 MediaRouter + Cast SDK 完成；此处只登记本应用的
+          媒体会话能力，供系统媒体控件（通知栏/锁屏）显示播放信息。
+          它不改变"无第三方 SDK 出站"的口径：不接入 Google Cast 云端服务。
+        -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="com.dengying.player.playback.cast.DengYingCastOptionsProvider"
+            tools:ignore="MissingClass" />
+
+    </application>
+
+</manifest>

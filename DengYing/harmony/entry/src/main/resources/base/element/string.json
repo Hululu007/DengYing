@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "DengYing entry module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "DengYing"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "DengYing"
+    }
+  ]
+}

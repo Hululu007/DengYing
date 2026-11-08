@@ -1,0 +1,17 @@
+{
+  "files": [
+    "**/*.ets"
+  ],
+  "ignore": [
+    "**/src/ohosTest/**/*",
+    "**/src/test/**/*",
+    "**/node_modules/**/*",
+    "**/oh_modules/**/*",
+    "**/build/**/*"
+  ],
+  "ruleSet": [
+    "plugin:@performance/recommended"
+  ],
+  "rules": {
+  }
+}

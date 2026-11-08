@@ -1,0 +1,2004 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小城良方 - 第1集 -两个BT影视</title>
+    
+    <link rel="icon" href="https://bttwo.staticimgjs.org/uploads/favicon.ico" type="image/x-icon">
+    
+    <meta name="description" content="该剧讲述了当天才医生刘铮亮（肖战饰）遭遇人生滑铁卢，被迫返回家乡从零开始的故事。他就地集结一群“不靠谱”的人，热血操刀着“最靠谱”的事，在烟火气中以人情暖意编织市井日常，开出一剂剂疗愈心灵的人生处方。 　　该剧改编自刘三叔所著小说《飞刀》。">
+    <meta name="referrer" content="no-referrer">
+    <meta name="keywords" content=",小城良方,2026,剧情,中国大陆,汉语普通话,张晓波">
+    <meta property="og:title" content="小城良方 - 第1集" />
+    <meta property="og:url" content="/play/ch4q7lov1" />
+    <meta property="og:image" content="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1792767279-300x450.jpg" />
+    <meta property="og:description" content="该剧讲述了当天才医生刘铮亮（肖战饰）遭遇人生滑铁卢，被迫返回家乡从零开始的故事。他就地集结一群“不靠谱”的人，热血操刀着“最靠谱”的事，在烟火气中以人情暖意编织市井日常，开出一剂剂疗愈心灵的人生处方。 　　该剧改编自刘三叔所著小说《飞刀》。" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:type" content="website" />
+    <meta id="nb-st" content="1793033546490">
+    <meta id="nb-plt" content=""><script>document.getElementById('nb-plt').content=Date.now();</script>
+    
+
+
+<link rel="icon" href="https://bttwo.staticimgjs.org/uploads/favicon.ico" type="image/x-icon">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="manifest" href="/manifest.json">
+
+<link rel="stylesheet" href="/static/css/output.ff5b54cc.css">
+
+<link rel="stylesheet" href="/static/css/swiper-bundle.min.25c49a2d.css">
+<script defer src="/static/js/lazy-load.3fb53620.js"></script>
+
+
+<link id="wasm-cfg" data-js="/static/wasm/nbmovie_wasm.426511b7.js" data-bg="/static/wasm/nbmovie_wasm_bg.d5d51939.wasm" rel="preload" as="fetch" href="/static/wasm/nbmovie_wasm_bg.d5d51939.wasm" crossorigin>
+
+
+<script defer src="/static/js/dist/app.ultra.min.970163a3.js"></script>
+
+<script defer src="/static/js/alpine.7b69e646.js"></script>
+
+
+
+<script src="/static/js/hls.min.last.d92683eb.js"></script>
+<script src="/static/js/artplayer.54ffaf75.js"></script>
+
+<script src="/static/js/artplayer-plugin-danmaku.min.017f0f97.js"></script>
+    
+        <script src="/static/js/artplayer-ads.7b53d681.js"></script>
+    
+
+
+
+
+<body
+    class="bg-dark-900 dark:bg-dark-900 bg-light-50 text-white dark:text-white text-light-900 font-sans antialiased min-h-screen flex flex-col"
+    x-data="{ showDetail: false, showRating: false }">
+        
+        <nav id="navbar" class="bg-primary/95 backdrop-blur-md sticky top-0 z-[200] border-b border-white/5" 
+     x-data="{isLoggedIn: false,username: '',uid: '0',userInitial: '',userlink:'X1VUXEZeUwUEBA4FCgc7IUleUUxe',mobileMenuOpen: false}"
+     x-init="
+         window.myuserlink = userlink;
+         window.currentUser = { isLoggedIn: isLoggedIn, uid: parseInt(uid) || 0, username: username };
+         window.UserAuth = { isLoggedIn: () => isLoggedIn, getUserId: () => parseInt(uid) || 0, getUsername: () => username };
+     ">
+    <div class="px-4 md:px-8 lg:px-12">
+        <div class="flex items-center justify-between h-16">
+            
+            <div class="flex items-center space-x-2">
+                
+                <a href="/" class="flex items-center">
+                    <img src="https://bttwo.staticimgjs.org/uploads/2026/04/logo.png" alt="两个BT影视" class="h-12">
+                </a>
+                
+            </div>
+
+            
+            <div class="hidden lg:flex items-center space-x-2">
+                
+                <a href="/" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    首页
+                </a>
+                
+                <a href="/movie" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    电影
+                </a>
+                
+                <a href="/tv" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    电视剧
+                </a>
+                
+                <a href="/anime" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    动漫
+                </a>
+                
+                <a href="/playlists" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    片单
+                </a>
+                
+                <a href="https://www.btbtla.com" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    影片下载
+                </a>
+                
+            </div>
+
+            
+            <div class="flex items-center space-x-4">
+                
+                <form action="/search" method="GET" class="hidden md:flex items-center bg-secondary/50 rounded-full px-4 py-2 transition-all focus-within:bg-secondary focus-within:ring-2 focus-within:ring-accent/50">
+                    <input type="text" name="q" placeholder="输入片名进行搜索" 
+                           class="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-32 lg:w-40 focus:text-white transition-all">
+                    <button type="submit" class="focus:outline-none focus:scale-110 transition-transform">
+                        <svg class="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <a href="/filter" class="text-gray-300 hover:text-white transition-colors text-2xl" title="筛选"><svg class="icon"><use href="/static/icons/sprite.svg#ri-list-check-3"/></svg></a>
+                
+
+                
+                <div class="relative" x-data="{ 
+                    historyOpen: false,
+                    watchHistory: [],
+                    isLoggedIn: false,
+                    async loadHistory() {
+                        try {
+                            if (window.WatchHistory) {
+                                this.watchHistory = await window.WatchHistory.getRecent(10);
+                            } else {
+                                const history = JSON.parse(localStorage.getItem('watchHistory') || '[]');
+                                this.watchHistory = history.slice(0, 10);
+                            }
+                        } catch(e) {
+                            this.watchHistory = [];
+                        }
+                    },
+                    clearHistory() {
+                        if (confirm('确定要清空观看历史吗？')) {
+                            if (window.WatchHistory) {
+                                window.WatchHistory.clear();
+                            } else {
+                                localStorage.removeItem('watchHistory');
+                            }
+                            this.watchHistory = [];
+                            this.historyOpen = false;
+                        }
+                    }
+                }" x-init="loadHistory(); window.addEventListener('history:updated', () => loadHistory())">
+                    <button @click="historyOpen = !historyOpen; loadHistory()" 
+                            class="text-gray-300 hover:text-white transition-colors text-2xl relative" 
+                            title="观看历史">
+                        <svg class="icon"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>
+                        
+                    </button>
+
+                    
+                    <div x-show="historyOpen" x-cloak @click.away="historyOpen = false"
+                         class="hidden sm:flex absolute right-0 mt-2 w-80 bg-dark-800 rounded-lg shadow-lg border border-dark-600 z-50 max-h-[500px] overflow-hidden flex-col"
+                         x-transition>
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-dark-600">
+                            <h3 class="text-sm font-medium text-white flex items-center">
+                                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>观看历史
+                            </h3>
+                            <button @click="clearHistory()" class="text-xs text-gray-400 hover:text-red-400 transition" x-show="watchHistory.length > 0">清空</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1">
+                            <template x-if="watchHistory.length === 0">
+                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    <svg class="icon text-4xl mb-2"><use href="/static/icons/sprite.svg#ri-inbox-line"/></svg>
+                                    <p>暂无观看记录</p>
+                                </div>
+                            </template>
+                            <template x-for="(item, index) in watchHistory" :key="'d'+index">
+                                <a :href="item.url" class="block px-4 py-3 hover:bg-dark-700 transition border-b border-dark-700 last:border-0">
+                                    <div class="flex gap-3">
+                                        <div class="flex-shrink-0 w-12 h-16 bg-dark-700 rounded overflow-hidden">
+                                            <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" loading="lazy">
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-sm text-white font-medium truncate mb-1" x-text="item.title"></h4>
+                                            <p class="text-xs text-gray-400 truncate mb-1" x-text="item.episode || '电影'"></p>
+                                            <p class="text-xs text-gray-500" x-text="item.position > 0 ? '观看至 ' + (Math.floor(item.position/3600) > 0 ? Math.floor(item.position/3600)+'时' : '') + Math.floor(item.position%3600/60) + '分' + (item.position%60) + '秒' : item.time"></p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div x-show="historyOpen" x-cloak @click.away="historyOpen = false"
+                         class="sm:hidden fixed inset-x-0 top-16 bg-dark-900/95 backdrop-blur-md border-b border-white/5 z-40 max-h-[70vh] overflow-hidden flex flex-col"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 -translate-y-4"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-y-0"
+                         x-transition:leave-end="opacity-0 -translate-y-4">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                            <h3 class="text-sm font-medium text-white flex items-center">
+                                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>观看历史
+                            </h3>
+                            <button @click="clearHistory()" class="text-xs text-gray-400 hover:text-red-400 transition" x-show="watchHistory.length > 0">清空</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1 px-2">
+                            <template x-if="watchHistory.length === 0">
+                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    <svg class="icon text-4xl mb-2"><use href="/static/icons/sprite.svg#ri-inbox-line"/></svg>
+                                    <p>暂无观看记录</p>
+                                </div>
+                            </template>
+                            <template x-for="(item, index) in watchHistory" :key="'m'+index">
+                                <a :href="item.url" class="block px-4 py-3 hover:bg-dark-700 rounded-lg transition border-b border-white/5 last:border-0">
+                                    <div class="flex gap-3">
+                                        <div class="flex-shrink-0 w-12 h-16 bg-dark-700 rounded overflow-hidden">
+                                            <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" loading="lazy">
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-sm text-white font-medium truncate mb-1" x-text="item.title"></h4>
+                                            <p class="text-xs text-gray-400 truncate mb-1" x-text="item.episode || '电影'"></p>
+                                            <p class="text-xs text-gray-500" x-text="item.position > 0 ? '观看至 ' + (Math.floor(item.position/3600) > 0 ? Math.floor(item.position/3600)+'时' : '') + Math.floor(item.position%3600/60) + '分' + (item.position%60) + '秒' : item.time"></p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+
+                
+                
+                <div class="hidden sm:flex items-center space-x-2 text-sm">
+                    <a href="/register" class="text-gray-300 hover:text-white transition-colors">注冊</a>
+                    <span class="text-gray-600">|</span>
+                    <a href="/login" class="text-gray-300 hover:text-white transition-colors">登入</a>
+                </div>
+                
+                <div class="sm:hidden flex items-center">
+                    <a href="/login" class="flex items-center justify-center w-8 h-8 rounded-full bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white transition-colors">
+                        <svg class="icon text-lg"><use href="/static/icons/sprite.svg#ri-user-line"/></svg>
+                    </a>
+                </div>
+                
+
+                
+                <button @click="mobileMenuOpen = !mobileMenuOpen" class="lg:hidden p-2 text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" :class="mobileMenuOpen ? 'hidden' : 'block'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <svg class="w-6 h-6" :class="mobileMenuOpen ? 'block' : 'hidden'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        
+        <div x-cloak x-show="mobileMenuOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-4"
+             @click.away="mobileMenuOpen = false"
+             class="lg:hidden fixed inset-x-0 top-16 bg-dark-900/95 backdrop-blur-md border-b border-white/5 z-[150] py-4 overflow-y-auto max-h-[calc(100vh-4rem)]">
+            
+            
+            <div class="px-4 mb-4">
+                <form action="/search" method="GET" class="flex items-center bg-secondary/50 rounded-full px-4 py-2 transition-all focus-within:bg-secondary focus-within:ring-2 focus-within:ring-accent/50">
+                    <input type="text" name="q" placeholder="输入片名进行搜索" 
+                           class="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full focus:text-white transition-all">
+                    <button type="submit" class="focus:outline-none focus:scale-110 transition-transform">
+                        <svg class="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+
+            
+            <div class="px-4 space-y-2">
+                
+                <a href="/" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>首页</span>
+                </a>
+                
+                <a href="/movie" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>电影</span>
+                </a>
+                
+                <a href="/tv" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>电视剧</span>
+                </a>
+                
+                <a href="/anime" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>动漫</span>
+                </a>
+                
+                <a href="/playlists" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>片单</span>
+                </a>
+                
+                <a href="https://www.btbtla.com" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>影片下载</span>
+                </a>
+                
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<style>
+     
+    [x-cloak] { display: none !important; }
+</style>
+
+        
+        <main class="flex-grow">
+            <div class="px-4 md:px-8 lg:px-12 py-6 space-y-6">
+                
+                
+                <div class="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-6">
+                    
+                    
+                    <div class="order-1 xl:order-1 w-full">
+                        
+<script>
+    window._pdf = "WyJvc3MuZG91eWluYml0LmNvbSIsIm15b3NzLmRvdXlpbmJpdC50b3AiXQ==";
+</script>
+
+<div class="bg-dark-800 rounded-md overflow-hidden shadow-2xl" x-data="artPlayer()" data-danmaku-enabled="true" data-danmaku-api-url="https://bt2.dmservce.org/api/v1/danmuku" data-danmaku-like-enabled="true"
+     data-danmaku-report-enabled="true" data-danmaku-send-enabled="true"
+     data-classify-id="2"
+     data-preroll-ad-type="image" data-preroll-ad-image="https://ps.ssl.qhimg.com/t02c6af6d23bd7ae336.jpg" data-preroll-ad-video="" data-preroll-ad-code="" data-preroll-ad-link="https://tf9.huyuetf.net" data-preroll-ad-duration="12"
+     data-preroll-ad-skip-after="6">
+    
+    <div class="relative aspect-video bg-black">
+        
+        <div class="video-player w-full h-full" data-poster="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=image.tmdb.org/t/p/original/nhQKKALP3SOi1Ft5MZU6KU05VcY.jpg"><img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=image.tmdb.org/t/p/original/nhQKKALP3SOi1Ft5MZU6KU05VcY.jpg" alt="小城良方" class="w-full h-full object-cover"></div>
+        
+        
+        <div id="player-error-overlay" style="display: none;"
+             class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90 z-50">
+            <div class="text-center px-6 py-8 max-w-md">
+                <div class="mb-4">
+                    <svg class="icon text-red-500 text-6xl"><use href="/static/icons/sprite.svg#ri-error-warning-line"/></svg>
+                </div>
+                <h3 id="player-error-message" class="text-xl font-bold text-white mb-3">视频加载失败</h3>
+                <p id="player-error-message-detail" class="text-gray-300 mb-6 leading-relaxed" data-v-id="5450"></p>
+                <div class="flex gap-3 justify-center">
+                    <button id="player-error-retry"
+                            class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition flex items-center gap-2">
+                        <svg class="icon"><use href="/static/icons/sprite.svg#ri-refresh-line"/></svg>
+                        <span>重试</span>
+                    </button>
+                    <button id="player-error-close"
+                            class="px-6 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-lg transition">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+    <div class="p-4 border-t border-dark-700">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-white">小城良方</h2>
+                
+                  <p class="text-sm text-gray-400 mt-1">第 1 集</p>
+                
+                
+            </div>
+            
+            
+
+            <div class="flex items-center space-x-2">
+                <button class="like-button px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded-lg text-sm transition"
+                        data-count="0">
+                    <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-thumb-up-line"/></svg><span class="vote-label">赞</span> (<span class="like-count">0</span>)
+                </button>
+                <button class="dislike-button px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded-lg text-sm transition"
+                        data-count="0">
+                    <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-thumb-down-line"/></svg><span class="vote-label">踩</span> (<span class="dislike-count">0</span>)
+                </button>
+            </div>
+        </div>
+        <div class="flex items-center justify-between mt-2">
+            
+            <div id="viewer-count-bar" class="flex items-center gap-1.5 text-xs text-gray-400" style="display:none!important">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span id="viewer-count-text">0 人正在观看</span>
+            </div>
+            <div class="flex-1"></div>
+            
+        </div>
+        <script>
+            var vodid = 'ch4q7ivpp';
+
+            var likeButton    = document.querySelector('.like-button');
+            var dislikeButton = document.querySelector('.dislike-button');
+            var likeCountEl   = document.querySelector('.like-count');
+            var dislikeCountEl= document.querySelector('.dislike-count');
+
+            
+            function updateCount(el, delta) {
+                var n = parseInt(el.textContent, 10) || 0;
+                el.textContent = Math.max(0, n + delta);
+            }
+
+            
+            async function initVoteStatus() {
+                try {
+                    const response = await fetch(`/api/votes/check?vod_id=${vodid}`);
+                    const data = await response.json();
+                    
+                    if (data.code === 200 && data.data) {
+                        const { voted, vote_type } = data.data;
+                        const likeUse    = likeButton.querySelector('use');
+                        const dislikeUse = dislikeButton.querySelector('use');
+                        
+                        if (voted) {
+                            if (vote_type === 1) {
+                                likeButton.classList.add('voted');
+                                if (likeUse) likeUse.setAttribute('href', '/static/icons/sprite.svg#ri-thumb-up-fill');
+                            } else if (vote_type === -1) {
+                                dislikeButton.classList.add('voted');
+                                if (dislikeUse) dislikeUse.setAttribute('href', '/static/icons/sprite.svg#ri-thumb-down-fill');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('获取状态失败:', error);
+                }
+            }
+
+            
+            function onVoteSuccess(voteType, isCancel, wasOpposite) {
+                if (isCancel) {
+                    
+                    voteType === 1 ? updateCount(likeCountEl, -1) : updateCount(dislikeCountEl, -1);
+                } else {
+                    if (wasOpposite) {
+                        
+                        voteType === 1
+                            ? (updateCount(dislikeCountEl, -1), updateCount(likeCountEl, +1))
+                            : (updateCount(likeCountEl, -1),    updateCount(dislikeCountEl, +1));
+                    } else {
+                        
+                        voteType === 1 ? updateCount(likeCountEl, +1) : updateCount(dislikeCountEl, +1);
+                    }
+                }
+            }
+
+            
+            if (window.UserAuth && window.UserAuth.isLoggedIn()) {
+                initVoteStatus();
+            }
+            
+            likeButton.addEventListener('click', function() {
+                var isCancel   = likeButton.classList.contains('voted');
+                var wasOpposite= dislikeButton.classList.contains('voted');
+                window.handleVote(this, 1, vodid).then(function(ok) {
+                    if (ok === true) onVoteSuccess(1, isCancel, wasOpposite && !isCancel);
+                });
+            });
+            dislikeButton.addEventListener('click', function() {
+                var isCancel   = dislikeButton.classList.contains('voted');
+                var wasOpposite= likeButton.classList.contains('voted');
+                window.handleVote(this, -1, vodid).then(function(ok) {
+                    if (ok === true) onVoteSuccess(-1, isCancel, wasOpposite && !isCancel);
+                });
+            });
+        </script>
+    </div>
+</div>
+
+                        
+                        
+
+
+
+
+
+
+
+                    </div>
+
+                    
+                    <div class="order-2 xl:order-2 xl:row-span-2 w-full xl:w-96 2xl:w-[28rem] 3xl:w-[32rem] space-y-4 relative">
+                        
+
+
+<div class="space-y-4">
+        
+        
+        <div>
+            <div class="flex items-center justify-between mb-2">
+                <h1 class="text-xl font-bold text-white">小城良方</h1>
+                <button @click="showDetail = true" 
+                        class="flex items-center gap-1 text-sm text-gray-400 hover:text-primary-500 transition">
+                    简介
+                    <svg class="icon"><use href="/static/icons/sprite.svg#ri-arrow-right-s-line"/></svg>
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-3 mb-3 text-sm">
+                <span class="flex items-center text-gray-400">
+                    <svg class="icon text-orange-500 mr-1"><use href="/static/icons/sprite.svg#ri-fire-fill"/></svg>
+                    1473
+                </span>
+                <span class="px-2 py-0.5 bg-primary-500/20 text-primary-400 text-xs rounded"><svg class="icon text-yellow-400 mr-1"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> </span>
+                
+            </div>
+
+            
+            <div class="grid grid-cols-4 gap-2">
+                <div x-data="{
+                        open: false,
+                        loading: false,
+                        adding: null,
+                        playlists: [],
+                        vodId: 5450,
+                        isLoggedIn: false,
+                        async openModal() {
+                            if (!this.isLoggedIn) {
+                                window.showToast && window.showToast('请先登录后再操作', 'warning');
+                                return;
+                            }
+                            this.open = true;
+                            this.loading = true;
+                            this.playlists = [];
+                            try {
+                                const res = await fetch('/api/playlists/my?page=1&per_page=20');
+                                const data = await res.json();
+                                if (data.code === 200 && data.data) {
+                                    this.playlists = data.data.list || [];
+                                } else {
+                                    window.showToast && window.showToast(data.message || '获取片单失败', 'error');
+                                }
+                            } catch(e) {
+                                window.showToast && window.showToast('网络错误，请稍后重试', 'error');
+                            } finally {
+                                this.loading = false;
+                            }
+                        },
+                        async addTo(pl) {
+                            if (this.adding !== null) return;
+                            this.adding = pl.id;
+                            try {
+                                const res = await fetch('/api/playlists/vods/add?id=' + pl.id, {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({vod_id: this.vodId})
+                                });
+                                const data = await res.json();
+                                if (data.code === 200) {
+                                    this.open = false;
+                                    window.showToast && window.showToast('已加入片单「' + pl.title + '」', 'success');
+                                } else {
+                                    const msg = data.message || '加入失败';
+                                    const dup = data.code === 400 && /已加入|已添加|已在/.test(msg);
+                                    window.showToast && window.showToast(msg, dup ? 'warning' : 'error');
+                                }
+                            } catch(e) {
+                                window.showToast && window.showToast('网络错误，请稍后重试', 'error');
+                            } finally {
+                                this.adding = null;
+                            }
+                        }
+                    }"
+                    class="flex flex-col items-center gap-1 p-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition cursor-pointer"
+                    @click="openModal()">
+                    <svg class="icon text-xl"><use href="/static/icons/sprite.svg#ri-add-line"/></svg>
+                    <span class="text-xs">加入片单</span>
+
+                    
+                    <div x-show="open" x-cloak @click.stop @click.self="open = false"
+                         class="!mt-0 fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-transition:leave="transition ease-in duration-200"
+                         x-transition:leave-start="opacity-100"
+                         x-transition:leave-end="opacity-0">
+                        <div class="bg-dark-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" @click.stop
+                             x-show="open"
+                             x-transition:enter="transition ease-out duration-300 transform"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-200 transform"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95">
+                            
+                            <div class="bg-gradient-to-r from-primary-600 to-primary-500 px-6 pt-6 pb-5 text-white">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h3 class="text-xl font-bold">加入片单</h3>
+                                        <p class="text-sm text-white/70 mt-1">选择要收录这部影片的片单</p>
+                                    </div>
+                                    <button @click="open = false"
+                                            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                                        <svg class="icon text-2xl"><use href="/static/icons/sprite.svg#ri-close-line"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div x-show="loading" class="py-10 text-center text-gray-400">
+                                <svg class="icon animate-spin text-2xl mx-auto mb-2"><use href="/static/icons/sprite.svg#ri-loader-4-line"/></svg>
+                                <p class="text-sm">加载中…</p>
+                            </div>
+                            
+                            <div x-show="!loading && playlists.length === 0" class="py-10 text-center text-gray-400 px-6">
+                                <svg class="icon text-4xl mb-3 text-gray-600 mx-auto block"><use href="/static/icons/sprite.svg#ri-film-line"/></svg>
+                                <p class="text-sm mb-4">还没有片单，先去创建一个吧</p>
+                                <a href="/profile#playlists" @click="open = false"
+                                   class="inline-block px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded-lg transition">去创建片单</a>
+                            </div>
+                            
+                            <div x-show="!loading && playlists.length > 0" class="px-3 py-3 space-y-1 max-h-72 overflow-y-auto">
+                                <template x-for="pl in playlists" :key="pl.id">
+                                    <div @click.stop="addTo(pl)"
+                                         :class="adding !== null ? 'opacity-60 cursor-wait' : 'cursor-pointer'"
+                                         class="flex items-center gap-3 px-3 py-3 rounded-xl bg-dark-700 hover:bg-dark-600 transition active:scale-[0.99]">
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-white truncate" x-text="pl.title"></p>
+                                            <p class="text-xs text-gray-500 mt-0.5"
+                                               x-text="pl.updated_at ? pl.updated_at.slice(0,10) : (pl.created_at ? pl.created_at.slice(0,10) : '')"></p>
+                                        </div>
+                                        <span class="flex-shrink-0 px-4 py-1.5 bg-primary-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 pointer-events-none select-none">
+                                            <svg x-show="adding === pl.id" class="icon animate-spin"><use href="/static/icons/sprite.svg#ri-loader-4-line"/></svg>
+                                            <span x-show="adding !== pl.id">加入</span>
+                                        </span>
+                                    </div>
+                                </template>
+                            </div>
+                            
+                            <div x-show="!loading && playlists.length > 0" class="px-6 py-3 flex items-center justify-between">
+                                <a href="/profile#playlists" @click="open = false"
+                                   class="text-xs text-gray-500 hover:text-primary-400 transition">管理我的片单 →</a>
+                                <button @click="open = false" class="text-xs text-gray-500 hover:text-white transition px-3 py-1 rounded-lg hover:bg-dark-700">取消</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="flex flex-col items-center gap-1 p-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition"
+                        @click="showToast('暂无下载资源', 'info')">
+                    <svg class="icon text-xl"><use href="/static/icons/sprite.svg#ri-download-line"/></svg>
+                    <span class="text-xs">下载</span>
+                </button>
+                
+                <button @click="showRating = true" class="flex flex-col items-center gap-1 p-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition">
+                    <span class="text-sm"></span>
+                    <span class="text-xs">评分</span>
+                </button>
+                <button @click="window.handleCollect($el, 'ch4q7ivpp')" 
+                        x-init="window.checkCollectStatus && window.checkCollectStatus($el, 'ch4q7ivpp')"
+                        class="flex flex-col items-center gap-1 p-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition">
+                    <svg class="icon text-xl"><use href="/static/icons/sprite.svg#ri-heart-line"/></svg>
+                    <span class="text-xs">收藏 (2)</span>
+                </button>
+            </div>
+        </div>
+
+        
+        
+        
+        <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-semibold text-dark-900">
+                    
+                        成为会员享以下特权
+                    
+                </span>
+            </div>
+            
+            <div class="flex items-center gap-4 text-xs text-dark-900 mb-3">
+                
+                <span class="flex items-center gap-1">
+                    <i class="ri-vip-crown-fill"></i> 4K超高清
+                </span>
+                
+                <span class="flex items-center gap-1">
+                    <i class="ri-advertisement-fill"></i> 去广告特权
+                </span>
+                
+                <span class="flex items-center gap-1">
+                    <i class="ri-speed-up-line"></i> 更快的播放速度(需最新版谷歌浏览器)
+                </span>
+                
+            </div>
+            
+            <a href="/profile#vip" @click="showVipRecharge = true" class="w-full block text-center py-2 bg-yellow-400 hover:bg-yellow-300 text-dark-900 font-bold rounded-lg transition">
+                立即开通
+            </a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        <div x-data="episodeManager(1, 1, [
+            { lineName: 'alists', episodeCount: 14 }
+        ])">
+          
+          
+        
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-bold text-white">选集</h2>
+                <p class="text-xs text-gray-500">更新至14/29集，</p>
+            </div>
+        
+            
+            <div x-show="totalEps > 30" class="flex items-center gap-1 mb-3 overflow-x-auto pb-2 custom-scrollbar">
+                <template x-for="tab in totalTabs" :key="tab">
+                    <button @click="episodeTab = tab"
+                            x-init="if (episodeTab === tab) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                            :class="episodeTab === tab ? 'bg-primary-500 text-white' : 'bg-dark-700 text-gray-400 hover:bg-dark-600'"
+                            class="px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition"
+                            x-text="`${(tab-1)*perPage + 1}-${Math.min(tab*perPage, totalEps)}`">
+                    </button>
+                </template>
+            </div>
+            
+            <div class="grid" style="grid-template-areas: 'episodes';">
+            
+            <div style="grid-area: episodes; transition: opacity 0.2s ease-in-out;"
+                 :style="selectedLine !== 1 ? 'opacity: 0; pointer-events: none; position: absolute;' : 'opacity: 1; pointer-events: auto; position: relative;'"
+                 class="grid grid-cols-6 gap-2">
+                
+                <a href="/play/ch4q7lov1" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40985', 1, 1)"
+                   x-show="showEpisode(1)" data-line="1" data-episode="1" dataid="40985" x-effect="if (isEpisodeActive(1, 1)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 1),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 1),
+                       'flex items-center justify-center': isEpisodeActive(1, 1)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 1)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 1)">
+                        
+                            1
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lovh" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40986', 1, 2)"
+                   x-show="showEpisode(2)" data-line="1" data-episode="2" dataid="40986" x-effect="if (isEpisodeActive(1, 2)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 2),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 2),
+                       'flex items-center justify-center': isEpisodeActive(1, 2)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 2)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 2)">
+                        
+                            2
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lovx" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40987', 1, 3)"
+                   x-show="showEpisode(3)" data-line="1" data-episode="3" dataid="40987" x-effect="if (isEpisodeActive(1, 3)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 3),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 3),
+                       'flex items-center justify-center': isEpisodeActive(1, 3)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 3)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 3)">
+                        
+                            3
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lowd" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40988', 1, 4)"
+                   x-show="showEpisode(4)" data-line="1" data-episode="4" dataid="40988" x-effect="if (isEpisodeActive(1, 4)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 4),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 4),
+                       'flex items-center justify-center': isEpisodeActive(1, 4)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 4)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 4)">
+                        
+                            4
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lowt" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40989', 1, 5)"
+                   x-show="showEpisode(5)" data-line="1" data-episode="5" dataid="40989" x-effect="if (isEpisodeActive(1, 5)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 5),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 5),
+                       'flex items-center justify-center': isEpisodeActive(1, 5)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 5)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 5)">
+                        
+                            5
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lox9" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40990', 1, 6)"
+                   x-show="showEpisode(6)" data-line="1" data-episode="6" dataid="40990" x-effect="if (isEpisodeActive(1, 6)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 6),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 6),
+                       'flex items-center justify-center': isEpisodeActive(1, 6)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 6)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 6)">
+                        
+                            6
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7loxp" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40991', 1, 7)"
+                   x-show="showEpisode(7)" data-line="1" data-episode="7" dataid="40991" x-effect="if (isEpisodeActive(1, 7)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 7),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 7),
+                       'flex items-center justify-center': isEpisodeActive(1, 7)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 7)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 7)">
+                        
+                            7
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7loy4" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '40992', 1, 8)"
+                   x-show="showEpisode(8)" data-line="1" data-episode="8" dataid="40992" x-effect="if (isEpisodeActive(1, 8)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 8),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 8),
+                       'flex items-center justify-center': isEpisodeActive(1, 8)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 8)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 8)">
+                        
+                            8
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7loyk" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41067', 1, 9)"
+                   x-show="showEpisode(9)" data-line="1" data-episode="9" dataid="41067" x-effect="if (isEpisodeActive(1, 9)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 9),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 9),
+                       'flex items-center justify-center': isEpisodeActive(1, 9)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 9)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 9)">
+                        
+                            9
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7loz0" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41068', 1, 10)"
+                   x-show="showEpisode(10)" data-line="1" data-episode="10" dataid="41068" x-effect="if (isEpisodeActive(1, 10)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 10),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 10),
+                       'flex items-center justify-center': isEpisodeActive(1, 10)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 10)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 10)">
+                        
+                            10
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lozg" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41288', 1, 11)"
+                   x-show="showEpisode(11)" data-line="1" data-episode="11" dataid="41288" x-effect="if (isEpisodeActive(1, 11)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 11),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 11),
+                       'flex items-center justify-center': isEpisodeActive(1, 11)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 11)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 11)">
+                        
+                            11
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lozw" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41289', 1, 12)"
+                   x-show="showEpisode(12)" data-line="1" data-episode="12" dataid="41289" x-effect="if (isEpisodeActive(1, 12)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 12),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 12),
+                       'flex items-center justify-center': isEpisodeActive(1, 12)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 12)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 12)">
+                        
+                            12
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lp0c" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41297', 1, 13)"
+                   x-show="showEpisode(13)" data-line="1" data-episode="13" dataid="41297" x-effect="if (isEpisodeActive(1, 13)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 13),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 13),
+                       'flex items-center justify-center': isEpisodeActive(1, 13)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 13)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 13)">
+                        
+                            13
+                        
+                    </span>
+                </a>
+                
+                <a href="/play/ch4q7lp0s" @click.prevent="handleEpisodeClick($el.getAttribute('href'), '41298', 1, 14)"
+                   x-show="showEpisode(14)" data-line="1" data-episode="14" dataid="41298" x-effect="if (isEpisodeActive(1, 14)) { $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })) }"
+                   class="episode-link relative px-2 py-3 rounded-lg text-sm font-medium transition text-center block"
+                   :class="{
+                       'bg-dark-700/60 text-white': isEpisodeActive(1, 14),
+                       'bg-dark-700 text-gray-300 hover:bg-dark-600': !isEpisodeActive(1, 14),
+                       'flex items-center justify-center': isEpisodeActive(1, 14)
+                   }">
+                    
+                    
+                    <div x-show="isEpisodeActive(1, 14)" 
+                         class="playing-bars">
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                        <div class="playing-bar"></div>
+                    </div>
+                    
+                    <span x-show="!isEpisodeActive(1, 14)">
+                        
+                            14
+                        
+                    </span>
+                </a>
+                
+            </div>
+            
+            </div> 
+        </div>
+        
+    
+    <div>
+        
+        
+
+
+
+
+
+
+
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-white">相关推荐</h2>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-3">
+            
+            <a href="/play/ch4p657ob" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1792226060-300x450.jpg" alt="嫁金钗" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">嫁金钗</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4jxlvki" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/09/douban_1789218121-300x450.jpg" alt="兰香如故" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">兰香如故</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 8.9
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4qhla8l" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1792849914-300x450.jpg" alt="尚公主" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">尚公主</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4lua32z" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/09/douban_1790262589-300x450.jpg" alt="我不是大师" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">我不是大师</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4m99h5r" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/09/douban_1790778601-300x450.jpg" alt="余红旧事" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">余红旧事</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4onez2y" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1791973286-300x421.jpg" alt="蒸蒸日上" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">蒸蒸日上</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4pdmwph" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1792318537-300x450.jpg" alt="醉梦" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">醉梦</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch2rxyion" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2021/01/27BBIdsHQW5ghi2QpziPyOoxe1G-1-233x350.jpg" alt="延禧攻略: 第1季" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">延禧攻略: 第1季</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2018</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/ch4okx2qk" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1791906107-300x450.jpg" alt="美人余" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">美人余</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2026</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+            <a href="/play/cgzqyvzml" class="group block bg-dark-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary-500 transition">
+                <div class="aspect-[2/3] relative">
+                    <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2022/04/dPLRV1s2Em3BA3L9vAKbw8cTqO5-250x333.jpg" alt="知否知否应是绿肥红瘦: 第1季" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 right-0 p-2">
+                        <h3 class="text-xs font-medium text-white line-clamp-2 mb-1">知否知否应是绿肥红瘦: 第1季</h3>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-yellow-400">
+                                <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg> 
+                            </span>
+                            <span class="text-gray-400">2018</span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+            
+        </div>
+    </div>
+
+</div>
+
+
+<div x-show="showDetail"
+     x-cloak
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @click="showDetail = false"
+     class="!mt-0 absolute inset-0 bg-black/80 backdrop-blur-sm z-40">
+</div>
+
+
+<div x-show="showDetail"
+     x-cloak
+     x-transition:enter="transition ease-out duration-300 transform"
+     x-transition:enter-start="translate-x-full"
+     x-transition:enter-end="translate-x-0"
+     x-transition:leave="transition ease-in duration-200 transform"
+     x-transition:leave-start="translate-x-0"
+     x-transition:leave-end="translate-x-full"
+     class="!mt-0 absolute top-0 right-0 bottom-0 w-full bg-dark-900 shadow-2xl z-50 overflow-y-auto"
+     @click.away="showDetail = false">
+    
+    
+    <div class="sticky top-0 bg-dark-900 border-b border-dark-700 p-4 flex items-center justify-between z-10">
+        <h2 class="text-xl font-bold text-white">影片详情</h2>
+        <button @click="showDetail = false" 
+                class="w-8 h-8 flex items-center justify-center rounded-full bg-dark-700 hover:bg-dark-600 transition">
+            <svg class="icon text-xl"><use href="/static/icons/sprite.svg#ri-close-line"/></svg>
+        </button>
+    </div>
+
+    
+    <div class="p-4 space-y-4">
+        
+        
+        <div class="flex gap-3 movie-poster">
+            <img src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/10/douban_1792767279-300x450.jpg" alt="小城良方" 
+                 class="w-24 h-36 rounded-lg object-cover shadow-lg flex-shrink-0">
+            <div class="flex-1">
+                <h1 class="text-lg font-bold text-white mb-2">小城良方</h1>
+                
+                <div class="flex items-center gap-2 text-xs mb-2">
+                    <span class="text-gray-400">2026</span>
+                    
+                    <span class="text-gray-400">
+                        <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-map-pin-line"/></svg>
+                        中国大陆
+                    </span>
+                    
+                    <span class="flex items-center text-yellow-500">
+                        <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg>
+                        
+                    </span>
+                </div>
+                
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="flex items-center text-gray-400">
+                        共29集
+                    </span>
+                </div>
+                
+            </div>
+        </div>
+
+        
+        <div class="bg-dark-800 rounded-lg p-3 space-y-2">
+            <h3 class="text-sm font-semibold text-white mb-2 flex items-center">
+                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-information-line"/></svg>
+                详细信息
+            </h3>
+            
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                
+                <div class="col-span-1 text-gray-500">又名</div>
+                <div class="col-span-2 text-gray-300">刘医生返乡记,飞刀</div>
+                
+                
+                
+                <div class="col-span-1 text-gray-500">导演</div>
+                <div class="col-span-2 text-gray-300">张晓波</div>
+                
+                
+                <div class="col-span-1 text-gray-500">编剧</div>
+                <div class="col-span-2 text-gray-300">聂成帅</div>
+                
+                
+                <div class="col-span-1 text-gray-500">主演</div>
+                <div class="col-span-2 text-gray-300">肖战 / 倪大红 / 姜妍 / 史彭元 / 菅纫姿 / 张国强 / 王彦霖 / 陈瑾 / 刘桦 / 姜宏波 / 房子斌 / 丁嘉丽 / 任程伟 / 陈永胜 / 马凡丁 / 曲哲明 / 张百乔</div>
+                
+                
+                
+                <div class="col-span-1 text-gray-500">类型</div>
+                <div class="col-span-2 text-gray-300">剧情</div>
+                
+                
+                <div class="col-span-1 text-gray-500">地区</div>
+                <div class="col-span-2 text-gray-300">中国大陆</div>
+                
+                
+                <div class="col-span-1 text-gray-500">语言</div>
+                <div class="col-span-2 text-gray-300">汉语普通话</div>
+                
+                
+                <div class="col-span-1 text-gray-500">上映</div>
+                <div class="col-span-2 text-gray-300">2026-10-21(中国大陆)</div>
+                
+                
+            </div>
+        </div>
+
+         
+         <div class="bg-dark-800 rounded-lg p-3">
+            <h3 class="text-sm font-semibold text-white mb-2 flex items-center">
+                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-file-text-line"/></svg>
+                剧情简介
+            </h3>
+            <p class="text-xs text-gray-300 leading-relaxed">该剧讲述了当天才医生刘铮亮（肖战饰）遭遇人生滑铁卢，被迫返回家乡从零开始的故事。他就地集结一群“不靠谱”的人，热血操刀着“最靠谱”的事，在烟火气中以人情暖意编织市井日常，开出一剂剂疗愈心灵的人生处方。 　　该剧改编自刘三叔所著小说《飞刀》。</p>
+        </div>
+
+        
+        <div class="grid grid-cols-3 gap-3">
+            <div class="bg-dark-800 rounded-lg p-3 text-center">
+                <div class="text-xl font-bold text-primary-500 mb-1"></div>
+                <div class="text-xs text-gray-500">评分</div>
+            </div>
+            <div class="bg-dark-800 rounded-lg p-3 text-center">
+                <div class="text-xl font-bold text-orange-500 mb-1">1473</div>
+                <div class="text-xs text-gray-500">热度</div>
+            </div>
+            <div class="bg-dark-800 rounded-lg p-3 text-center">
+                <div class="text-xl font-bold text-green-500 mb-1">1766</div>
+                <div class="text-xs text-gray-500">播放次数</div>
+            </div>
+        </div>
+
+        
+        <div class="bg-dark-800 rounded-lg p-3" x-data="ratingList()">
+            <h3 class="text-sm font-semibold text-white mb-3 flex items-center justify-between">
+                <span class="flex items-center">
+                    <svg class="icon mr-2 text-yellow-400"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg>
+                    用户评分
+                </span>
+                <span class="text-xs text-gray-500" x-show="total > 0" x-text="`${total} 人评分`"></span>
+            </h3>
+
+            
+            <div x-show="loading" class="py-6 flex justify-center">
+                <svg class="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+
+            
+            <div x-show="!loading && list.length === 0" class="py-6 text-center text-xs text-gray-500">
+                暂无用户评分，快来抢沙发~
+            </div>
+
+            
+            <div x-show="!loading && list.length > 0" class="space-y-3">
+                <template x-for="item in list" :key="item.rating_id">
+                    <div class="flex gap-3 p-2.5 rounded-lg border border-dark-700 bg-dark-900/40 hover:border-dark-600 transition-colors">
+                        
+                        <div class="shrink-0">
+                            <template x-if="item.avatar">
+                                <img :src="item.avatar" :alt="item.nickname"
+                                     class="w-8 h-8 rounded-full object-cover bg-dark-700">
+                            </template>
+                            <template x-if="!item.avatar">
+                                <div class="w-8 h-8 rounded-full text-white shadow-sm flex items-center justify-center text-xs font-bold"
+                                     :style="`background: ${avatarColor(item.nickname)}`"
+                                     x-text="(item.nickname || '匿').charAt(0).toUpperCase()"></div>
+                            </template>
+                        </div>
+                        
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-medium text-gray-200 truncate" x-text="item.nickname || '匿名用户'"></span>
+                                <span class="flex items-center text-xs text-yellow-400 font-bold shrink-0 ml-2">
+                                    <svg class="icon mr-0.5"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg>
+                                    <span x-text="Number(item.rating).toFixed(1)"></span>
+                                </span>
+                            </div>
+                            <p x-show="item.comment" class="text-xs text-gray-400 mt-1 leading-relaxed break-words" x-text="item.comment"></p>
+                            <div class="text-[10px] text-gray-600 mt-1" x-text="item.created_at"></div>
+                        </div>
+                    </div>
+                </template>
+
+                
+                <button x-show="list.length < total"
+                        @click="loadMore()"
+                        :disabled="loadingMore"
+                        class="w-full mt-1 py-2 text-xs text-gray-400 hover:text-primary-400 transition disabled:opacity-50">
+                    <span x-show="!loadingMore">加载更多</span>
+                    <span x-show="loadingMore">加载中...</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<div x-show="showRating"
+     x-cloak
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     @click="showRating = false"
+     class="!mt-0 fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    
+    <div @click.stop
+         x-show="showRating"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-dark-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+         x-data="ratingModal()">
+        
+        
+        <div class="bg-gradient-to-r from-primary-600 to-primary-500 px-6 pt-6 text-white">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xl font-bold">为这部影片评分</h3>
+                <button @click="showRating = false" 
+                        class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition">
+                    <svg class="icon text-2xl"><use href="/static/icons/sprite.svg#ri-close-line"/></svg>
+                </button>
+            </div>
+        </div>
+
+        
+        <div class="p-6 space-y-6">
+            
+            
+            <div class="text-center">
+                <div class="flex justify-center items-center gap-2 mb-4">
+                    <template x-for="star in 10" :key="star">
+                        <button @click="rating = star"
+                                @mouseenter="hoverRating = star"
+                                @mouseleave="hoverRating = 0"
+                                class="transition-all transform hover:scale-110">
+                            <svg class="icon text-2xl transition-colors"
+                               :class="{
+                                   'text-yellow-400': star <= (hoverRating || rating),
+                                   'text-gray-600': star > (hoverRating || rating)
+                               }"><use :href="star <= (hoverRating || rating) ? '/static/icons/sprite.svg#ri-star-fill' : '/static/icons/sprite.svg#ri-star-line'"/></svg>
+                        </button>
+                    </template>
+                </div>
+                <div class="text-3xl font-bold text-white mb-2" x-text="(hoverRating || rating).toFixed(1)">0.0</div>
+                <p class="text-sm text-gray-400" x-text="getRatingText(hoverRating || rating)">请选择评分</p>
+            </div>
+
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">
+                    评价内容 <span class="text-gray-500">(可选)</span>
+                </label>
+                <textarea x-model="comment"
+                          maxlength="500"
+                          rows="4"
+                          placeholder="分享你对这部影片的看法..."
+                          class="w-full px-4 py-3 bg-dark-700 text-white rounded-lg border border-dark-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition resize-none"></textarea>
+                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                    <span>最多500字</span>
+                    <span x-text="`${comment.length}/500`">0/500</span>
+                </div>
+            </div>
+
+            
+            <div x-show="errorMessage" 
+                 x-transition
+                 class="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-error-warning-line"/></svg>
+                <span x-text="errorMessage"></span>
+            </div>
+
+            
+            <div x-show="successMessage" 
+                 x-transition
+                 class="p-3 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-sm">
+                <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-checkbox-circle-line"/></svg>
+                <span x-text="successMessage"></span>
+            </div>
+
+            
+            <div class="flex gap-3">
+                <button @click="showRating = false"
+                        class="flex-1 px-4 py-3 bg-dark-700 hover:bg-dark-600 text-white font-medium rounded-lg transition">
+                    取消
+                </button>
+                <button @click="submitRating"
+                        :disabled="rating === 0 || submitting"
+                        class="flex-1 px-4 py-3 bg-primary-500 bg-accent/60 hover:bg-accent/90 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition flex items-center justify-center gap-2">
+                    <span x-show="!submitting">提交评分</span>
+                    <span x-show="submitting" class="flex items-center gap-2">
+                        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>提交中...</span>
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        
+        <div x-show="userRating" class="border-t border-dark-700 p-4 bg-dark-900">
+            <div class="flex items-center justify-between text-sm">
+                <div>
+                    <span class="text-gray-400">我的评分：</span>
+                    <span class="text-yellow-400 font-bold ml-1">
+                        <svg class="icon"><use href="/static/icons/sprite.svg#ri-star-fill"/></svg>
+                        <span x-text="userRating?.rating"></span>
+                    </span>
+                </div>
+                <button @click="deleteRating"
+                        class="text-red-400 hover:text-red-300 transition">
+                    <svg class="icon mr-1"><use href="/static/icons/sprite.svg#ri-delete-bin-line"/></svg>
+                    删除评分
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const vodId = 'ch4q7ivpp';
+
+
+function ratingList() {
+    return {
+        list: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        loading: true,
+        loadingMore: false,
+
+        init() {
+            this.fetchList(1);
+        },
+
+        async fetchList(page) {
+            const isFirst = page === 1;
+            if (isFirst) {
+                this.loading = true;
+            } else {
+                this.loadingMore = true;
+            }
+
+            try {
+                const response = await fetch(`/api/ratings/list?vod_id=${vodId}&page=${page}&page_size=${this.pageSize}`);
+                const data = await response.json();
+
+                if (data.code === 200 && data.data) {
+                    const items = data.data.list || [];
+                    this.total = data.data.total || 0;
+                    this.page = data.data.page || page;
+                    this.list = isFirst ? items : this.list.concat(items);
+                }
+            } catch (error) {
+                console.error('获取评分列表失败:', error);
+            } finally {
+                this.loading = false;
+                this.loadingMore = false;
+            }
+        },
+
+        loadMore() {
+            this.fetchList(this.page + 1);
+        },
+
+        
+        avatarColor(name) {
+            const str = name || '匿';
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+            }
+            const hue = hash % 360;
+            
+            return `linear-gradient(135deg, hsl(${hue}, 60%, 50%), hsl(${(hue + 28) % 360}, 65%, 42%))`;
+        }
+    };
+}
+
+
+function ratingModal() {
+    return {
+        rating: 0,
+        hoverRating: 0,
+        comment: '',
+        errorMessage: '',
+        successMessage: '',
+        submitting: false,
+        userRating: null,
+        
+        init() {
+            
+            this.fetchUserRating();
+        },
+        
+        
+        async fetchUserRating() {
+            try {
+                const response = await fetch(`/api/ratings/my-rating?vod_id=${vodId}`);
+                const data = await response.json();
+                
+                if (data.code === 200 && data.data) {
+                    this.userRating = data.data;
+                    this.rating = data.data.rating;
+                    this.comment = data.data.comment || '';
+                }
+            } catch (error) {
+                console.error('获取评分失败:', error);
+            }
+        },
+        
+        
+        getRatingText(score) {
+            if (score === 0) return '请选择评分';
+            if (score <= 2) return '很差';
+            if (score <= 4) return '较差';
+            if (score <= 6) return '一般';
+            if (score <= 8) return '不错';
+            if (score <= 9) return '很好';
+            return '完美';
+        },
+        
+        
+        async submitRating() {
+            if (this.rating === 0) {
+                this.errorMessage = '请选择评分';
+                return;
+            }
+            
+            this.errorMessage = '';
+            this.successMessage = '';
+            this.submitting = true;
+            
+            try {
+                const response = await fetch('/api/ratings/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        vod_id: vodId,
+                        rating: this.rating,
+                        comment: this.comment.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    this.successMessage = '评分提交成功！';
+                    this.userRating = data.data;
+                    
+                    
+                    setTimeout(() => {
+                        this.$root.showRating = false;
+                        
+                        location.reload();
+                    }, 2000);
+                } else {
+                    this.errorMessage = data.message || '评分提交失败';
+                }
+            } catch (error) {
+                console.error('提交评分失败:', error);
+                this.errorMessage = '网络错误，请稍后重试';
+            } finally {
+                this.submitting = false;
+            }
+        },
+        
+        
+        async deleteRating() {
+            if (!confirm('确定要删除评分吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/ratings/delete?vod_id=${vodId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    this.successMessage = '评分已删除';
+                    this.userRating = null;
+                    this.rating = 0;
+                    this.comment = '';
+                    
+                    setTimeout(() => {
+                        this.$root.showRating = false;
+                        location.reload();
+                    }, 1500);
+                } else {
+                    this.errorMessage = data.message || '删除失败';
+                }
+            } catch (error) {
+                console.error('删除评分失败:', error);
+                this.errorMessage = '网络错误，请稍后重试';
+            }
+        }
+      
+    };
+}
+</script>
+
+                    </div>
+
+                        
+                    <div class="order-3 xl:order-3 pt-6 border-t border-dark-700 w-full">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                                评论区
+                                    <span class="text-sm text-gray-500" id="comment-count-display"></span>
+                                </h2>
+                            </div>
+                            
+
+<div class="bg-dark-800 rounded-2xl overflow-hidden shadow-2xl" 
+     x-data="commentsComponent('ch4q7ivpp', 1, 20)" 
+     x-init="loadComments()">
+    <div class="p-6">
+        
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold text-white flex items-center">
+                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-chat-3-line"/></svg>
+                评论区
+                <span class="ml-2 text-sm text-gray-400" x-text="`(${total} 条)`"></span>
+            </h3>
+            <div class="flex items-center space-x-2">
+                <button @click="changeOrder('date_desc')" 
+                        :class="orderBy === 'date_desc' ? 'text-primary-500' : 'text-gray-400 hover:text-gray-300'"
+                        class="px-3 py-1 text-sm transition">
+                    最新
+                </button>
+                <span class="text-gray-600">|</span>
+                <button @click="changeOrder('hot')" 
+                        :class="orderBy === 'hot' ? 'text-primary-500' : 'text-gray-400 hover:text-gray-300'"
+                        class="px-3 py-1 text-sm transition">
+                    最热
+                </button>
+            </div>
+        </div>
+        
+        
+        <div class="mb-6">
+            <div class="flex space-x-3">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center">
+                        <svg class="icon text-white"><use href="/static/icons/sprite.svg#ri-user-line"/></svg>
+                    </div>
+                </div>
+                <div class="flex-1">
+                    <textarea 
+                        x-model="newComment"
+                        class="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition resize-none"
+                        rows="3"
+                        placeholder="说说你的看法..."></textarea>
+                    <div class="flex items-center justify-between mt-2">
+                        <div class="flex items-center space-x-2 text-gray-400">
+                            
+                        </div>
+                        <button @click="postComment" 
+                                class="px-6 py-2 bg-accent/60 border border-accent/70 hover:bg-accent/90 hover:border-accent text-white rounded-lg text-sm font-medium transition">
+                            发表评论
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        
+        <div x-show="loading" class="flex justify-center items-center py-12">
+            <div class="flex flex-col items-center space-y-3">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500"></div>
+                <p class="text-gray-400 text-sm">加载评论中...</p>
+            </div>
+        </div>
+
+        
+        <div x-show="error && !loading" class="text-center py-12">
+            <svg class="icon text-red-500 text-4xl mb-3"><use href="/static/icons/sprite.svg#ri-error-warning-line"/></svg>
+            <p class="text-gray-400" x-text="errorMessage"></p>
+            <button @click="loadComments" 
+                    class="mt-4 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm transition">
+                重新加载
+            </button>
+        </div>
+
+        
+        <div x-show="!loading && !error && comments.length === 0" class="text-center py-12">
+            <svg class="icon text-gray-600 text-4xl mb-3"><use href="/static/icons/sprite.svg#ri-chat-off-line"/></svg>
+            <p class="text-gray-400">暂无评论，快来发表第一条评论吧！</p>
+        </div>
+        
+        
+        <div x-show="!loading && !error && comments.length > 0" class="space-y-6">
+            <template x-for="comment in comments" :key="comment.comment_id">
+                <div x-html="renderComment(comment, 0)"></div>
+            </template>
+        </div>
+        
+        
+        <div x-show="!loading && !error && hasMore" class="mt-6 text-center">
+            <button @click="loadMore" 
+                    :disabled="loadingMore"
+                    class="px-6 py-2 bg-dark-700 hover:bg-dark-600 text-gray-300 rounded-lg text-sm transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="!loadingMore">加载更多评论</span>
+                <span x-show="loadingMore">
+                    <svg class="icon animate-spin"><use href="/static/icons/sprite.svg#ri-loader-4-line"/></svg> 加载中...
+                </span>
+            </button>
+        </div>
+
+        
+        <div x-show="!loading && !error && comments.length > 0 && !hasMore" class="mt-6 text-center text-gray-500 text-sm">
+            没有更多评论了
+        </div>
+    </div>
+</div>
+
+                    </div>
+                    
+                </div>
+
+            </div>
+        </main>
+        <script>
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                if (window.vodStats) {
+                    window.vodStats.autoIncrementHits('ch4q7ivpp');
+                }
+            });
+       </script>
+        
+        <footer class="bg-dark-900 py-4 border-t border-gray-800 mt-12">
+    <div class="px-4 md:px-4 lg:px-8 py-4">
+        
+        <div class="flex flex-wrap justify-center gap-6 mb-4">
+            
+                <a href="/page/sahewngji" class="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    
+                    会员通知
+                </a>
+            
+        </div>
+        
+        
+        
+        <div class="text-center text-gray-400 text-sm pt-4">
+            两个BT在线影视<br><div class="smsb">申明：本站属于互联网自由分享，所有bt文件均来自互联网，分享于互联网，本站只作为一个bt暂存平台； 本站服务器未保存任何影视、音乐、游戏等资源或文件，且本站并不属于bt的提供者、制作者、所有者，因此本站不承担任何法律责任！ 若有相关资源涉及您的版权或知识产权或其他利益，请及时联系我们：btcang@tutanota.com，确认后，我们会尽快删除。</div><div class="smsb">有问题请联系Telegram：<a href="https://t.me/shufangs" target="_blank">https://t.me/shufangs</a></div>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-RCP8C4ZLB9"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-RCP8C4ZLB9');
+</script>
+        </div>
+        
+        
+        
+        <div class="text-center text-gray-500 text-sm pt-4">
+            © 2026 4k影视
+        </div>
+        
+    </div>
+</footer>
+
+
+
+
+
+
+
+
+
+
+
+    <script src="/static/js/comments.37ae60b9.js"></script>
+
+
+
+
+
+</body>
+
+</html>

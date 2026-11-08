@@ -1,0 +1,18 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>系统提示</title>
+<style>
+.container{ padding:9px 20px 20px; text-align:left; }
+.infobox{ clear:both; margin-bottom:10px; padding:30px; text-align:center; border-top:4px solid #DEEFFA; border-bottom:4px solid #DEEEFA; background:#F2F9FD; zoom:1; }
+.infotitle1{ margin-bottom:10px; color:#09C; font-size:14px; font-weight:700;color:#ff0000; }
+h3{ margin-bottom:10px; font-size:14px; color:#09C; }
+</style>
+</head>
+<body>
+<div class="container" id="cpcontainer"><h3>系统提示</h3><div class="infobox"><h4 class="infotitle1">获取数据失败，请勿非法传递参数</h4><p class="marginbot"><a href="../" class="lightlink">如果您的浏览器没有自动跳转，请点击这里</a></p></div>
+</div>
+<span style="display:none"><script>function jump(){ location='../'; } setTimeout("jump()",1500);</script></span>
+</body>
+</html>

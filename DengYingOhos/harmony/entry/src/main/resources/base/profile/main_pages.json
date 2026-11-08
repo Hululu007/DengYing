@@ -1,0 +1,8 @@
+{
+  "src": [
+    "pages/ProbeNativePage",
+    "pages/ProbePage",
+    "pages/ComposePage",
+    "pages/Index"
+  ]
+}

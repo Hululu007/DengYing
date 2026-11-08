@@ -1,0 +1,51 @@
+*.iml
+.gradle/
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build
+/app/release
+/shared/build
+/ui/build
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+.kotlin/
+
+# 仓外工具链与 CodeGraph 索引（本机生成，含大二进制）
+/.toolchain/
+/.codegraph/
+.tmp-commit.txt
+
+# hvigor / ohpm / DevEco 产物
+/harmony/.hvigor/
+/harmony/build/
+/harmony/entry/build/
+/harmony/entry/.preview/
+/harmony/entry/.cxx/
+/harmony/oh_modules/
+/harmony/entry/oh_modules/
+/harmony/local.properties
+/harmony/oh-package-lock.json5
+/harmony/entry/oh-package-lock.json5
+/harmony/.idea/
+/harmony/.tmp/
+
+# Gradle 产出的 K/N 共享库：由 :ui 的 linkDebugSharedOhosX64 生成后拷进壳工程，
+# 不入库（单个 65~80 MB）。
+/ui/build/
+/harmony/entry/libs/arm64-v8a/*.so
+/harmony/entry/libs/x86_64/libdengyui.so
+/harmony/entry/src/main/cpp/thirdparty/*.so
+!/harmony/entry/src/main/cpp/thirdparty/libskikobridge.so
+!/harmony/entry/libs/compose.har

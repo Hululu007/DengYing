@@ -1,0 +1,50 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/build
+/app/release
+/shared/build
+/ui/build
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+.kotlin/
+
+# 本工作区的隔离工具链（Gradle 发行包 + Android SDK + 下载缓存）不入库
+/.toolchain/
+
+# CodeGraph 索引库：本机生成、含数 MB 二进制，其自带 .gitignore 亦声明不入库
+/.codegraph/
+.tmp-commit.txt
+
+# 鸿蒙壳工程（P6-1）构建产物：hvigor 与 ohpm 生成，不入库
+/harmony/.hvigor/
+/harmony/build/
+/harmony/entry/build/
+/harmony/entry/.preview/
+/harmony/oh_modules/
+/harmony/entry/oh_modules/
+/harmony/local.properties
+/harmony/oh-package-lock.json5
+
+# DevEco / HarmonyOS 壳工程产物与本机库
+harmony/.hvigor/
+harmony/oh_modules/
+harmony/entry/oh_modules/
+harmony/entry/.cxx/
+harmony/entry/build/
+harmony/entry/libs/
+harmony/.idea/

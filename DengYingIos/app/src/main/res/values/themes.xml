@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      主题：Compose 负责全部绘制，故这里只做「窗口层」的设置——
+      真正的配色在 ui/theme/Color.kt（与鸿蒙版 color.json 同一套值）。
+
+      为什么用 NoActionBar 且 windowBackground 用暖白：
+      首帧到 Compose 接管之间有一段空窗，背景色与 app_bg 一致才不闪白。
+    -->
+    <style name="Theme.DengYing" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

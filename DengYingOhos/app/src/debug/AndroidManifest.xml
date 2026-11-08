@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  **仅 debug 源集**的清单片段：注册调试用自动化入口。
+
+  它不进 release 产物——`src/debug/AndroidManifest.xml` 只参与 debug 变体的合并。
+  这是刻意的隔离：release 用户拿到的包与 SEC-001 的口径一致，没有任何额外入口。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".DebugPlayReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.dengying.player.DEBUG_PLAY" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

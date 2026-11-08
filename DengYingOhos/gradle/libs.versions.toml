@@ -1,0 +1,101 @@
+# 版本目录 —— DengYingOhos（CPF 线）依赖版本的单一来源
+#
+# 【本工程为什么存在】见 README.md「为什么拆成两个工程」。核心约束：
+# 鸿蒙 target（ohosArm64/ohosX64）只存在于 CPF/毕昇定制的 Kotlin
+# 2.2.21-1.1.0 里，官方 KGP 没有这个 target；而 iOS 需要官方 Kotlin 2.4.21。
+# 两条线互斥，所以 Android+鸿蒙 单独成仓，本工程**不含 iOS target**。
+#
+# 【版本选取原则】取 CPF 已发布且经实测可解析的组合（构件来自
+# maven.eazytec-cloud.com 的 Nexus，它镜像了 org.jetbrains.* 的定制版本，
+# 并代理 Maven Central）。AndroidX / Media3 仍从 google() 取官方构件 ——
+# CPF 线不改 AndroidX 坐标，只重打包 org.jetbrains.compose.* 与
+# org.jetbrains.androidx.*。
+#
+# 【升级前必读】CMP 全家（org.jetbrains.compose.*）必须同版本；
+# org.jetbrains.androidx.*（lifecycle / navigation / savedstate）是 CPF 自己
+# 的 KMP 移植，版本号带 -1.1.0 后缀，**不能**换成 Google 的 androidx.* 版本，
+# 否则 :ui/ohosMain 的 expect/actual 会撞出两套 ViewModel。
+
+[versions]
+# ---- 构建工具链（CPF 线）----
+agp = "8.13.2"                 # 与 DengYingIos 同版本：Nexus 代理了 com.android.*，实测 200
+kotlin = "2.2.21-1.1.0"        # CPF/毕昇 BiSheng Kotlin；含 ohosArm64 + ohosX64 target
+gradleWrapper = "8.14.3"
+# CMP 鸿蒙移植线。已用 klib manifest 验证：1.9.2-1.1.0 的构件正是由
+# Kotlin 2.2.21-1.1.0 编出来的（ABI 2.2.0 / metadata 1.4.1），两者必须配对。
+composeMultiplatform = "1.9.2-1.1.0"
+
+# ---- SDK 级别（与 DengYingIos 保持一致）----
+compileSdk = "36"
+minSdk = "31"
+targetSdk = "36"
+
+# ---- AndroidX（google()，仅 :app / :shared 的 androidMain 用）----
+coreKtx = "1.16.0"             # 1.17.0 要 minCompileSdk 36 但用更新的 Kotlin 编；降到 1.16.0 与 CPF 线兼容
+activityCompose = "1.10.1"
+lifecycle = "2.9.4"
+media3 = "1.8.0"               # 播放引擎（Android 侧），纯 Java 为主，不受 Kotlin 版本线约束
+
+# ---- CPF 的 KMP 移植构件（org.jetbrains.androidx.* / kotlinx.*）----
+lifecycleKmp = "2.9.4-1.1.0"
+navigationKmp = "2.9.4-1.1.0"
+savedstateKmp = "1.3.3-1.1.0"
+coroutines = "1.10.2-OH-110"   # 实测含 jvm / ohosArm64 / ohosX64 变体，同一坐标可同时服务两端
+serialization = "1.9.1-1.1.0-02"
+
+# ---- 测试 ----
+junit = "4.13.2"
+jsonStub = "20250107"
+androidxTestRunner = "1.6.2"
+androidxTestJunit = "1.2.1"
+
+[libraries]
+# ---- AndroidX 基础 ----
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+
+# ---- Compose（CMP 构件显式坐标；1.10.3 起 `compose.*` 访问器是 Deprecated(ERROR)）----
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMultiplatform" }
+compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
+# 鸿蒙侧导出契约：提供 androidx_compose_ui_arkui_init + ArkUIViewController_* 的 @CName。
+# 必须**同时**出现在 :ui 的 binaries.sharedLib { export(...) } 和 commonMain.dependencies，
+# 少任何一处都会得到「能链接、运行时 dlsym 拿不到符号」的 .so。
+compose-export = { module = "org.jetbrains.compose.export:export", version.ref = "composeMultiplatform" }
+
+# ---- CPF 的 KMP lifecycle / navigation / savedstate ----
+cpf-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleKmp" }
+cpf-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleKmp" }
+cpf-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigationKmp" }
+cpf-savedstate-compose = { module = "org.jetbrains.androidx.savedstate:savedstate-compose", version.ref = "savedstateKmp" }
+
+# ---- 协程 / JSON ----
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+
+# ---- Media3（替代鸿蒙 AVPlayer 的播放引擎）----
+androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
+androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+androidx-media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
+androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
+
+# ---- 测试 ----
+junit = { module = "junit:junit", version.ref = "junit" }
+org-json = { module = "org.json:json", version.ref = "jsonStub" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

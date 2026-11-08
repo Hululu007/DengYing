@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="title" content="artplayer"/>
+    <script type="text/javascript" src="https://s0.pstatp.com/cdn/expire-1-M/jquery/3.1.0/jquery.min.js"></script>
+    <script type="text/javascript" src="https://s0.pstatp.com/cdn/expire-1-M/vue/2.6.14/vue.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="referrer" content="no-referrer" />
+
+    <style>
+        html{overflow-x:auto;overflow-y:auto;}
+        body{overflow-x:hidden;overflow-y:hidden;}
+        body,html{font:24px "Microsoft YaHei",Arial,Lucida Grande,Tahoma,sans-serif;width:100%;height:100%;padding:0;margin:0;overflow-x:hidden;overflow-y:hidden;}
+    </style>
+</head>
+<body>
+    <div id="player"></div>
+</body>
+</html>
+<script src="static/artplayer/artplayer.js"></script>
+<script src="https://s0.pstatp.com/cdn/expire-1-M/flv.js/1.6.2/flv.min.js"></script>
+<script src="https://s0.pstatp.com/cdn/expire-1-M/hls.js/1.1.5/hls.min.js"></script>
+<script>
+    const Url = "Udc6kKlDDXmFMhIcRUqlQKx524rQxEdqZuL6heZKDnrqQuC0PHaICIGV8lylsOO0OOxRmmdEGTQYCQmNus8XIv2O2Q0O0O00O0O0";
+    const Sign = "fd66fd9819067e9eb88ca8c5834cedac";
+	const From = "m3u8";
+    const posterList = [
+        'https://img.tgl.qq.com/cover/20230623/5e115db7fee3c92df9bee34932ddad43_1687457419.jpg',
+        'https://img.tgl.qq.com/cover/20230623/b59dd0125ed37940dcf50ac27ecc9358_1687457439.jpg',
+        'https://img.tgl.qq.com/cover/20230623/7ebbdeb2d83481395c501a0f051f3001_1687457456.jpg',
+        'https://img.tgl.qq.com/cover/20230623/9acf313b8df356db0a705e12b34ae58a_1687457477.jpg',
+        'https://img.tgl.qq.com/cover/20230623/ce113c137e270deb7adebaa5987049af_1687457497.jpg',
+    ];
+    const videoConfig = {
+        container: '#player',
+        url: '',
+        autoplay: true,
+        title: 'artPlayer播放器',
+        poster: posterList[Math.round(Math.random()*(posterList.length-1))],// 自定义播放器封面
+        autoSize: false,
+        autoMini: true,
+        playsInline: true,
+        loop: true,
+        mutex: true,
+        setting: true,
+        flip: true,
+        lock: true,
+        fastForward: true,
+        playbackRate: true,
+        aspectRatio: true,
+        theme: '#00AEEC',
+        fullscreen: true,
+        fullscreenWeb: true,
+        miniProgressBar: true,
+        autoOrientation: true,
+        airplay: true,
+        whitelist: ['*'],
+        moreVideoAttr: {
+            'x5-video-player-type': 'h5',
+            'x5-video-player-fullscreen': false,
+            'x5-video-orientation': 'portraint',
+            preload: "metadata"
+        },
+        icons: {
+            loading: '<img src="static/artplayer/img/ploading.gif">',
+            state: '<img width="150" heigth="150" src="static/artplayer/img/state.svg">',
+            indicator: '<img width="16" heigth="16" src="static/artplayer/img/indicator.svg">',
+        },
+        controls: [
+            {
+                position: 'right',
+                html: '倍速',
+                selector: [
+                    {default: true, pRate:2.0,html: '<span style="color:#FFFFFF;">2.0</span>',},
+                    {default: true, pRate:1.5,html: '<span style="color:#FFFFFF;">1.5</span>',},
+                    {default: true, pRate:1.25,html: '<span style="color:#FFFFFF;">1.25</span>',},
+                    {default: true, pRate:1.0,html: '<span style="color:#FFFFFF;">正常</span>',},
+                    {default: true, pRate:0.75,html: '<span style="color:#FFFFFF;">0.75</span>',},
+                    {default: true, pRate:0.5,html: '<span style="color:#FFFFFF;">0.5</span>',},
+                ],
+                onSelect: function (item) {
+                    art.playbackRate = item.pRate; // 目前最大倍速支持 4 倍加速
+                },
+            },
+        ],
+        // 追加自定义右键
+        contextmenu: [
+            {
+                html: '百度搜索',
+                click: function () {
+                    window.location.href = "https://www.baidu.com";
+                },
+            },
+        ],
+        customType: {
+            m3u8: function (video, url) {
+                if (Hls.isSupported()) {
+                    const hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                } else {
+                    const canPlay = video.canPlayType('application/vnd.apple.mpegurl');
+                    if (canPlay === 'probably' || canPlay == 'maybe') {
+                        video.src = url;
+                    } else {
+                        vm.art.notice.show = '不支持播放格式：m3u8';
+                    }
+                }
+            }
+        },
+    };
+    let vm = new Vue({
+            el: '#player',
+            data: {
+                art: '',
+            },
+            methods: {
+                init: function () {
+                    $.ajax({
+                        type: "GET",
+                        url: 'api.php',
+                        data: {
+                            url: Url,
+                            sign: Sign,
+							t:From,
+                        },
+                        dataType: 'json',
+                        success: function (ret) {
+                            // 此处 code 根据不同解析线路返回的成功状态码，自行修改，常见 code==200
+                            if(ret.code == 200){
+                                vm.art.switchUrl(ret.url, 'artPlayer播放器');
+                            }else{
+                                console.log("error==",JSON.stringify(ret));
+                            }
+                        },
+                    });
+                },
+
+            },
+            mounted: function () {
+                $("#player").css('width', $(window).width());
+                $("#player").css('height', $(window).height());
+            }
+        });
+    window.onload = function (){
+        vm.art = new Artplayer(videoConfig); // 加载播放器UI
+        vm.init();
+    }
+</script>
+
+
+

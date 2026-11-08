@@ -1,0 +1,1 @@
+{"code":200,"message":"OK","data":{"play_id":24089,"subtitle_url":"","current_quality":0,"quality_urls":[{"mtype":"m3u8","bitrate":1080,"title":"1080p","description":"超清","isvip":false,"locked":false,"url":"https://zijieapi.douyinbyte.com/m3u8/81ea8953c8406ac33103477ce3b88a7f.m3u8"}]}}

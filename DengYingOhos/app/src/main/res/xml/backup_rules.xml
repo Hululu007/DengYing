@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份范围（对应鸿蒙的 backup_config.json，SEC-007）。
+
+  结论与原工程一致：
+    include —— sharedpref（收藏/观看记录/搜索历史，用户资产，换机应带走）
+    exclude —— 无缓存类目录需要排除（分类缓存放在同一个 preferences 文件里，
+               属派生数据，丢了大不了重拉；但它与用户资产同文件，故整体包含）
+
+  【与原工程的差异】原工程备份 preferences/ 与 files/，排除 cache/ 与 temp/。
+  Android 侧 SharedPreferences 就是 sharedpref/ 目录，files/ 目录对应 dsh 的
+  内部 files；cache 由系统自动排除，不需要在这里写。
+-->
+<full-backup-content>
+    <include domain="sharedpref" path="." />
+    <include domain="file" path="." />
+</full-backup-content>

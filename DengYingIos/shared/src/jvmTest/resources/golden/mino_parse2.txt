@@ -1,0 +1,1 @@
+{"code":0,"message":"success","data":{"guest_remaining":2,"parse_api":"KF","player_from":"bilibili","player_name":"哔哩哔哩","player_type":0,"url":"https://cibn-edge-5g.1ljx.com/cloud/flv/3d97f57ad0f97c617bf914d13a49bec9/ee5bd3693f580b02515146547923b61f/6ae58071828e5.m3u8?auth_key=1793425521.534757-1-818960433.info-internet-2-llq-bc41f4dff7c6461221c0ad574d37745e"}}

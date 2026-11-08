@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  网络安全配置。
+
+  基线 = 系统默认（信任系统 CA、校验证书链），**不设** cleartextTrafficPermitted 的
+  全局豁免之外的例外：本应用确实需要明文，因为部分采集源只提供 http
+  （桔子 103.36.167.27:18004、米米4k 43.248.128.122:8080）。
+
+  【为什么不按域写白名单】那些站点用 IP 直连且会换 IP（源清单里有 mirrors 字段），
+  按域白名单会在换 IP 时变成静默失败——用户看到的是"这个源坏了"，而根因是配置漏了一条。
+  故这里按"整体允许明文、但保留 TLS 校验"处理，并在 https 可用的源上一律走 https
+  （源清单里 api 字段写的就是 https）。
+
+  【与鸿蒙版的差异】鸿蒙侧的网络配置在 module.json5 里声明，Android 侧要单独给文件。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

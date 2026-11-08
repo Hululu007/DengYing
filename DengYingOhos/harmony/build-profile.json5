@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "C:/Users/HANXIAO/hmVideo-signing/dengying-release-java.p12",
+          "storePassword": "0000001D848F35797B973637B7A2D4F5F415FCD8074EE233680EB243F702D96E0E02555EE86B4BC97725AB42B1",
+          "keyAlias": "dengying-release",
+          "keyPassword": "0000001D84C5D3A298F82CB0C0A96EA9930C35362A8A46D36C63CD485CEF94703CADA3683D01EB132D1B899D9E",
+          "signAlg": "SHA256withECDSA",
+          "profile": "C:/Users/HANXIAO/hmVideo-signing/dengying-release-profileRelease.p7b",
+          "certpath": "C:/Users/HANXIAO/hmVideo-signing/灯影.cer"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "5.0.5(17)",
+        "targetSdkVersion": "6.0.0(20)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          // compose.har 是 byteCodeHar（社区 CMP 渲染层），hvigor 要求工程开启规范化 OHM URL。
+          "strictMode": {
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

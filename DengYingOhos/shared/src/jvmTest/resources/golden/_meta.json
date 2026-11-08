@@ -1,0 +1,384 @@
+[
+ {
+  "name": "cms_list",
+  "status": 200,
+  "bytes": 8536
+ },
+ {
+  "name": "cms_detail",
+  "status": 200,
+  "bytes": 87
+ },
+ {
+  "name": "api2233_search",
+  "status": 200,
+  "bytes": 1074
+ },
+ {
+  "name": "mino_search",
+  "status": 200,
+  "bytes": 2544
+ },
+ {
+  "name": "web_search_qiyou",
+  "status": 200,
+  "bytes": 31284
+ },
+ {
+  "name": "wencai_search",
+  "status": 200,
+  "bytes": 6736,
+  "note": "2026-10-04 实测，搜「流浪地球」，code=200 / totalCount=108 / 8 条；签名 SHA1(MD5(raw)) 已由录制脚本复刻"
+ },
+ {
+  "name": "wencai_detail",
+  "status": 200,
+  "bytes": 1941,
+  "note": "vodId=125224，episodeList 1 条，nid=1050147"
+ },
+ {
+  "name": "wencai_play",
+  "status": 200,
+  "bytes": 893,
+  "note": "clientType=3&id=125224&nid=1050147，data.list 3 条，[0] 是 1080P m3u8"
+ },
+ {
+  "name": "duboku_search",
+  "status": 200,
+  "bytes": 596,
+  "note": "2026-10-04 实测，搜「庆余年」，裸数组 2 行；Java LCG 签名链已由录制脚本复刻"
+ },
+ {
+  "name": "duboku_detail",
+  "status": 200,
+  "bytes": 6476,
+  "note": "/voddetail/4570，Playlist 36 条，Actor 7 人"
+ },
+ {
+  "name": "duboku_play",
+  "status": 200,
+  "bytes": 3872,
+  "note": "HId 解码得 https://vid.dbokutv.com/20240516/onRUDs6b/index.m3u8"
+ },
+ {
+  "name": "tv189_list",
+  "status": 200,
+  "bytes": 17904,
+  "note": "2026-10-25 https://h5.tv189.com BFF 列表实录；categoryId=2 电影 pno=1 psize=20；code=0 total=589 rows=20；首条 contentId=C47772463 title=《匠声》"
+ },
+ {
+  "name": "tv189_detail",
+  "status": 200,
+  "bytes": 29026,
+  "note": "同日详情实录；contentId=C47772463；code=0 eps=0（programList.total=0，单集电影）"
+ },
+ {
+  "name": "tv189_play",
+  "status": 200,
+  "bytes": 7586,
+  "note": "同日换链实录；code=0 videos=5；v0 为 Q600 档 m3u8（含 sign 查询串）"
+ },
+ {
+  "name": "old_favorites_envelope",
+  "status": 0,
+  "bytes": 376,
+  "note": "org.json 写出的 v1 信封（收藏）：payload 为字符串、`\\/` 转义、HashMap 键序；2 条"
+ },
+ {
+  "name": "old_history_envelope",
+  "status": 0,
+  "bytes": 325,
+  "note": "org.json 写出的 v1 信封（历史）：1 条，episodeIndex=3 / position=754321 毫秒"
+ },
+ {
+  "name": "old_search_envelope",
+  "status": 0,
+  "bytes": 90,
+  "note": "org.json 写出的 v1 信封（搜索历史）：3 条，含 `三体 \\\"黑暗森林\\\"` 的双层转义"
+ },
+ {
+  "name": "old_search_payload",
+  "status": 0,
+  "bytes": 54,
+  "note": "历史搜索的裸数组 payload（含双引号转义样本），信封内层字节"
+ },
+ {
+  "name": "old_override_envelope",
+  "status": 0,
+  "bytes": 166,
+  "note": "org.json 写出的 v1 信封（源覆盖层）：ah_wencai 关闭 / ah_duboku 开启"
+ },
+ {
+  "name": "old_class_payload",
+  "status": 0,
+  "bytes": 134,
+  "note": "裸 JSON（不走信封）：分类缓存的唯一形态，type_pid 缺失为 null、显式 0 保留 0"
+ },
+ {
+  "name": "old_page_payload",
+  "status": 0,
+  "bytes": 285,
+  "note": "PageCache 裸 JSON：键 `电影#1`，savedAt=1700000003333"
+ },
+ {
+  "name": "old_corrupt_envelope",
+  "status": 0,
+  "bytes": 36,
+  "note": "损坏信封：非 JSON 前缀，用于验证「原始字节留档到 store_corrupt」"
+ },
+ {
+  "name": "old_newer_envelope",
+  "status": 0,
+  "bytes": 42,
+  "note": "version=2 信封：用于验证 NeedsUpgrade 的读拒/写拒"
+ },
+ {
+  "name": "old_favorites_payload",
+  "status": 0,
+  "bytes": 310,
+  "note": "信封内层 payload 原文（不进存储，供编解码层单测）"
+ },
+ {
+  "name": "old_history_payload",
+  "status": 0,
+  "bytes": 269,
+  "note": "信封内层 payload 原文"
+ },
+ {
+  "name": "old_override_payload",
+  "status": 0,
+  "bytes": 124,
+  "note": "信封内层 payload 原文"
+ },
+ {
+  "name": "old_bare_array",
+  "status": 0,
+  "bytes": 182,
+  "note": "裸数组旧字节：v0 兼容形态（无信封，直接是数组）"
+ },
+ {
+  "name": "old_class_envelope",
+  "status": 0,
+  "bytes": 180,
+  "note": "探针造的信 envelope 形态，实际不存在（负向样本）"
+ },
+ {
+  "name": "old_payload_not_string",
+  "status": 0,
+  "bytes": 31,
+  "note": "信封 payload 字段不是字符串：应回落 EMPTY_PAYLOAD"
+ },
+ {
+  "name": "old_version_not_number",
+  "status": 0,
+  "bytes": 32,
+  "note": "信封 version 字段不是数字：应判 Corrupt"
+ },
+ {
+  "name": "juzhi_ross",
+  "status": 200,
+  "bytes": 98,
+  "note": "2026-10 实测 ross.txt 原样响应；含 \\r\\n，用于钉住「宽松解析」行为"
+ },
+ {
+  "name": "ap2233_catlist",
+  "status": 200,
+  "bytes": 5611,
+  "note": "2026-10-26 实测 ac=list：rows=20 / total=7874 / pagecount=394，含 class 分类表"
+ },
+ {
+  "name": "ap2233_videolist",
+  "status": 200,
+  "bytes": 125171,
+  "note": "同日 ac=videolist&pg=1：rows=20，89 字段全量（含 vod_play_from / vod_play_url）"
+ },
+ {
+  "name": "ap2233_detail906",
+  "status": 200,
+  "bytes": 183535,
+  "note": "同日 ac=detail&ids=906：rows=1，vod_play_from=NBY，vod_play_url 长 179708、# 分 1247 段"
+ },
+ {
+  "name": "ap2233_nby",
+  "status": 200,
+  "bytes": 492,
+  "note": "nby.php?url=<NBY token> 原样响应：text/plain 纯 base64，二层密文未破解"
+ },
+ {
+  "name": "ap2233_bba",
+  "status": 200,
+  "bytes": 128,
+  "note": "bba.php?url=<ETH token> 原样响应：text/plain 纯 base64，二层密文未破解"
+ },
+ {
+  "name": "nongmin_root",
+  "status": 200,
+  "bytes": 435
+ },
+ {
+  "name": "nongmin_search",
+  "status": 200,
+  "bytes": 66
+ },
+ {
+  "name": "nongmin_type",
+  "status": 200,
+  "bytes": 1088
+ },
+ {
+  "name": "bttwo_search",
+  "status": 200,
+  "bytes": 40293,
+  "note": "2026-10 实测 /search?q=流浪地球 原始 HTML（3 条）"
+ },
+ {
+  "name": "bttwo_detail",
+  "status": 200,
+  "bytes": 105690,
+  "note": "2026-10 实测 /play/ch4q7lov1 原始 HTML（14 集，含 userlink）"
+ },
+ {
+  "name": "bttwo_play",
+  "status": 200,
+  "bytes": 291,
+  "note": "2026-10 实测 /video/play 响应（data.quality_urls[0].url）"
+ },
+ {
+  "name": "ap2233_playpage",
+  "status": 200,
+  "bytes": 715,
+  "note": "2026-10-27 实测 /index.php/vod/play/id/906/sid/1/nid/1.html（完整响应 318,051 B）里的 `var player_aaaa={...}` 块，逐字节原样截取，未改写。完整页面过大不入库，此块是解析器唯一需要的区域。"
+ },
+ {
+  "name": "bttwo_sign",
+  "status": 200,
+  "bytes": 5303,
+  "note": "wasm oracle 输出快照（非 HTTP 响应）：48 行 dataId/v/t/q/userlink/s 加 4 行 userlink/k；wasm 本体不入库"
+ },
+ {
+  "name": "iqiyi_suggest",
+  "status": 200,
+  "bytes": 6420,
+  "note": "2026-10-27 实测 suggest.video.iqiyi.com if=mobile key=流浪地球：code 是字符串 A00000、data 10 条（前 2 条实体 aid 大于 0，后 8 条纯联想词 aid=0）；Content-Type 是 text/html 但 body 是合法 JSON"
+ },
+ {
+  "name": "douban_anime",
+  "status": 200,
+  "bytes": 7718,
+  "note": "2026-10-27 实测 movie.douban.com j/new_search_subjects tags=动漫 start=0：data 20 条、行键 10 个；该端点一次性可用，同 IP 第二次请求即被风控，本机之后无法复现"
+ },
+ {
+  "name": "qiyou_search2",
+  "status": 200,
+  "bytes": 8589,
+  "note": "2026-10-31 实测 wdbay 搜「庆余年」：现行 v-thumb 规则命中 3 条（13691/24324/36525），证明搜索规则未过期；采集脚本 tools/dy_capture_1031.py"
+ },
+ {
+  "name": "qiyou_detail2",
+  "status": 200,
+  "bytes": 22413,
+  "note": "2026-10-31 实测 /view/38519.html（浪浪山小妖怪）：#down1~3 面板 × 各 1 集（HD国语/HD国语/HD中字）"
+ },
+ {
+  "name": "qiyou_playpage2",
+  "status": 200,
+  "bytes": 24342,
+  "note": "2026-10-31 实测 /play/38519-0-0.html：含 meizi.yongfan99.com/content.php?vid=… iframe"
+ },
+ {
+  "name": "qiyou_iframe_url2",
+  "status": 200,
+  "bytes": 158,
+  "note": "2026-10-31 实抓 iframe 地址单行（playpage 内 src 串），供换链测试与页面捕获交叉断言"
+ },
+ {
+  "name": "qiyou_playerpage2",
+  "status": 200,
+  "bytes": 6104,
+  "note": "2026-10-31 实测 content.php?vid=…：const Url/Sign/From 三常量（From=\"m3u8\"）；10-27 误判的 139700B MP4 是同站 artplayer.js 伪装文件，不是本页"
+ },
+ {
+  "name": "qiyou_player_api2",
+  "status": 200,
+  "bytes": 102,
+  "note": "2026-10-31 实测 GET /player/api.php?url&sign&t=m3u8：{\"code\":200,\"type\":\"m3m8\",\"url\":\"…dytt-cinema…m3u8\"}（\\/ 转义、jsonUrlKey 两步换链依据）"
+ },
+ {
+  "name": "nongmin2_search",
+  "status": 200,
+  "bytes": 41015,
+  "note": "2026-10-31 实测 nmystv.com 搜「庆余年」（verify=False，站点证书 10-29 过期）：module-card-item 卡片，规则命中 14 条"
+ },
+ {
+  "name": "nongmin2_detail",
+  "status": 200,
+  "bytes": 40054,
+  "note": "2026-10-31 实测 /vod/detail/id/135630.html：1 条线（data-dropdown-value=农民副线）、45 集 module-play-list-link（<a 与 class 双空格）"
+ },
+ {
+  "name": "nongmin2_play",
+  "status": 200,
+  "bytes": 36387,
+  "note": "2026-10-31 实测 /vod/play/id/135630/sid/1/nid/1.html：player_aaaa encrypt=0 from=1080zyk url=vvip.high26-playback.com m3u8（master playlist 由播放器下钻）"
+ },
+ {
+  "name": "mino_search2",
+  "status": 200,
+  "bytes": 2548,
+  "note": "2026-10-31 实测 /api/search 带 X-Device-ID：code=0 data.list 20 条（流浪地球2 vod_id=7194）"
+ },
+ {
+  "name": "mino_detail2",
+  "status": 200,
+  "bytes": 3418,
+  "note": "2026-10-31 实测 /api/videos/7194：六线路 vod_play_from=bilibili$$$mgtv$$$youku$$$qiyi$$$qq$$$duanju"
+ },
+ {
+  "name": "mino_parse2",
+  "status": 200,
+  "bytes": 371,
+  "note": "2026-10-31 实测 /api/parse 免登录（X-Device-ID 缺失才 40110）：code=0 data.url=cibn-edge-5g.1ljx.com m3u8、guest_remaining=2（40311 用尽换号即重置）"
+ },
+ {
+  "name": "guapi_signin_env2",
+  "status": 200,
+  "bytes": 350,
+  "note": "2026-10-31 实抓新设备 signIn 原始信封：code=403「用户不存在，请以设备号注册」且 data 仍带加密段——业务码先行不解密"
+ },
+ {
+  "name": "guapi_search_plain2",
+  "status": 200,
+  "bytes": 5757,
+  "note": "2026-10-31 实抓 findMoreVod 解密后业务 JSON（list 截前 3 条）：行键 list/czList、vod_id 数字字符串、remarks null"
+ },
+ {
+  "name": "guapi_playinfo_plain2",
+  "status": 200,
+  "bytes": 4055,
+  "note": "2026-10-31 实抓 playInfo 解密后业务 JSON：字段在 vodInfo 子对象（vod_name/vod_pic/vod_content…），顶层是 comment_auth 等壳"
+ },
+ {
+  "name": "guapi_vurl_plain2",
+  "status": 200,
+  "bytes": 48882,
+  "note": "2026-10-31 实抓 Vurl/show 解密后业务 JSON：36 集 × play{480(show_type=2 锁定)/720/1080(param)}，listCount=36"
+ },
+ {
+  "name": "guapi_param2",
+  "status": 200,
+  "bytes": 68,
+  "note": "2026-10-31 实抓 720 线 param 串：vod_d_id=60397&vurl_id=551643&domain_type=8&resolution=720&type=play"
+ },
+ {
+  "name": "guapi_showone_env2",
+  "status": 200,
+  "bytes": 1336,
+  "note": "2026-10-31 实抓 VurlDetail/showOne 原始信封：code=200 + data.keys/response_key（RSA 块 + HEX AES 密文）"
+ },
+ {
+  "name": "guapi_showone_plain2",
+  "status": 200,
+  "bytes": 559,
+  "note": "2026-10-31 实抓 showOne 解密后业务 JSON：url=vd.wmvbo.com /decry/ m3u8（时效 token，两次抓取字节不同故只钉形状）"
+ }
+]

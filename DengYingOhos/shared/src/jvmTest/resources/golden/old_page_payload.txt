@@ -1,0 +1,1 @@
+{"电影#1":{"accessedAt":1700000004444,"savedAt":1700000003333,"items":[{"actor":"张三,李四","year":"2024","src":"ah_wencai","name":"测试影片","id":3001,"pic":"https://img.example.com/c.jpg","type":"电影","uri":"https://api.example.com/detail?id=3001","remarks":"完结"}]}}

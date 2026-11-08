@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索：流浪地球 - 两个BT影视</title>
+    <meta name="description" content="搜索 流浪地球 的结果">
+
+    
+
+
+<link rel="icon" href="https://bttwo.staticimgjs.org/uploads/favicon.ico" type="image/x-icon">
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="manifest" href="/manifest.json">
+
+<link rel="stylesheet" href="/static/css/output.ff5b54cc.css">
+
+<link rel="stylesheet" href="/static/css/swiper-bundle.min.25c49a2d.css">
+<script defer src="/static/js/lazy-load.3fb53620.js"></script>
+
+
+<script defer src="/static/js/dist/app.ultra.min.970163a3.js"></script>
+
+<script defer src="/static/js/alpine.7b69e646.js"></script>
+
+
+
+
+
+</head>
+
+<body class="bg-dark-900 text-white font-sans antialiased min-h-screen flex flex-col">
+    
+    <nav id="navbar" class="bg-primary/95 backdrop-blur-md sticky top-0 z-[200] border-b border-white/5" 
+     x-data="{isLoggedIn: false,username: '',uid: '',userInitial: '',userlink:'0',mobileMenuOpen: false}"
+     x-init="
+         window.myuserlink = userlink;
+         window.currentUser = { isLoggedIn: isLoggedIn, uid: parseInt(uid) || 0, username: username };
+         window.UserAuth = { isLoggedIn: () => isLoggedIn, getUserId: () => parseInt(uid) || 0, getUsername: () => username };
+     ">
+    <div class="px-4 md:px-8 lg:px-12">
+        <div class="flex items-center justify-between h-16">
+            
+            <div class="flex items-center space-x-2">
+                
+                <a href="/" class="flex items-center">
+                    <img src="https://bttwo.staticimgjs.org/uploads/2026/04/logo.png" alt="两个BT影视" class="h-12">
+                </a>
+                
+            </div>
+
+            
+            <div class="hidden lg:flex items-center space-x-2">
+                
+                <a href="/" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    首页
+                </a>
+                
+                <a href="/movie" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    电影
+                </a>
+                
+                <a href="/tv" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    电视剧
+                </a>
+                
+                <a href="/anime" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    动漫
+                </a>
+                
+                <a href="/playlists" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    片单
+                </a>
+                
+                <a href="https://www.btbtla.com" class="nav-item px-2 py-2 text-sm transition-colors flex items-center gap-1 relativetext-gray-300 hover:text-white after:content-[''] after:absolute after:-bottom-0.5 after:left-1/2 after:w-0 after:h-0.5 after:bg-accent after:transition-all after:duration-300 after:-translate-x-1/2 hover:after:w-full">
+                    
+                    影片下载
+                </a>
+                
+            </div>
+
+            
+            <div class="flex items-center space-x-4">
+                
+                <form action="/search" method="GET" class="hidden md:flex items-center bg-secondary/50 rounded-full px-4 py-2 transition-all focus-within:bg-secondary focus-within:ring-2 focus-within:ring-accent/50">
+                    <input type="text" name="q" placeholder="输入片名进行搜索" 
+                           class="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-32 lg:w-40 focus:text-white transition-all">
+                    <button type="submit" class="focus:outline-none focus:scale-110 transition-transform">
+                        <svg class="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <a href="/filter" class="text-gray-300 hover:text-white transition-colors text-2xl" title="筛选"><svg class="icon"><use href="/static/icons/sprite.svg#ri-list-check-3"/></svg></a>
+                
+
+                
+                <div class="relative" x-data="{ 
+                    historyOpen: false,
+                    watchHistory: [],
+                    isLoggedIn: false,
+                    async loadHistory() {
+                        try {
+                            if (window.WatchHistory) {
+                                this.watchHistory = await window.WatchHistory.getRecent(10);
+                            } else {
+                                const history = JSON.parse(localStorage.getItem('watchHistory') || '[]');
+                                this.watchHistory = history.slice(0, 10);
+                            }
+                        } catch(e) {
+                            this.watchHistory = [];
+                        }
+                    },
+                    clearHistory() {
+                        if (confirm('确定要清空观看历史吗？')) {
+                            if (window.WatchHistory) {
+                                window.WatchHistory.clear();
+                            } else {
+                                localStorage.removeItem('watchHistory');
+                            }
+                            this.watchHistory = [];
+                            this.historyOpen = false;
+                        }
+                    }
+                }" x-init="loadHistory(); window.addEventListener('history:updated', () => loadHistory())">
+                    <button @click="historyOpen = !historyOpen; loadHistory()" 
+                            class="text-gray-300 hover:text-white transition-colors text-2xl relative" 
+                            title="观看历史">
+                        <svg class="icon"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>
+                        
+                    </button>
+
+                    
+                    <div x-show="historyOpen" x-cloak @click.away="historyOpen = false"
+                         class="hidden sm:flex absolute right-0 mt-2 w-80 bg-dark-800 rounded-lg shadow-lg border border-dark-600 z-50 max-h-[500px] overflow-hidden flex-col"
+                         x-transition>
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-dark-600">
+                            <h3 class="text-sm font-medium text-white flex items-center">
+                                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>观看历史
+                            </h3>
+                            <button @click="clearHistory()" class="text-xs text-gray-400 hover:text-red-400 transition" x-show="watchHistory.length > 0">清空</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1">
+                            <template x-if="watchHistory.length === 0">
+                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    <svg class="icon text-4xl mb-2"><use href="/static/icons/sprite.svg#ri-inbox-line"/></svg>
+                                    <p>暂无观看记录</p>
+                                </div>
+                            </template>
+                            <template x-for="(item, index) in watchHistory" :key="'d'+index">
+                                <a :href="item.url" class="block px-4 py-3 hover:bg-dark-700 transition border-b border-dark-700 last:border-0">
+                                    <div class="flex gap-3">
+                                        <div class="flex-shrink-0 w-12 h-16 bg-dark-700 rounded overflow-hidden">
+                                            <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" loading="lazy">
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-sm text-white font-medium truncate mb-1" x-text="item.title"></h4>
+                                            <p class="text-xs text-gray-400 truncate mb-1" x-text="item.episode || '电影'"></p>
+                                            <p class="text-xs text-gray-500" x-text="item.position > 0 ? '观看至 ' + (Math.floor(item.position/3600) > 0 ? Math.floor(item.position/3600)+'时' : '') + Math.floor(item.position%3600/60) + '分' + (item.position%60) + '秒' : item.time"></p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div x-show="historyOpen" x-cloak @click.away="historyOpen = false"
+                         class="sm:hidden fixed inset-x-0 top-16 bg-dark-900/95 backdrop-blur-md border-b border-white/5 z-40 max-h-[70vh] overflow-hidden flex flex-col"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 -translate-y-4"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-y-0"
+                         x-transition:leave-end="opacity-0 -translate-y-4">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                            <h3 class="text-sm font-medium text-white flex items-center">
+                                <svg class="icon mr-2"><use href="/static/icons/sprite.svg#ri-history-line"/></svg>观看历史
+                            </h3>
+                            <button @click="clearHistory()" class="text-xs text-gray-400 hover:text-red-400 transition" x-show="watchHistory.length > 0">清空</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1 px-2">
+                            <template x-if="watchHistory.length === 0">
+                                <div class="px-4 py-8 text-center text-gray-500 text-sm">
+                                    <svg class="icon text-4xl mb-2"><use href="/static/icons/sprite.svg#ri-inbox-line"/></svg>
+                                    <p>暂无观看记录</p>
+                                </div>
+                            </template>
+                            <template x-for="(item, index) in watchHistory" :key="'m'+index">
+                                <a :href="item.url" class="block px-4 py-3 hover:bg-dark-700 rounded-lg transition border-b border-white/5 last:border-0">
+                                    <div class="flex gap-3">
+                                        <div class="flex-shrink-0 w-12 h-16 bg-dark-700 rounded overflow-hidden">
+                                            <img :src="item.cover" :alt="item.title" class="w-full h-full object-cover" loading="lazy">
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-sm text-white font-medium truncate mb-1" x-text="item.title"></h4>
+                                            <p class="text-xs text-gray-400 truncate mb-1" x-text="item.episode || '电影'"></p>
+                                            <p class="text-xs text-gray-500" x-text="item.position > 0 ? '观看至 ' + (Math.floor(item.position/3600) > 0 ? Math.floor(item.position/3600)+'时' : '') + Math.floor(item.position%3600/60) + '分' + (item.position%60) + '秒' : item.time"></p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+
+                
+                
+                <div class="hidden sm:flex items-center space-x-2 text-sm">
+                    <a href="/register" class="text-gray-300 hover:text-white transition-colors">注冊</a>
+                    <span class="text-gray-600">|</span>
+                    <a href="/login" class="text-gray-300 hover:text-white transition-colors">登入</a>
+                </div>
+                
+                <div class="sm:hidden flex items-center">
+                    <a href="/login" class="flex items-center justify-center w-8 h-8 rounded-full bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white transition-colors">
+                        <svg class="icon text-lg"><use href="/static/icons/sprite.svg#ri-user-line"/></svg>
+                    </a>
+                </div>
+                
+
+                
+                <button @click="mobileMenuOpen = !mobileMenuOpen" class="lg:hidden p-2 text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" :class="mobileMenuOpen ? 'hidden' : 'block'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                    <svg class="w-6 h-6" :class="mobileMenuOpen ? 'block' : 'hidden'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        
+        <div x-cloak x-show="mobileMenuOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-4"
+             @click.away="mobileMenuOpen = false"
+             class="lg:hidden fixed inset-x-0 top-16 bg-dark-900/95 backdrop-blur-md border-b border-white/5 z-[150] py-4 overflow-y-auto max-h-[calc(100vh-4rem)]">
+            
+            
+            <div class="px-4 mb-4">
+                <form action="/search" method="GET" class="flex items-center bg-secondary/50 rounded-full px-4 py-2 transition-all focus-within:bg-secondary focus-within:ring-2 focus-within:ring-accent/50">
+                    <input type="text" name="q" placeholder="输入片名进行搜索" 
+                           class="bg-transparent text-sm text-gray-300 placeholder-gray-500 outline-none w-full focus:text-white transition-all">
+                    <button type="submit" class="focus:outline-none focus:scale-110 transition-transform">
+                        <svg class="w-4 h-4 text-gray-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+
+            
+            <div class="px-4 space-y-2">
+                
+                <a href="/" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>首页</span>
+                </a>
+                
+                <a href="/movie" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>电影</span>
+                </a>
+                
+                <a href="/tv" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>电视剧</span>
+                </a>
+                
+                <a href="/anime" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>动漫</span>
+                </a>
+                
+                <a href="/playlists" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>片单</span>
+                </a>
+                
+                <a href="https://www.btbtla.com" 
+                   @click="mobileMenuOpen = false"
+                   class="block px-4 py-3 text-sm rounded-lg transition-colors flex items-center gap-2text-gray-300 hover:text-white hover:bg-dark-700">
+                    
+                    <span>影片下载</span>
+                </a>
+                
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<style>
+     
+    [x-cloak] { display: none !important; }
+</style>
+
+    
+    <main class="flex-grow">
+        <div class="px-4 md:px-8 lg:px-12 py-8">
+            
+            <div class="mb-6">
+                <h1 class="text-2xl sm:text-3xl font-bold mb-2">搜索结果</h1>
+                <p class="text-gray-400">
+                    关键词：<span class="text-accent font-medium">"流浪地球"</span>
+                    <span class="ml-4">找到 <span class="text-accent font-medium">3</span> 个结果</span>
+                </p>
+            </div>
+
+            
+
+            
+            
+            <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-12 gap-4 md:gap-6">
+                
+                <div class="group relative">
+    <a href="/play/ch2mo68f3" class="block">
+        
+        <div class="relative aspect-[2/3] rounded-lg overflow-hidden bg-secondary/50">
+            
+            <img data-src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2020/12/bcoCzOBtMzm31hGV1WfWgZX83xx-1-250x350.jpg" 
+                 src="/static/images/placeholder-dark.svg"
+                 alt="流浪地球"
+                 class="lazy w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+            
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="absolute bottom-0 left-0 right-0 p-3">
+                    <p class="text-xs text-gray-300 line-clamp-2">&lt;!-- wp:paragraph --&gt;
+&lt;p&gt;　　太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新家园。然而宇宙之路危机四伏，为了拯救地球，为了人类能在漫长的2500年后抵达新的家园，流浪...</p>
+                </div>
+            </div>
+
+            
+            
+            <div class="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded">
+                2019
+            </div>
+            
+
+            
+            
+
+            
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="w-12 h-12 rounded-full bg-accent/90 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="mt-2">
+            <h3 class="text-sm font-medium text-white group-hover:text-accent transition-colors line-clamp-1 text-center">
+                流浪地球
+            </h3>
+        </div>
+    </a>
+</div>
+                
+                <div class="group relative">
+    <a href="/play/ch0nvstnc" class="block">
+        
+        <div class="relative aspect-[2/3] rounded-lg overflow-hidden bg-secondary/50">
+            
+            <img data-src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/06/hEA7bpWw5IRKOW2MVjvx46SWevU-300x450.jpg" 
+                 src="/static/images/placeholder-dark.svg"
+                 alt="流浪地球2"
+                 class="lazy w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+            
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="absolute bottom-0 left-0 right-0 p-3">
+                    <p class="text-xs text-gray-300 line-clamp-2">太阳即将毁灭，人类在地球表面建造出巨大的推进器，寻找新的家园。然而宇宙之路危机四伏，为了拯救地球，流浪地球时代的年轻人再次挺身而出，展开争分夺秒的生死之战。</p>
+                </div>
+            </div>
+
+            
+            
+            <div class="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded">
+                2023
+            </div>
+            
+
+            
+            
+            <div class="absolute top-2 right-2 bg-accent/80 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded">
+                4k
+            </div>
+            
+
+            
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="w-12 h-12 rounded-full bg-accent/90 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="mt-2">
+            <h3 class="text-sm font-medium text-white group-hover:text-accent transition-colors line-clamp-1 text-center">
+                流浪地球2
+            </h3>
+        </div>
+    </a>
+</div>
+                
+                <div class="group relative">
+    <a href="/play/ch2o8cy6q" class="block">
+        
+        <div class="relative aspect-[2/3] rounded-lg overflow-hidden bg-secondary/50">
+            
+            <img data-src="https://gimg0.baidu.com/gimg/app=2001&amp;n=0&amp;g=0n&amp;fmt=jpeg&amp;src=bttwo.staticimgjs.org/uploads/2026/09/bOne6yyeiXUD6ztKlvZnJAJwRhR-1-300x450.jpg" 
+                 src="/static/images/placeholder-dark.svg"
+                 alt="流浪地球：飞跃2020特别版"
+                 class="lazy w-full h-full object-cover transition-transform duration-300 group-hover:scale-110">
+            
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="absolute bottom-0 left-0 right-0 p-3">
+                    <p class="text-xs text-gray-300 line-clamp-2">《流浪地球：飞跃2020特别版》是由郭帆执导，吴京特别出演，屈楚萧、赵今麦、李光洁、吴孟达领衔主演的科幻片。 该片根据刘慈欣同名小说改编，故事设定在2075年，讲述了太阳即将毁灭，人类在地球表面建造出...</p>
+                </div>
+            </div>
+
+            
+            
+            <div class="absolute top-2 left-2 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded">
+                2020
+            </div>
+            
+
+            
+            
+
+            
+            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div class="w-12 h-12 rounded-full bg-accent/90 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="mt-2">
+            <h3 class="text-sm font-medium text-white group-hover:text-accent transition-colors line-clamp-1 text-center">
+                流浪地球：飞跃2020特别版
+            </h3>
+        </div>
+    </a>
+</div>
+                
+            </div>
+
+            
+            
+            <div class="mt-10 pt-6 border-t border-white/5">
+                <h3 class="text-sm text-gray-500 mb-3">相关搜索</h3>
+                <div class="flex flex-wrap gap-2">
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%832"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球2
+                    </a>
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%833"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球3
+                    </a>
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%831"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球1
+                    </a>
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%832%ef%bc%88%e8%87%bb%e5%bd%a9"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球2（臻彩
+                    </a>
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%833%e4%b8%8a"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球3上
+                    </a>
+                    
+                    <a href="/search?q=%e6%b5%81%e6%b5%aa%e5%9c%b0%e7%90%83%e4%ba%8c2"
+                       class="px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        流浪地球二2
+                    </a>
+                    
+                </div>
+            </div>
+            
+
+            
+
+            
+            
+            <div class="mt-10 pt-6 border-t border-white/5">
+                <h3 class="text-sm text-gray-500 mb-3">热门搜索</h3>
+                <div class="flex flex-wrap gap-2">
+                    
+                    <a href="/search?q=%e5%85%b0%e9%a6%99%e5%a6%82%e6%95%85"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        兰香如故
+                    </a>
+                    
+                    <a href="/search?q=%e4%bd%8e%e6%99%ba%e5%95%86%e7%8a%af%e7%bd%aa"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        低智商犯罪
+                    </a>
+                    
+                    <a href="/search?q=%e4%b8%bb%e8%a7%92"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        主角
+                    </a>
+                    
+                    <a href="/search?q=%e6%97%a9%e6%98%a5%e6%99%b4%e6%9c%97"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        早春晴朗
+                    </a>
+                    
+                    <a href="/search?q=%e5%ab%81%e9%87%91%e9%92%97"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        嫁金钗
+                    </a>
+                    
+                    <a href="/search?q=%e5%87%a1%e4%ba%ba%e4%bf%ae%e4%bb%99%e4%bc%a0"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        凡人修仙传
+                    </a>
+                    
+                    <a href="/search?q=%e5%8a%9f%e5%a4%ab%e5%a5%b3%e8%b6%b3"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        功夫女足
+                    </a>
+                    
+                    <a href="/search?q=%e4%ba%a4%e9%94%8b"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        交锋
+                    </a>
+                    
+                    <a href="/search?q=%e4%bb%99%e9%80%86"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        仙逆
+                    </a>
+                    
+                    <a href="/search?q=%e7%bb%99%e9%98%bf%e5%ac%b7%e7%9a%84%e6%83%85%e4%b9%a6"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-full transition-colors">
+                        <svg class="w-3.5 h-3.5 text-accent/60" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+                        给阿嬷的情书
+                    </a>
+                    
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    
+    <footer class="bg-dark-900 py-4 border-t border-gray-800 mt-12">
+    <div class="px-4 md:px-4 lg:px-8 py-4">
+        
+        <div class="flex flex-wrap justify-center gap-6 mb-4">
+            
+                <a href="/page/sahewngji" class="text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                    
+                    会员通知
+                </a>
+            
+        </div>
+        
+        
+        
+        <div class="text-center text-gray-400 text-sm pt-4">
+            两个BT在线影视<br><div class="smsb">申明：本站属于互联网自由分享，所有bt文件均来自互联网，分享于互联网，本站只作为一个bt暂存平台； 本站服务器未保存任何影视、音乐、游戏等资源或文件，且本站并不属于bt的提供者、制作者、所有者，因此本站不承担任何法律责任！ 若有相关资源涉及您的版权或知识产权或其他利益，请及时联系我们：btcang@tutanota.com，确认后，我们会尽快删除。</div><div class="smsb">有问题请联系Telegram：<a href="https://t.me/shufangs" target="_blank">https://t.me/shufangs</a></div>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-RCP8C4ZLB9"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-RCP8C4ZLB9');
+</script>
+        </div>
+        
+        
+        
+        <div class="text-center text-gray-500 text-sm pt-4">
+            © 2026 4k影视
+        </div>
+        
+    </div>
+</footer>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+</html>
