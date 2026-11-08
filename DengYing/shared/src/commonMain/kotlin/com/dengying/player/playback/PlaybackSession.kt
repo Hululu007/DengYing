@@ -482,8 +482,16 @@ suspend fun resolvePlayChain(
 
     // 试看链：全片优先——跨源找到同名全片就播全片；所有源都没有，回落试看链
     // （300 秒也好过黑屏）。cdn 链本身就是 m3u8，无需再过分享页解析。
+    //
+    // 【总预算 6 秒】tv189 免登录片几乎全是试看链（首页版块尤甚），这条路径
+    // 是它们的常规起播路——跨源全链（搜候选+逐个试播）最坏要十几秒，用户
+    // 感知"详情页加载变慢"。预算内拿到全片最好，拿不到先给试看链（秒开），
+    // 用户仍可通过详情页"其他资源站"手动换全片线路。
     if (previewUrl.isNotEmpty()) {
-        tryAltSources()?.let { return it }
+        val alt = runCatching {
+            kotlinx.coroutines.withTimeoutOrNull(6000) { tryAltSources() }
+        }.getOrNull()
+        if (alt != null) return alt
         PlaybackProbe.note("session-preview-fallback")
         return previewUrl to ""
     }

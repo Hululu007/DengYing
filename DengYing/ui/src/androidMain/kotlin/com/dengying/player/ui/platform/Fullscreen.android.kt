@@ -105,8 +105,16 @@ actual fun rememberFullscreenState(): FullscreenState {
 @Composable
 actual fun ConsumePortraitOrientation() {
     val activity = LocalContext.current.findActivity()
+    val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     SideEffect {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+        // 【RESUMED 才收敛】导航过渡期（如详情页 → 播放页的 220ms 退场动画）
+        // 本页仍在组合、但已非 RESUMED（新页面持有焦点）——此时若照旧把方向
+        // 顶回竖屏，会把全屏页刚设好的横屏覆盖掉，真机表现为"先横屏又变回
+        // 竖屏"。只在自己是前台页（RESUMED）时收敛方向；返回本页时恢复
+        // RESUMED，SideEffect 自然重新收敛竖屏。
+        if (owner.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+        }
     }
 }
 
@@ -122,7 +130,11 @@ actual class FullscreenState internal constructor(
     actual fun enter(landscape: Boolean) {
         val act = activity ?: return
         act.requestedOrientation = if (landscape) {
-            ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+            // 【SENSOR_ 而非 USER_】USER_LANDSCAPE 尊重系统自动旋转开关——
+            // 国产机默认关旋转锁（vivo 实测）：请求先生效又被系统纠正回竖屏，
+            // 观感"闪一下横屏变回竖屏"。播放器全屏业界通行是强制传感器横屏
+            // （B 站/爱奇艺同款），不受用户旋转锁影响。
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
             // 竖向视频：保持竖屏方向，只由 SideEffect 隐藏系统栏
             ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT

@@ -354,6 +354,17 @@ class SourceRepository {
     private val classLock = PlatformLock()
 
     /**
+     * 跨源候选搜索的进程级缓存（片名归一化 → 候选列表）。
+     *
+     * 详情页预取与播放链兜底（FR-610 试看链全片优先）先后用同一片名调用
+     * [findAltSources]，每次全量并发搜 12+ 源要 2-5 秒——首搜结果缓存复用，
+     * 播放链只剩"试候选"一段。只在搜到非空结果时缓存（失败下次重搜）。
+     */
+    private val altSearchCache = HashMap<String, List<AltCandidate>>()
+    private val inflightAlt = HashMap<String, Deferred<List<AltCandidate>>>()
+    private val altSearchLock = PlatformLock()
+
+    /**
      * 分类表**拉取失败**的时间戳（负缓存）。
      *
      * 【为什么需要负缓存】原实现只缓存「拉到的」分类表，拉失败什么都不留。
@@ -864,13 +875,23 @@ class SourceRepository {
         sources: List<CmsSource>,
         currentSourceKey: String,
         title: String,
-    ): List<AltCandidate> = coroutineScope {
-        val out = ArrayList<AltCandidate>()
-        val seenSrc = HashSet<String>()
+    ): List<AltCandidate> {
         val norm = title.replace(Regex("[（(].*?[)）]"), "").trim()
-        if (norm.isEmpty()) return@coroutineScope out
-
-        val enabled = sources
+        if (norm.isEmpty()) return emptyList()
+        // 【进程级缓存】详情页预取与播放链兜底会先后用同一片名调本函数——
+        // 每次都是 12+ 源并发搜索（2-5 秒）。tv189 免登录片全部走"跨源找全片"
+        // 路径（v1.2.0 FR-610），播放链每次命中缓存才能把跨源代价压到只剩
+        // "试候选"一段。搜索结果短时稳定，进程内存缓存即可（不落盘）。
+        altSearchLock.withLock { altSearchCache[norm] }?.let { return it }
+        // 【在途合并】详情页预取与播放链兜底几乎同时调用（用户点正片时预取
+        // 往往还在搜）——两路并行各搜 12+ 源白费 2-5 秒还互相挤带宽。后到者
+        // 直接 await 首搜结果。
+        altSearchLock.withLock { inflightAlt[norm] }?.let { return it.await() }
+        return coroutineScope {
+            val task = async {
+            val out = ArrayList<AltCandidate>()
+            val seenSrc = HashSet<String>()
+            val enabled = sources
             .filter {
                 isSourceEnabled(it) && it.key != currentSourceKey &&
                     it.caps.search && it.caps.detail
@@ -913,7 +934,16 @@ class SourceRepository {
         // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
         // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
         withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
-        out
+            if (out.isNotEmpty()) {
+                altSearchLock.withLock { altSearchCache[norm] = out.toList() }
+            }
+            out
+            }
+            altSearchLock.withLock { inflightAlt[norm] = task }
+            val r = runCatching { task.await() }.getOrDefault(emptyList())
+            altSearchLock.withLock { inflightAlt.remove(norm) }
+            r
+        }
     }
 
     /**

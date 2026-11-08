@@ -40,3 +40,6 @@ DengYingOhos/harmony/entry/src/main/cpp/thirdparty/*.so
 DengYing/refreshing.png
 DengYing/default/
 **/docs/screens/
+
+# 会话临时产物（抓样/截图/探针脚本）
+.golden-tmp/
