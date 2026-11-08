@@ -204,33 +204,47 @@ fun IndexScreen(
     // 分类网格/版块流的 contentPadding.bottom 用它——最后一张卡要能滚出 Dock 顶。
     val bottomReserve = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 76.dp
 
-    // 【发现页混合片池 v5.5】主体 = 六个分类的聚合条目（采集站多源混合，直链几乎
+    // 【发现页混合片池 v5.6】主体 = 六个分类的聚合条目（采集站多源混合，直链几乎
     // 必播，失败率低）；辅料 = tv189 版块运营精选（封面/画质好，但 VIP 独播多、
     // 跨源救不回比例高 → 只限量掺入约三分之一）。辅料内部保留免费率加权
     // （少儿/动画版块排前），主体验证自动播放尽量一击即中。
-    // 种子 discoSeed 变化（下拉刷新）即重洗；分类条目陆续到货（warmAllCategories
-    // 预热）时池子自动扩容——poolStamp 随各分类条目数变化触发重组。
-    val poolStamp = with(s) {
-        var h = discoSeed * 31L
-        for (i in 1..6) h = h * 31 + cat(i).items.size
-        h
+    //
+    // 【v5.6 狂刷修复】旧版 poolStamp 逐分类计 items.size：warmAllCategories
+    // 预热时 6 个分类**陆续到货**，每到一个整池重洗一次（真机实测 7+ 次
+    // "内容连变直到稳定"）。改成**一次成型**：六分类全部到货（或 8s 超时兜底，
+    // 防个别分类始终无货卡死）才洗一次；期间发现页显示"备片"加载态。
+    // 换批（下拉刷新 discoSeed++）仍整池重洗。
+    val allWarm = (1..6).all { s.cat(it).items.isNotEmpty() }
+    var warmTimeout by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(false)
     }
-    val picks = remember(poolStamp) {
-        val cms = (1..6)
-            .flatMap { s.cat(it).items }
-            .distinctBy { it.vod_name ?: it.vod_id.toString() }
-        fun freeish(t: String) = t.contains("动画") || t.contains("动漫") || t.contains("少儿") ||
-            t.contains("儿童") || t.contains("亲子")
-        val tv = run {
-            val head = s.cat(0).sections.filter { freeish(it.title) }.flatMap { it.items }
-            val tail = s.cat(0).sections.filterNot { freeish(it.title) }.flatMap { it.items }
-            // head/tail 各自洗牌后拼接（不能合一起洗——加权会被打散）
-            (head.shuffled(Random(discoSeed)) + tail.shuffled(Random(discoSeed + 1)))
-                .distinctBy { it.vod_id }
+    androidx.compose.runtime.LaunchedEffect(allWarm) {
+        if (!allWarm) {
+            kotlinx.coroutines.delay(8000)
+            warmTimeout = true
         }
-        val tvLimit = (cms.size / 3).coerceAtLeast(20)
-        (cms.shuffled(Random(discoSeed + 7)) + tv.take(tvLimit))
-            .distinctBy { it.vod_name ?: it.vod_id.toString() }
+    }
+    val poolReady = allWarm || warmTimeout
+    val picks = remember(poolReady, discoSeed) {
+        if (!poolReady) {
+            emptyList()
+        } else {
+            val cms = (1..6)
+                .flatMap { s.cat(it).items }
+                .distinctBy { it.vod_name ?: it.vod_id.toString() }
+            fun freeish(t: String) = t.contains("动画") || t.contains("动漫") || t.contains("少儿") ||
+                t.contains("儿童") || t.contains("亲子")
+            val tv = run {
+                val head = s.cat(0).sections.filter { freeish(it.title) }.flatMap { it.items }
+                val tail = s.cat(0).sections.filterNot { freeish(it.title) }.flatMap { it.items }
+                // head/tail 各自洗牌后拼接（不能合一起洗——加权会被打散）
+                (head.shuffled(Random(discoSeed)) + tail.shuffled(Random(discoSeed + 1)))
+                    .distinctBy { it.vod_id }
+            }
+            val tvLimit = (cms.size / 3).coerceAtLeast(20)
+            (cms.shuffled(Random(discoSeed + 7)) + tv.take(tvLimit))
+                .distinctBy { it.vod_name ?: it.vod_id.toString() }
+        }
     }
     Box(
         modifier = Modifier
@@ -309,6 +323,9 @@ fun IndexScreen(
                     bottomPadding = bottomReserve,
                     onOpenDetail = onOpenDetail,
                     onShuffle = { discoSeed++ },
+                    // targetPage 在滑动开始即变 → 开始滑就停声（主流口径）
+                    active = pagerState.targetPage == 2,
+                    preparing = !poolReady,
                 )
                 // ---- 我的：个人信息聚合（v5；共享顶栏在本页隐藏，自带页头） ----
                 3 -> MineScreen(
@@ -518,8 +535,11 @@ private fun SectionRail(
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(items.size) { i ->
-                val v = items[i]
+            // 【无限横滑 v5.6】版块条数是运营给的固定值（首播影院 151、少儿 26…），
+            // 用户反馈"向右滑是有限的，我要无限"——取模循环展示（同发现页观感），
+            // key 用绝对下标保证唯一且稳定，取数 items[i % size] 环形取。
+            items(count = Int.MAX_VALUE, key = { i -> "loop-$i" }) { i ->
+                val v = items[i % items.size]
                 RailCard(v = v, onClick = {
                     onOpenDetail(
                         Routes.detail(
@@ -862,6 +882,13 @@ private fun DiscoverPane(
     bottomPadding: Dp,
     onOpenDetail: (String) -> Unit,
     onShuffle: () -> Unit,
+    // 【v5.6 声音泄漏修复】本窗格是否为 pager 前台页。Dock 滑走时页面仍在
+    // 组合（beyondViewportPageCount 预组合），原实现只在 playingIdx 变化时
+    // pause——滑到分类/首页后自动播的片子继续出声（真机实测）。前台门：
+    // 失焦即 pause，回焦自动续播。
+    active: Boolean,
+    // 【v5.6】六分类预热中（池子未成型）——空池时显示"备片"加载态而非"没内容"。
+    preparing: Boolean,
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val deps = UiDepsHolder.get()
@@ -895,9 +922,10 @@ private fun DiscoverPane(
             }
         }
     }
-    // 解析结果缓存：下标 -> (直链, headers json)；url 为空串 = 解析失败（换源也救不回）。
-    // 只缓存成功项会永久转圈——失败也要落袋。
-    val resolved = remember(pool) { mutableStateMapOf<Int, Pair<String, String>>() }
+    // 解析结果缓存：下标 -> (直链, headers json, 是否试看链)；url 为空串 = 解析失败
+    // （换源也救不回）。只缓存成功项会永久转圈——失败也要落袋。试看标记给角标
+    // （v5.6：tv189 免登录片跨源救不回时不再默默只给 5 分钟）。
+    val resolved = remember(pool) { mutableStateMapOf<Int, Triple<String, String, Boolean>>() }
     // 解析在飞标记：防同一项被「可见即解析」重复发起（SnapshotStateList 主线程读写）
     val inFlight = remember(pool) { mutableStateListOf<Int>() }
     // 解析并发闸：同时只放 2 条全链解析。可见 2.5 项全并发时每项要发 6-10 个
@@ -924,7 +952,7 @@ private fun DiscoverPane(
             episodeIndex = 0,
             ioDispatcher = kotlinx.coroutines.Dispatchers.IO,
             altLimit = 3, // 发现页批量预解析：候选只试 3 个，防出网闸拥塞
-        )
+        )?.let { Triple(it.url, it.headers, it.previewOnly) }
     }.getOrNull()
 
     // 【可见即解析】v5.4 核心：别等中心项落定才开始解析——跨源兜底一条就要
@@ -932,7 +960,6 @@ private fun DiscoverPane(
     // 可见项（一屏 ~2.5 部）提前全链解析，中心项落定时结果多半已在袋里 → 即刻起播。
     LaunchedEffect(pool) {
         if (pool.isEmpty()) return@LaunchedEffect
-        setSurface(true)
         snapshotFlow {
             listState.layoutInfo.visibleItemsInfo.map { it.index }.sorted()
         }.collect { visible ->
@@ -948,7 +975,7 @@ private fun DiscoverPane(
                         launch {
                             resolveSlots.withPermit {
                                 val r = resolveChainOf(idx)
-                                resolved[idx] = r ?: ("" to "")
+                                resolved[idx] = r ?: Triple("", "", false)
                             }
                             inFlight.remove(idx)
                         }
@@ -957,13 +984,21 @@ private fun DiscoverPane(
         }
     }
 
-    // 【中心项起播】playingIdx 变化：先停旧声（切中心/无中心都不许旧片继续响），
-    // 再等该项解析落袋（可见即解析已在跑）→ setMedia 播。等待期间滚走：
-    // LaunchedEffect(key) 结构化取消，旧播放意图作废；滚回 → 协程重启命中缓存立即播。
-    LaunchedEffect(playingIdx) {
+    // 【surface 引用跟随前台】active=false（预组合/滑走）即释放引用计数，
+    // 防后台窗格偷解码；回前台再领。原先挂在 pool effect 里首启时领一次，
+    // 但预组合窗格也会首启 → 释放时机错乱，统一收口到 active。
+    LaunchedEffect(active) {
+        setSurface(active)
+    }
+
+    // 【中心项起播】playingIdx / active 变化：先停旧声（切中心/滑走都不许
+    // 旧片继续响），再等该项解析落袋（可见即解析已在跑）→ setMedia 播。
+    // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废；滚回
+    // （或从别的窗格滑回来）→ 协程重启命中缓存立即播。
+    LaunchedEffect(playingIdx, active) {
         val idx = playingIdx
         engine.pause()
-        if (idx < 0 || idx >= items.size) return@LaunchedEffect
+        if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
         engine.setMedia(hit.first, hit.second, 0L)
@@ -1004,7 +1039,6 @@ private fun DiscoverPane(
         onDispose { setSurface(false) }
     }
     if (pool.isEmpty()) {
-        // 首页版块还没数据：给引导，不算错误态
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -1012,13 +1046,28 @@ private fun DiscoverPane(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("先去首页逛一圈，再来发现好片", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
-            Text(
-                "发现页从首页内容里随机抽选",
-                style = MaterialTheme.typography.labelSmall,
-                color = Palette.TextSecondary,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+            if (preparing) {
+                // 六分类预热中（v5.6 一次成型）：转圈等待，成型后一次到位不再狂刷
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = Palette.TextSecondary,
+                )
+                Text(
+                    "正在为你备片…",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Palette.TextSecondary,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            } else {
+                Text("先去首页逛一圈，再来发现好片", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
+                Text(
+                    "发现页从首页内容里随机抽选",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Palette.TextSecondary,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
         }
         return
     }
@@ -1041,6 +1090,7 @@ private fun DiscoverPane(
                     resolving = playingIdx == idx && hit == null,
                     playing = playingIdx == idx && hit != null && hit.first.isNotEmpty(),
                     failed = playingIdx == idx && hit != null && hit.first.isEmpty(),
+                    preview = playingIdx == idx && hit != null && hit.third,
                     engine = engine,
                     onOpenDetail = onOpenDetail,
                 )
@@ -1061,6 +1111,7 @@ private fun DiscoverVideoCard(
     resolving: Boolean,
     playing: Boolean,
     failed: Boolean,
+    preview: Boolean,
     engine: PlayerEngine,
     onOpenDetail: (String) -> Unit,
 ) {
@@ -1124,6 +1175,22 @@ private fun DiscoverVideoCard(
                                     RoundedCornerShape(14.dp),
                                 )
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                    // 试看链：点进详情可换全片源（交叉信息，不吓退）
+                    if (preview) {
+                        Text(
+                            text = "试看 · 详情页可看全片",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(10.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                                    RoundedCornerShape(12.dp),
+                                )
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
                         )
                     }
                 }

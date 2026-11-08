@@ -64,6 +64,8 @@ object PlaybackSession {
         val totalTime: Long = 0,
         val buffering: Boolean = false,
         val errMsg: String = "",
+        /** 【v5.6 试看标记】tv189 免登录试看链（end=300）且跨源未救回全片——UI 打"试看"角标 */
+        val isPreview: Boolean = false,
     ) {
         /** 是否存在可恢复的会话（详情页内嵌位据此决定恢复还是空态） */
         val hasSession: Boolean get() = url.isNotEmpty() && status != Status.Idle
@@ -165,6 +167,7 @@ object PlaybackSession {
                 // 1) 地址解析：优先用预解析结果；否则走解析链（含换源兜底）
                 var url = preResolved ?: ""
                 var headers = preHeaders
+                var previewOnly = false
                 if (url.isEmpty()) {
                     val resolved = resolveChain(repo, rawUrl, source, vodId, altUrls)
                     if (resolved == null) {
@@ -174,8 +177,14 @@ object PlaybackSession {
                         )
                         return@launch
                     }
-                    url = resolved.first
-                    headers = resolved.second
+                    url = resolved.url
+                    headers = resolved.headers
+                    previewOnly = resolved.previewOnly
+                } else if (url.contains("end=300")) {
+                    // 【预解析路径的试看兜底】预解析（详情页后台）拿到的若仍是 tv189
+                    // end=300 试看授权链，解析链没参与、previewOnly 信号丢失——
+                    // 用 URL 特征补判（全片链 end=总时长秒数，恰好 300s 的片极少）。
+                    previewOnly = true
                 }
 
                 // 2) SEC-005：进入网络层前校验
@@ -204,6 +213,7 @@ object PlaybackSession {
                     headers = headers,
                     status = if (preserveSettledState) previousStatus else Status.Buffering,
                     buffering = !preserveSettledState,
+                    isPreview = previewOnly,
                 )
                 eng.play()
             } catch (e: Exception) {
@@ -276,7 +286,7 @@ object PlaybackSession {
         source: String,
         vodId: Long,
         altUrls: List<String>,
-    ): Pair<String, String>? = resolvePlayChain(
+    ): PlayChainResult? = resolvePlayChain(
         repo = repo,
         raw = raw,
         source = source,
@@ -417,6 +427,12 @@ object PlaybackSession {
  * @param vodName 跨源换线需要片名查同名资源；为空则跳过换源兜底
  * @param episodeIndex 换源时取候选源的同一集
  */
+/**
+ * 播放链解析结果。[previewOnly] = tv189 免登录试看链（end=300）回落——跨源没
+ * 救回全片时 UI 据此打「试看」角标，不再默默只给 5 分钟（用户反馈 #1）。
+ */
+class PlayChainResult(val url: String, val headers: String, val previewOnly: Boolean)
+
 suspend fun resolvePlayChain(
     repo: com.dengying.player.data.source.SourceRepository,
     raw: String,
@@ -431,7 +447,7 @@ suspend fun resolvePlayChain(
      * 出网闸（OUTBOUND_LIMIT=6）堵死，中心项的起播延迟被拉到 10s 级。
      */
     altLimit: Int = Int.MAX_VALUE,
-): Pair<String, String>? {
+): PlayChainResult? {
     val src = com.dengying.player.core.CmsSources.byKey(source)
     var url = raw
     var headers = ""
@@ -491,20 +507,20 @@ suspend fun resolvePlayChain(
         val alt = runCatching {
             kotlinx.coroutines.withTimeoutOrNull(6000) { tryAltSources() }
         }.getOrNull()
-        if (alt != null) return alt
+        if (alt != null) return PlayChainResult(alt.first, alt.second, previewOnly = false)
         PlaybackProbe.note("session-preview-fallback")
-        return previewUrl to ""
+        return PlayChainResult(previewUrl, "", previewOnly = true)
     }
 
     // 分享页解析
     if (headers.isEmpty()) {
         val outcome = HlsUtil.resolvePlayUrlOrFail(url)
         if (outcome.resolved) {
-            return outcome.url to ""
+            return PlayChainResult(outcome.url, "", previewOnly = false)
         }
     } else {
-        return url to headers
+        return PlayChainResult(url, headers, previewOnly = false)
     }
 
-    return tryAltSources()
+    return tryAltSources()?.let { PlayChainResult(it.first, it.second, previewOnly = false) }
 }

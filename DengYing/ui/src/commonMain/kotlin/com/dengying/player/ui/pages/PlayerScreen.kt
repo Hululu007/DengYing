@@ -555,6 +555,18 @@ private fun ControlOverlay(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // 试看链提示：5 分钟是 tv189 免费额度，详情页的「其他资源站」可换全片
+            if (s.isPreview) {
+                Text(
+                    text = "试看",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp)
+                        .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+            }
             // FR-419：不可投的源入口为禁用态且点击不响应；理由常驻显示在下方提示行
             Text(
                 text = "投屏",
