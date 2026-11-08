@@ -30,6 +30,7 @@ import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.domain.source.SourceHealthRules
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.SourceStatusViewModel
 
@@ -158,12 +159,19 @@ fun SourceStatusScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
                 items(s.rows, key = { it.key }) { row ->
-                    Column(
+                    GlassSurface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Palette.CardBg, RoundedCornerShape(8.dp))
-                            .padding(12.dp),
+                            .padding(vertical = 2.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = 6.dp,
+                        liquid = false,
                     ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                        ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = row.key,
@@ -238,6 +246,7 @@ fun SourceStatusScreen(
                             color = Palette.TextSecondary,
                             modifier = Modifier.padding(top = 2.dp),
                         )
+                        }
                     }
                 }
             }

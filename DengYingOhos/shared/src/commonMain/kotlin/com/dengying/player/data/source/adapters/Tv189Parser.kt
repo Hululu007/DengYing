@@ -3,6 +3,8 @@ package com.dengying.player.data.source.adapters
 import com.dengying.player.core.CmsClass
 import com.dengying.player.core.CmsSource
 import com.dengying.player.core.FetchResult
+import com.dengying.player.core.HomeSection
+import com.dengying.player.core.HomeTab
 import com.dengying.player.core.PlayResolveResult
 import com.dengying.player.core.RequestOutcome
 import com.dengying.player.core.VideoItem
@@ -178,26 +180,187 @@ object Tv189Parser {
     fun episodeNo(name: String): Int =
         Regex("(\\d+)\\s*$").find(name)?.groupValues?.get(1)?.toIntOrNull() ?: 0
 
+    /** 运营内部版块名 → 用户可见名（「KV图」= Key Visual 运营行话，不外露） */
+    private val SECTION_NAME_ALIASES = mapOf(
+        "推荐页KV图" to "今日焦点",
+    )
+
     /**
      * 换播放链（`/bff/apis/content/authPlayVod` 的响应体）。
      *
-     * 返回 videos 里第一个带 playUrl 的档位。
-     * 免费内容 code=0 无 `end=`；若返回 917 且带 playUrl（试看），照常返回 ——
-     * 能播 300 秒好过直接报错，由用户自己决定看不看。
+     * 返回 videos 里第一个带 playUrl 的档位。两种响应形态都要兼容：
+     * - code=0 全片流：`info.videoInfo.videos[].playUrl`（旧实现只认这个）；
+     * - code=917 试看流：`videos[].playUrl` 在**响应顶层**（2026-11-08 探针实测，
+     *   附带顶层字段 `trySeeLength`/`fullPlayable`）——旧实现解析不到，等于把
+     *   试看链也丢了。
      *
-     * **注意**：迁移前的实现**不检查 code**，只看 videos 里有没有 http 开头的 playUrl。
-     * 这里原样保留 —— 917（试看）也带 playUrl，若加了 code 判断会把试看也拒掉。
+     * 迁移前不检查 code 只看 playUrl 是否 http 开头，原样保留；但新增
+     * [PlayResolveResult.previewOnly] 标记试看链（`fullPlayable=false` 或
+     * `trySeeLength>0`），由 resolvePlayChain 决定「跨源找全片，找不到再回落」。
      */
     fun parsePlay(body: String?): PlayResolveResult {
         val root = JsonX.parseObject(body) ?: return PlayResolveResult()
         val videos = JsonX.optObject(root, "info")
             ?.let { JsonX.optObject(it, "videoInfo") }
-            ?.let { JsonX.optArray(it, "videos") } ?: return PlayResolveResult()
-        for (i in 0 until JsonX.len(videos)) {
-            val v = JsonX.optObjectAt(videos, i) ?: continue
-            val playUrl = JsonX.str(v, "playUrl", "")
-            if (playUrl.startsWith("http")) return PlayResolveResult(url = playUrl)
+            ?.let { JsonX.optArray(it, "videos") }
+            ?: JsonX.optArray(root, "videos")
+        // 试看判定只信服务端字段：code=0 全片响应无这两个字段（默认视为全片）
+        val preview = !JsonX.bool(root, "fullPlayable", true) ||
+            JsonX.int(root, "trySeeLength", 0) > 0
+        if (videos != null) {
+            for (i in 0 until JsonX.len(videos)) {
+                val v = JsonX.optObjectAt(videos, i) ?: continue
+                val playUrl = JsonX.str(v, "playUrl", "")
+                if (playUrl.startsWith("http")) {
+                    // 【URL 特征兜底】2026-11-08 实录：app 请求可能拿到 code=0 形态、
+                    // 响应里却没有 fullPlayable/trySeeLength 字段，但 playUrl 仍是
+                    // end=300 的截断授权链（服务端按免登录会话下发）——URL 的 end=
+                    // 参数是最可靠的试看特征。误标全片的代价只是多跑一次跨源再回落，
+                    // 漏标的代价是用户看 5 分钟就断，宁可误标。
+                    return PlayResolveResult(
+                        url = playUrl,
+                        previewOnly = preview || playUrl.contains("end="),
+                    )
+                }
+            }
         }
         return PlayResolveResult()
+    }
+
+    // ---------------- 关键词搜索（keywordSearchCtyun，2026-11-08 实测打通） ----------------
+
+    /** 搜索固定只搜自营库（comeFrom=NEW_CPMS）的结果可播；外采（AQY）authPlayVod 必 6201 */
+    const val SEARCH_COME_FROM = "NEW_CPMS"
+
+    /**
+     * 关键词搜索（`/bff/apis/content/keywordSearchCtyun` 的响应体）。
+     *
+     * 形如 `{"code":0,"info":{"total":1,"data":[{"ct":"1","v":{...}}]}}` ——
+     * 条目在 `data[].v` 里多包一层（与 programsearch 的 `data[]` 不同）。
+     *
+     * 【只收自营库】请求已带 `comeFrom=NEW_CPMS`，理论上只会回自营内容；
+     * 这里仍按 `v.comeFrom == NEW_CPMS` 再滤一遍：不带 comeFrom 的全库模式
+     * 会混入爱奇艺外采（AQY）条目，那些 authPlayVod 返回 6201 无版权不可播。
+     */
+    fun parseSearch(source: CmsSource, body: String?, page: Int): FetchResult {
+        val root = JsonX.parseObject(body) ?: return failed(source, page, "响应非 JSON")
+        val code = JsonX.int(root, "code", -1)
+        if (code != 0) return failed(source, page, "code ${JsonX.int(root, "code", 0)}")
+        val info = JsonX.optObject(root, "info") ?: return failed(source, page, "无 info")
+        val rows = JsonX.optArray(info, "data")
+        val items = ArrayList<VideoItem>()
+        if (rows != null) {
+            for (i in 0 until JsonX.len(rows)) {
+                val v = JsonX.optObjectAt(rows, i)?.let { JsonX.optObject(it, "v") } ?: continue
+                if (JsonX.str(v, "comeFrom", "") != SEARCH_COME_FROM) continue
+                val cid = JsonX.str(v, "contentId", "")
+                val id = cidToLong(cid)
+                if (id <= 0) continue
+                items += VideoItem(
+                    vod_id = id,
+                    vod_name = JsonX.str(v, "title", ""),
+                    vod_pic = JsonX.str(v, "imgM8", "").ifEmpty { JsonX.str(v, "himgM8", "") },
+                    vod_remarks = JsonX.int(v, "nowSerialCount", 0).let { n ->
+                        if (n > 0) "共${n}集" else "免费正片"
+                    },
+                    vod_year = JsonX.str(v, "releaseYear", ""),
+                    vod_actor = JsonX.str(v, "cast", "").trim(),
+                    vod_director = JsonX.str(v, "director", "").trim(),
+                    vod_content = JsonX.str(v, "description", "").trim(),
+                    type_name = JsonX.str(v, "categoryName", ""),
+                    vod_uri = cid,
+                    _source = source.key,
+                )
+            }
+        }
+        val total = JsonX.int(info, "total", items.size)
+        val outcome = if (items.isEmpty()) RequestOutcome.SuccessNoData else RequestOutcome.SuccessWithData
+        return FetchResult(
+            outcome = outcome, items = items, page = page,
+            pageCount = if (total > 0) (total + PAGE_SIZE - 1) / PAGE_SIZE else 0,
+            total = total, sourceName = source.name,
+        )
+    }
+
+    // ---------------- 首页版块（jsondata，2026-11-08 实测打通） ----------------
+
+    /**
+     * 导航 tab 的 jsondata path（app 前端 JS 里硬编码的两个入口常量）。
+     * [NAV_PATH] 取 tab 配置，各 tab 再带自己的 path 取版块数据。
+     */
+    const val NAV_PATH = "/clt4/xtysxkhd/h5mh/dsy/sdh/index.json"
+    /** 「推荐」tab 的版块数据 path（tab 列表里 name=推荐 那项的 path，常量备用） */
+    const val HOME_PATH = "/clt4/xtysxkhd/h5mh/tjysy/index.json"
+
+    /**
+     * 导航 tab（jsondata `{"tabs":[{name,path,classID,areaType,...}]}`）。
+     *
+     * 【过滤外链】`areaType=130` 的 tab（如「少儿教育」）path 是完整 H5 URL，
+     * 本应用不做站外跳转，解析层直接滤掉——调用方拿到的都是可请求的 path。
+     */
+    fun parseNavTabs(body: String?): List<HomeTab> {
+        val root = JsonX.parseObject(body) ?: return emptyList()
+        val tabs = JsonX.optArray(root, "tabs") ?: return emptyList()
+        val out = ArrayList<HomeTab>()
+        for (i in 0 until JsonX.len(tabs)) {
+            val t = JsonX.optObjectAt(tabs, i) ?: continue
+            val name = JsonX.str(t, "name", "")
+            val path = JsonX.str(t, "path", "")
+            if (name.isEmpty() || path.isEmpty()) continue
+            if (JsonX.int(t, "areaType", 0) == 130) continue
+            out += HomeTab(name = name, path = path)
+        }
+        return out
+    }
+
+    /**
+     * 首页版块（jsondata `{"areaName","data":[{path,data:{label,data:[条目]}}]}`）。
+     *
+     * 【标题优先级】`label` 实测是**对象**（`{"name":"精品纪实"}`，少数为字符串），
+     * `areaName` 是运营写的长标题（如「精品纪实•必看宝藏纪录片」）——卡片栏目标题
+     * 取 `label.name > label(字符串) > areaName`。
+     *
+     * 【只收 clickType==0】条目 `clickType`：0=影视内容（contentId 可进详情）、
+     * 1=分类筛选、2=外链/H5（广告位、快捷入口）、3=站内功能页。后三类本应用
+     * 都无法处理，直接跳过。
+     * 【无标题条目丢弃】广告位模块里混有 clickType==0 但 title 为空的内容项
+     * （金样本 tv189_home 实录），没有名字的卡片没有意义，跳过。
+     * 【空版块丢弃】不少版块条目放在 `children`（嵌套子版块，多为直播/剧场位）
+     * 或为空，v1 不展开嵌套，只保留有直出条目的版块。
+     */
+    fun parseSections(source: CmsSource, body: String?): List<HomeSection> {
+        val root = JsonX.parseObject(body) ?: return emptyList()
+        val mods = JsonX.optArray(root, "data") ?: return emptyList()
+        val out = ArrayList<HomeSection>()
+        for (i in 0 until JsonX.len(mods)) {
+            val mod = JsonX.optObjectAt(mods, i) ?: continue
+            val inner = JsonX.optObject(mod, "data") ?: continue
+            val rows = JsonX.optArray(inner, "data") ?: continue
+            val items = ArrayList<VideoItem>()
+            for (j in 0 until JsonX.len(rows)) {
+                val r = JsonX.optObjectAt(rows, j) ?: continue
+                if (JsonX.int(r, "clickType", -1) != 0) continue
+                val name = JsonX.str(r, "title", "")
+                if (name.isEmpty()) continue
+                val cid = JsonX.str(r, "contentId", "")
+                val id = cidToLong(cid)
+                if (id <= 0) continue
+                items += VideoItem(
+                    vod_id = id,
+                    vod_name = name,
+                    vod_pic = JsonX.str(r, "cover", ""),
+                    vod_uri = cid,
+                    _source = source.key,
+                )
+            }
+            if (items.isEmpty()) continue
+            val labelName = inner["label"]?.let { JsonX.str(JsonX.obj(it), "name", "") } ?: ""
+            val labelText = JsonX.textOf(inner["label"], "")
+            val rawTitle = labelName.ifEmpty { labelText }.ifEmpty { JsonX.str(inner, "areaName", "") }
+            // 运营内部行话不外露（「KV图」= Key Visual 运营术语，用户看不懂）
+            val title = SECTION_NAME_ALIASES[rawTitle] ?: rawTitle
+            out += HomeSection(title = title, items = items)
+        }
+        return out
     }
 }

@@ -31,6 +31,7 @@ import com.dengying.player.ui.components.ConfirmDialog
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.EmptyView
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
@@ -126,59 +127,67 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(s.list, key = { "${it.vod_id}_${it.source}_${it.episodeIndex}_${it.updateTime}" }) { item ->
-                    Row(
+                    GlassSurface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Palette.CardBg, RoundedCornerShape(10.dp))
-                            .clickable {
-                                // FR-506：直达该集续播。历史不含媒体地址，
-                                // 故由详情页拉最新线路后自动进入该集。
-                                onOpenDetail(
-                                    Routes.detail(
-                                        vodId = item.vod_id,
-                                        source = item.source,
-                                        name = item.vod_name,
-                                        pic = item.vod_pic,
-                                        vodUri = item.vod_uri ?: "",
-                                        resumeEpisode = item.episodeIndex,
-                                        autoPlay = true,
+                            .padding(vertical = 2.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = 6.dp,
+                        liquid = false,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    // FR-506：直达该集续播。历史不含媒体地址，
+                                    // 故由详情页拉最新线路后自动进入该集。
+                                    onOpenDetail(
+                                        Routes.detail(
+                                            vodId = item.vod_id,
+                                            source = item.source,
+                                            name = item.vod_name,
+                                            pic = item.vod_pic,
+                                            vodUri = item.vod_uri ?: "",
+                                            resumeEpisode = item.episodeIndex,
+                                            autoPlay = true,
+                                        )
                                     )
+                                }
+                                .padding(10.dp),
+                        ) {
+                            Poster(
+                                url = item.vod_pic,
+                                modifier = Modifier
+                                    .width(70.dp)
+                                    .height(96.dp),
+                                cornerRadius = 6,
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(96.dp)
+                                    .padding(start = 10.dp),
+                            ) {
+                                Text(
+                                    text = item.vod_name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Palette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = item.episodeName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Palette.TextSecondary,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    text = "已看 ${fmtTime(item.position)}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Palette.Brand,
                                 )
                             }
-                            .padding(10.dp),
-                    ) {
-                        Poster(
-                            url = item.vod_pic,
-                            modifier = Modifier
-                                .width(70.dp)
-                                .height(96.dp),
-                            cornerRadius = 6,
-                        )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(96.dp)
-                                .padding(start = 10.dp),
-                        ) {
-                            Text(
-                                text = item.vod_name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Palette.TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = item.episodeName,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Palette.TextSecondary,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                text = "已看 ${fmtTime(item.position)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Palette.Brand,
-                            )
                         }
                     }
                 }

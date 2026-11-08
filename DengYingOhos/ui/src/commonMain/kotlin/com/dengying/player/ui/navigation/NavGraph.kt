@@ -1,8 +1,12 @@
 package com.dengying.player.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -11,6 +15,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
+import com.dengying.player.ui.components.GlassBackdropState
+import com.dengying.player.ui.components.glassBackdrop
 import com.dengying.player.ui.pages.DetailScreen
 import com.dengying.player.ui.pages.FavoritesScreen
 import com.dengying.player.ui.pages.HistoryScreen
@@ -71,19 +77,20 @@ fun DengYingNavHost(
         }
     }
 
-    NavHost(navController = nav, startDestination = Routes.INDEX) {
+    // Liquid Glass 采样根（2026-11-08 二次改版）：整棵导航内容树录制进一张
+    // GraphicsLayer，顶栏/Dock/播放器控制层等玻璃件按位置采样它做实时磨砂。
+    val glassBackdrop = remember { GlassBackdropState() }
+
+    Box(modifier = Modifier.fillMaxSize().glassBackdrop(glassBackdrop)) {
+        NavHost(navController = nav, startDestination = Routes.INDEX) {
 
         composable(Routes.INDEX) {
             IndexScreen(
-                onOpenSearch = { kw ->
-                    com.dengying.player.platform.Log.w("DY/Nav", "open search kw=" + kw)
-                    nav.navigate(Routes.search(kw))
-                },
+                onOpenSearch = { kw -> nav.navigate(Routes.search(kw)) },
                 onOpenFavorites = { nav.navigate(Routes.FAVORITES) },
-                onOpenDetail = { route ->
-                    com.dengying.player.platform.Log.w("DY/Nav", "grid open detail route=" + route)
-                    nav.navigate(route)
-                },
+                onOpenHistory = { nav.navigate(Routes.HISTORY) },
+                onOpenSourceStatus = { nav.navigate(Routes.SOURCE_STATUS) },
+                onOpenDetail = { route -> nav.navigate(route) },
             )
         }
 
@@ -95,10 +102,7 @@ fun DengYingNavHost(
         ) { entry ->
             SearchScreen(
                 onBack = { nav.popBackStack() },
-                onOpenDetail = { route ->
-                    com.dengying.player.platform.Log.w("DY/Nav", "open detail route=" + route)
-                    nav.navigate(route)
-                },
+                onOpenDetail = { route -> nav.navigate(route) },
                 // 从首页榜单点进来的关键词；空串 = 普通进页
                 initialKeyword = entry.arguments?.stringArg("kw") ?: "",
             )
@@ -249,6 +253,7 @@ fun DengYingNavHost(
 
         composable(Routes.SOURCE_STATUS) {
             SourceStatusScreen(onBack = { nav.popBackStack() })
+        }
         }
     }
 }

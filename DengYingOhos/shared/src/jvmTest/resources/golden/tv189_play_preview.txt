@@ -1,0 +1,55 @@
+{
+ "code": 917,
+ "msg": "用户未登录",
+ "title": "八仙！",
+ "isPayUser": 0,
+ "trySeeLength": 300,
+ "fullPlayable": false,
+ "videos": [
+  {
+   "quality": "P300",
+   "qualityName": "高清 480P",
+   "size": 876609536,
+   "length": 8580,
+   "playUrl": "https://vod3.nty.tv189.cn/6/ol/st06/2026/11/05/Q600_8be21071-7ec3-4a37-9680-e3b1b102e8fa.mp4.m3u8?end=300&sign=181e7df562e1f4058cf3264fb2f9a009&qualityCode=815&qualityid=16&version=1&guid=628382a1-5cb5-1aa5-5aa6-1f826dc9dbb2&app=115010310149&cookie=d66a6e9c-7477-4ddd-8e96-effa898d6cc6&session=66221af1e343f7d18ac959e290f05923&uid=0&uname=MTAwMDAwMDAwMDA%3D&time=20261108193842&videotype=2&cid=C47984787&cname=&cateid=&dev=000001&ep=1&os=30&ps=0099&clienttype=undefined%2FWebKit%2FAndroid&appver=1.0.16.1&res=&channelid=01833310&pid=1000000129&orderid=&nid=&cp=&sp=&ip=MjQwODo4MjRlOmIyYTpiYTkxOmRkNGI6OGE5Yzo1ODg1OmNjYzM%3D&ipSign=513ee4cc659094c1eb98c1909bb022c5&cdntoken=api_6af05f42dd2fd&a=hF01rJhgz8ksp7KxbupWAxegkJCQT5COyAiIRB2B9EvJHnO%2FfSG8qNqfvijtaCY%2B&pvv=&t=6af09782&cf=tx&s2=b9a9a6aaf193773050af35f17a4f6eaf&playSign=8abb6e8f1f2be4f949658992d006c72e",
+   "isPreview": true,
+   "previewSeconds": 300
+  },
+  {
+   "quality": "H264-1M",
+   "qualityName": "超清 720P",
+   "size": 1331439861,
+   "length": 8580,
+   "playUrl": "https://vod3.nty.tv189.cn/6/ol/st06/2026/11/05/Q1M_ff42a420-ce55-413f-85b7-26799ee316e0.mp4.m3u8?end=300&sign=309e4fa37eaf6fd19df4da0be27d0c6c&qualityCode=1239&qualityid=4096&version=1&guid=628382a1-5cb5-1aa5-5aa6-1f826dc9dbb2&app=115010310149&cookie=d66a6e9c-7477-4ddd-8e96-effa898d6cc6&session=66221af1e343f7d18ac959e290f05923&uid=0&uname=MTAwMDAwMDAwMDA%3D&time=20261108193842&videotype=2&cid=C47984787&cname=&cateid=&dev=000001&ep=1&os=30&ps=0099&clienttype=undefined%2FWebKit%2FAndroid&appver=1.0.16.1&res=&channelid=01833310&pid=1000000129&orderid=&nid=&cp=&sp=&ip=MjQwODo4MjRlOmIyYTpiYTkxOmRkNGI6OGE5Yzo1ODg1OmNjYzM%3D&ipSign=513ee4cc659094c1eb98c1909bb022c5&cdntoken=api_6af05f42dd2fd&a=hF01rJhgz8ksp7KxbupWAxegkJCQT5COyAiIRB2B9EvJHnO%2FfSG8qNqfvijtaCY%2B&pvv=&t=6af09782&cf=tx&s2=c0cd545259fe5b3ce59e2cd3c9b56f97&playSign=8abb6e8f1f2be4f949658992d006c72e",
+   "isPreview": true,
+   "previewSeconds": 300
+  },
+  {
+   "quality": "H264-2M",
+   "qualityName": "蓝光 1080P",
+   "size": -1943472702,
+   "length": 8580,
+   "playUrl": "https://vod3.nty.tv189.cn/6/ol/st06/2026/11/05/Q4M_1d24f9c1-af9b-4cce-a81c-0cffeb0a0a79.mp4.m3u8?end=300&sign=202385833b06b27487631b7cdf03de27&qualityCode=2193&qualityid=1024&version=1&guid=628382a1-5cb5-1aa5-5aa6-1f826dc9dbb2&app=115010310149&cookie=d66a6e9c-7477-4ddd-8e96-effa898d6cc6&session=66221af1e343f7d18ac959e290f05923&uid=0&uname=MTAwMDAwMDAwMDA%3D&time=20261108193842&videotype=2&cid=C47984787&cname=&cateid=&dev=000001&ep=1&os=30&ps=0099&clienttype=undefined%2FWebKit%2FAndroid&appver=1.0.16.1&res=&channelid=01833310&pid=1000000129&orderid=&nid=&cp=&sp=&ip=MjQwODo4MjRlOmIyYTpiYTkxOmRkNGI6OGE5Yzo1ODg1OmNjYzM%3D&ipSign=513ee4cc659094c1eb98c1909bb022c5&cdntoken=api_6af05f42dd2fd&a=hF01rJhgz8ksp7KxbupWAxegkJCQT5COyAiIRB2B9EvJHnO%2FfSG8qNqfvijtaCY%2B&pvv=&t=6af09782&cf=tx&s2=79c61633e1e6883a0d35100a49ab196c&playSign=8abb6e8f1f2be4f949658992d006c72e",
+   "isPreview": true,
+   "previewSeconds": 300
+  },
+  {
+   "quality": "H264-4M-1k",
+   "qualityName": "原画 1080P+",
+   "size": 322122547,
+   "length": 8580,
+   "playUrl": "https://vod3.nty.tv189.cn/6/ol/st06/2026/11/05/Q1080P4MF_fc9ab21a-61ee-482a-bb2a-dffc0d5e59d4.mp4.m3u8?end=300&sign=40618e559801cb713ce2a96f302cf299&qualityCode=4295&qualityid=11024&version=1&guid=628382a1-5cb5-1aa5-5aa6-1f826dc9dbb2&app=115010310149&cookie=d66a6e9c-7477-4ddd-8e96-effa898d6cc6&session=66221af1e343f7d18ac959e290f05923&uid=0&uname=MTAwMDAwMDAwMDA%3D&time=20261108193842&videotype=2&cid=C47984787&cname=&cateid=&dev=000001&ep=1&os=30&ps=0099&clienttype=undefined%2FWebKit%2FAndroid&appver=1.0.16.1&res=&channelid=01833310&pid=1000000129&orderid=&nid=&cp=&sp=&ip=MjQwODo4MjRlOmIyYTpiYTkxOmRkNGI6OGE5Yzo1ODg1OmNjYzM%3D&ipSign=513ee4cc659094c1eb98c1909bb022c5&cdntoken=api_6af05f42dd2fd&a=hF01rJhgz8ksp7KxbupWAxegkJCQT5COyAiIRB2B9EvJHnO%2FfSG8qNqfvijtaCY%2B&pvv=&t=6af09782&cf=tx&s2=32d2f6b1f973f96c666c6b84be59fece&playSign=8abb6e8f1f2be4f949658992d006c72e",
+   "isPreview": true,
+   "previewSeconds": 300
+  },
+  {
+   "quality": "H264-8M-4k",
+   "qualityName": "奢享影音",
+   "size": -118111601,
+   "length": 8580,
+   "playUrl": "https://vod3.nty.tv189.cn/6/ol/st06/2026/11/05/Q4K8MF_c56531e4-149f-4b4b-b313-ace90369eb5c.mp4.m3u8?end=300&sign=72327edfc4cdcb7cc0354808a764b258&qualityCode=7881&qualityid=12048&version=1&guid=628382a1-5cb5-1aa5-5aa6-1f826dc9dbb2&app=115010310149&cookie=d66a6e9c-7477-4ddd-8e96-effa898d6cc6&session=66221af1e343f7d18ac959e290f05923&uid=0&uname=MTAwMDAwMDAwMDA%3D&time=20261108193842&videotype=2&cid=C47984787&cname=&cateid=&dev=000001&ep=1&os=30&ps=0099&clienttype=undefined%2FWebKit%2FAndroid&appver=1.0.16.1&res=&channelid=01833310&pid=1000000129&orderid=&nid=&cp=&sp=&ip=MjQwODo4MjRlOmIyYTpiYTkxOmRkNGI6OGE5Yzo1ODg1OmNjYzM%3D&ipSign=513ee4cc659094c1eb98c1909bb022c5&cdntoken=api_6af05f42dd2fd&a=hF01rJhgz8ksp7KxbupWAxegkJCQT5COyAiIRB2B9EvJHnO%2FfSG8qNqfvijtaCY%2B&pvv=&t=6af09782&cf=tx&s2=439c2307ec06c45c7116bb3fc762861c&playSign=8abb6e8f1f2be4f949658992d006c72e",
+   "isPreview": true,
+   "previewSeconds": 300
+  }
+ ]
+}

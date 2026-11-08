@@ -116,6 +116,17 @@ class DetailViewModel(
     /** detail-content 只在整个 VM 生命周期里打一次（缓存命中 + 网络回来会写两遍 state） */
     private var contentShown = false
 
+    // 【内嵌位状态 = 会话状态】单会话架构：session 是唯一事实源，
+    // 内嵌位与全屏页都从它读。
+    //
+    // 【声明顺序是硬约束】init 块里的 session collect（见下）会读写本属性——
+    // Kotlin 属性按声明顺序初始化，本声明若放在 init 之后，播放中的会话在
+    // 构造期同步发来首帧（hasSession=true 不过滤）时，mutableStateOf 的
+    // delegate 还是 null → NPE 崩详情页（真机 20:26 实录：播放中退出再点
+    // 海报必现）。必须先于 init。
+    var inlineState by mutableStateOf(InlineState())
+        private set
+
     init {
         loadDetail()
         // 【内嵌位状态 = 会话状态】单会话架构：session 是唯一事实源，
@@ -498,9 +509,6 @@ class DetailViewModel(
     private var preResolved: Pair<String, String>? = null
     private var preResolving = false
     private var preResolveIdx = -1
-
-    var inlineState by mutableStateOf(InlineState())
-        private set
 
     /** 内嵌播放的当前集真实序号（切全屏时带过去） */
     private var inlineEpisodeIndex = 0

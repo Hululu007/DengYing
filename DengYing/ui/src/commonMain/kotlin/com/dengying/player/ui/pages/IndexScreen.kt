@@ -1011,7 +1011,7 @@ private fun DiscoverPane(
             vodId = items[idx].vod_id,
             vodName = items[idx].vod_name ?: "",
             episodeIndex = 0,
-            ioDispatcher = kotlinx.coroutines.Dispatchers.IO,
+            ioDispatcher = com.dengying.player.platform.ioDispatcher,
             altLimit = 3, // 发现页批量预解析：候选只试 3 个，防出网闸拥塞
             // 批量预解析不走"先播试看再热升级"：这里在后台等全片更划算——
             // 缓存里直接是全片，中心项落定时起播零等待（用户看不见）。

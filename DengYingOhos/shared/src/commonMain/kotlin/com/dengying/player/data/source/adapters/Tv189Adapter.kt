@@ -3,6 +3,8 @@ package com.dengying.player.data.source.adapters
 import com.dengying.player.core.CmsClass
 import com.dengying.player.core.CmsSource
 import com.dengying.player.core.FetchResult
+import com.dengying.player.core.HomeSection
+import com.dengying.player.core.HomeTab
 import com.dengying.player.core.PlayResolveResult
 import com.dengying.player.core.VideoItem
 import com.dengying.player.data.net.HttpClient
@@ -17,6 +19,8 @@ import com.dengying.player.platform.TimeFormat
  * dashixiong-reverse/docs/07-视频接口(安卓鸿蒙通用).md）：
  *   分类表   静态映射（DengYing 分类名 → tv189 categoryId），不发请求
  *   分类列表 GET /bff/apis/content/programsearch?categoryId=&productId=&pno=&psize=
+ *   关键词搜索 GET /bff/apis/content/keywordSearchCtyun?keyword=&pno=&psize=&comeFrom=
+ *   首页版块 GET /bff/apis/layout/jsondata?path=/clt4/...（服务端编排首页）
  *   详情分集 GET /bff/apis/content/vodmix/{contentId}
  *   换播放链 GET /bff/apis/content/authPlayVod?contentId=&isTryLook=1（必须带签名）
  *
@@ -24,9 +28,9 @@ import com.dengying.player.platform.TimeFormat
  * secret 为空串 → **无密钥，客户端可自行生成**。cltrid 为随机 UUID。
  *
  * 【为什么列表固定带 productId=1000000218】见 [Tv189Parser.FREE_PRODUCT_ID] 注释。
- * 【为什么搜索不参与】programsearch 的 keyword 参数实测无效（传任何词都返回
- * 全量 total=11857，疑似真搜索在未开放的 AI 接口）——caps.search=false，
- * 聚合搜索自动跳过本源。
+ * 【搜索只搜自营库】programsearch 的 keyword 参数实测无效（传任何词都返回全量）；
+ * 真搜索走 keywordSearchCtyun，固定 `comeFrom=NEW_CPMS` 只搜自营免费可播库——
+ * 全库模式会混入爱奇艺外采（AQY）条目，authPlayVod 对其返回 6201 无版权播不了。
  * 【id 映射】tv189 的 contentId 是 "C47919262" 形式字符串，而 [VideoItem.vod_id]
  * 是 Long——取 C 后的数字部分存 vod_id，完整 contentId 存 vod_uri（与 slug 型
  * 源同一手法），详情/换链一律优先用 vod_uri 寻址。
@@ -47,15 +51,24 @@ object Tv189Adapter {
 
     /** programsearch 每页条数（原实现硬编码 20，pageCount 也按 20 计算） */
     private const val PAGE_SIZE = 20
+    /**
+     * 天翼 H5 的移动端 UA。
+     *
+     * 【为什么显式带 UA】`jsondata` 入口被 WAF 按 UA 拦截：桌面 Chrome UA
+     * 直接回 403 挑战页（2026-11-08 实测），移动端 UA（真机 App 同款）放行。
+     * 统一给本源全部请求带上，与其余端点行为口径一致。
+     */
+    private val UA_HEADERS = mapOf(
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 16; V2419A) AppleWebKit/537.36",
+    )
 
     private fun enc(s: String): String =
         UrlCodec.encode(s)
 
     /**
      * 组带签名的完整 URL。签名值不 URL 编码（qs.stringify encode:false），
-     * 本源全部参数值都是 ASCII（id/数字），无编码歧义。
-     *
-     * 签名原文由 [Tv189Parser.signRaw] 计算（纯函数，可单测）。
+     * 签名原文用**未编码**的值；查询串里的值再经 [enc] 编码——中文关键词
+     * （搜索）与带斜杠的 path（jsondata）靠这一步安全上线。
      */
     /**
      * 生成 UUID v4 形态的请求 id（8-4-4-4-12 小写十六进制）。
@@ -102,9 +115,59 @@ object Tv189Adapter {
                 "psize" to PAGE_SIZE.toString(),
             ),
         )
-        val r = HttpClient.get(url, null, CONNECT_MS, READ_MS)
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
         if (r.status != 200) return Tv189Parser.failed(source, page, "HTTP ${r.status}")
         return Tv189Parser.parseList(source, r.body, page)
+    }
+
+    /**
+     * 关键词搜索（keywordSearchCtyun，2026-11-08 实测打通）。
+     *
+     * 聚合搜索是单页模型（[com.dengying.player.data.source.SourceRepository.search]
+     * 无 page 参数），固定 pno=1。
+     */
+    suspend fun search(source: CmsSource, keyword: String): FetchResult {
+        val kw = keyword.trim()
+        if (kw.isEmpty()) return Tv189Parser.failed(source, 1, "关键词为空")
+        val url = signedUrl(
+            source, "/bff/apis/content/keywordSearchCtyun",
+            mapOf(
+                "keyword" to kw,
+                "pno" to "1",
+                "psize" to PAGE_SIZE.toString(),
+                "comeFrom" to Tv189Parser.SEARCH_COME_FROM,
+            ),
+        )
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
+        if (r.status != 200) return Tv189Parser.failed(source, 1, "HTTP ${r.status}")
+        return Tv189Parser.parseSearch(source, r.body, 1)
+    }
+
+    /**
+     * 首页导航 tab（jsondata）：返回各 tab 的名字与版块数据 path。
+     *
+     * 【签名必须带】2026-11-08 模拟器联调实测：jsondata 无签名会拿到 WAF
+     * 挑战页（HTTP 200 但 body 非 JSON），解析层直接失败——此前"无签名也能过"
+     * 的判断来自带签名的抓包回放，不成立。与其它业务接口统一走签名路径。
+     * 另：真实入口是 `content/jsondata`（doc07 §2.1.1；layout 前缀 404）。
+     */
+    suspend fun homeTabs(source: CmsSource): List<HomeTab> {
+        val url = signedUrl(
+            source, "/bff/apis/content/jsondata",
+            mapOf("path" to Tv189Parser.NAV_PATH),
+        )
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
+        if (r.status != 200) return emptyList()
+        return Tv189Parser.parseNavTabs(r.body)
+    }
+
+    /** 首页版块（jsondata）：某 tab path 下的横滑版块列表（外链型条目已在解析层滤掉） */
+    suspend fun homeSections(source: CmsSource, path: String): List<HomeSection> {
+        if (path.isEmpty()) return emptyList()
+        val url = signedUrl(source, "/bff/apis/content/jsondata", mapOf("path" to path))
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
+        if (r.status != 200) return emptyList()
+        return Tv189Parser.parseSections(source, r.body)
     }
 
     /**
@@ -114,7 +177,7 @@ object Tv189Adapter {
     suspend fun detail(source: CmsSource, vodId: Long, vodUri: String): VideoItem? {
         val cid = vodUri.ifEmpty { "C$vodId" }
         val url = signedUrl(source, "/bff/apis/content/vodmix/$cid", emptyMap())
-        val r = HttpClient.get(url, null, CONNECT_MS, READ_MS)
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
         if (r.status != 200) return null
         return Tv189Parser.parseDetail(source, r.body, vodId, vodUri)
     }
@@ -135,7 +198,7 @@ object Tv189Adapter {
             source, "/bff/apis/content/authPlayVod",
             mapOf("contentId" to cid, "isTryLook" to "1"),
         )
-        val r = HttpClient.get(url, null, CONNECT_MS, READ_MS)
+        val r = HttpClient.get(url, UA_HEADERS, CONNECT_MS, READ_MS)
         if (r.status != 200) return PlayResolveResult()
         return Tv189Parser.parsePlay(r.body)
     }

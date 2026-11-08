@@ -140,6 +140,7 @@ class AvPlayerEngine : PlayerEngine {
         lastDurationMs = 0L
         lastVideoW = 0
         lastVideoH = 0
+        currentUrl = url
 
         player.replaceCurrentItemWithPlayerItem(AVPlayerItem(uRL = nsUrl))
         if (startPositionMs > 0) {
@@ -170,6 +171,7 @@ class AvPlayerEngine : PlayerEngine {
 
     override fun release() {
         player.pause()
+        currentUrl = null
         timeObserver?.let { player.removeTimeObserver(it) }
         timeObserver = null
         endObserver?.let { NSNotificationCenter.defaultCenter.removeObserver(it) }
@@ -189,6 +191,9 @@ class AvPlayerEngine : PlayerEngine {
 
     override val isPlaying: Boolean
         get() = player.rate != 0f
+
+    override var currentUrl: String? = null
+        private set
 
     override fun addListener(listener: PlayerListener) {
         if (!listeners.contains(listener)) listeners.add(listener)

@@ -24,21 +24,13 @@ import kotlin.experimental.ExperimentalNativeApi
  *
  * 【为什么先 installOhosUiDeps()】各 Screen 的首个组合就调 `UiDepsHolder.get()`，
  * 注入晚一步即启动期崩溃。
- *
- * 【调试开关】`DENGY_SPIKE_UI=true` 时只画 SpikeScreen（最小可渲染面），
- * 用于把「渲染链路坏了」与「页面逻辑抛异常」两类问题分开——真机排障的常用手法。
  */
-private const val DENGY_SPIKE_UI = false
 
 @CName("MainArkUIViewController")
 fun mainArkUIViewController(env: napi_env): napi_value {
     initMainHandler(env)
     installOhosUiDeps()
     return ComposeArkUIViewController(env) {
-        if (DENGY_SPIKE_UI) {
-            com.dengying.player.ui.spike.SpikeScreen()
-        } else {
-            DengYingTheme { DengYingNavHost() }
-        }
+        DengYingTheme { DengYingNavHost() }
     }
 }

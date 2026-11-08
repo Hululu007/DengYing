@@ -39,7 +39,7 @@ enum class SourceProtocol {
     /** 山楂4k：RSA 加密体 */
     Shanzha,
 
-    /** 天翼视讯：h5.tv189.com BFF 接口，无密钥 MD5 签名（分类/详情/换链，无搜索） */
+    /** 天翼视讯：h5.tv189.com BFF 接口，无密钥 MD5 签名（搜索/分类/详情/换链/首页版块） */
     Tv189,
 }
 
@@ -53,6 +53,12 @@ data class SourceCaps(
     val detail: Boolean,
     /** 播放地址是 token，必须经适配器二次换取（`direct == false` 的语义来源） */
     val token: Boolean,
+    /**
+     * 支持服务端编排首页（jsondata 类接口：导航 tab + 版块流）。
+     * 目前仅 tv189 有此能力（2026-11-08 实测打通）；默认 false，
+     * 既有构造点全部免改。
+     */
+    val home: Boolean = false,
 )
 
 /** CMS 全能力 */
@@ -95,6 +101,12 @@ data class PlayResolveResult(
     val url: String = "",
     /** 播放该地址需要的自定义请求头（JSON 串），无则空串 */
     val headers: String = "",
+    /**
+     * 试看链标记：地址能播但只是片段（如 tv189 免登录的 `end=300` 授权链，
+     * 全片 143 分钟只给 300 秒）。resolvePlayChain 见此标记会**先跨源找全片**，
+     * 找不到才回落这条试看链。
+     */
+    val previewOnly: Boolean = false,
 )
 
 // ---------------- HTML 抓取规则 ----------------

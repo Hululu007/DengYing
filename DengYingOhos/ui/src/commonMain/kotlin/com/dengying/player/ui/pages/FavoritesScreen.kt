@@ -28,6 +28,7 @@ import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.EmptyView
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
@@ -118,52 +119,60 @@ fun FavoritesScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(s.list, key = { "${it.vod_id}_${it.source}" }) { item ->
-                    Row(
+                    GlassSurface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Palette.CardBg, RoundedCornerShape(10.dp))
-                            .clickable {
-                                onOpenDetail(
-                                    Routes.detail(
-                                        vodId = item.vod_id,
-                                        source = item.source,
-                                        name = item.vod_name,
-                                        pic = item.vod_pic,
-                                        vodUri = item.vod_uri ?: "",
+                            .padding(vertical = 2.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = 6.dp,
+                        liquid = false,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onOpenDetail(
+                                        Routes.detail(
+                                            vodId = item.vod_id,
+                                            source = item.source,
+                                            name = item.vod_name,
+                                            pic = item.vod_pic,
+                                            vodUri = item.vod_uri ?: "",
+                                        )
                                     )
+                                }
+                                .padding(10.dp),
+                        ) {
+                            Poster(
+                                url = item.vod_pic,
+                                modifier = Modifier
+                                    .width(70.dp)
+                                    .height(96.dp),
+                                cornerRadius = 6,
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(96.dp)
+                                    .padding(start = 10.dp),
+                            ) {
+                                Text(
+                                    text = item.vod_name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Palette.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Text(
+                                    text = "取消收藏",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Palette.Danger,
+                                    modifier = Modifier
+                                        .clickable { vm.remove(item) }
+                                        .padding(vertical = 10.dp),
                                 )
                             }
-                            .padding(10.dp),
-                    ) {
-                        Poster(
-                            url = item.vod_pic,
-                            modifier = Modifier
-                                .width(70.dp)
-                                .height(96.dp),
-                            cornerRadius = 6,
-                        )
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(96.dp)
-                                .padding(start = 10.dp),
-                        ) {
-                            Text(
-                                text = item.vod_name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Palette.TextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                text = "取消收藏",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Palette.Danger,
-                                modifier = Modifier
-                                    .clickable { vm.remove(item) }
-                                    .padding(vertical = 10.dp),
-                            )
                         }
                     }
                 }

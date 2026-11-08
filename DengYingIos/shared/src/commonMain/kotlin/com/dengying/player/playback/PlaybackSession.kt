@@ -64,6 +64,8 @@ object PlaybackSession {
         val totalTime: Long = 0,
         val buffering: Boolean = false,
         val errMsg: String = "",
+        /** 【v5.6 试看标记】tv189 免登录试看链（end=300）且跨源未救回全片——UI 打"试看"角标 */
+        val isPreview: Boolean = false,
     ) {
         /** 是否存在可恢复的会话（详情页内嵌位据此决定恢复还是空态） */
         val hasSession: Boolean get() = url.isNotEmpty() && status != Status.Idle
@@ -165,6 +167,7 @@ object PlaybackSession {
                 // 1) 地址解析：优先用预解析结果；否则走解析链（含换源兜底）
                 var url = preResolved ?: ""
                 var headers = preHeaders
+                var previewOnly = false
                 if (url.isEmpty()) {
                     val resolved = resolveChain(repo, rawUrl, source, vodId, altUrls)
                     if (resolved == null) {
@@ -174,8 +177,14 @@ object PlaybackSession {
                         )
                         return@launch
                     }
-                    url = resolved.first
-                    headers = resolved.second
+                    url = resolved.url
+                    headers = resolved.headers
+                    previewOnly = resolved.previewOnly
+                } else if (url.contains("end=300")) {
+                    // 【预解析路径的试看兜底】预解析（详情页后台）拿到的若仍是 tv189
+                    // end=300 试看授权链，解析链没参与、previewOnly 信号丢失——
+                    // 用 URL 特征补判（全片链 end=总时长秒数，恰好 300s 的片极少）。
+                    previewOnly = true
                 }
 
                 // 2) SEC-005：进入网络层前校验
@@ -204,8 +213,57 @@ object PlaybackSession {
                     headers = headers,
                     status = if (preserveSettledState) previousStatus else Status.Buffering,
                     buffering = !preserveSettledState,
+                    isPreview = previewOnly,
                 )
                 eng.play()
+
+                // 【试看热升级】试看链已让用户看得到（毫秒级起播），全片搜索
+                // 继续在后台跑；找到就**原位换源**（保留当前播放位置），用户只会
+                // 看到一次极短的缓冲，而不是在半途撞上 5 分钟上限。
+                //
+                // 为什么不在上面阻塞等（旧实现 6s→12s）：冷启动首次点片时详情页
+                // 预取刚发起、跨源搜索还在途，等满预算仍可能空手回落试看，且用户
+                // 全程对着黑屏转圈。先播再换，起播延迟与搜索耗时彻底解耦。
+                //
+                // 预算 20s：这是"后台升级"，慢一点无妨，覆盖降级轮（最多 3 轮）。
+                if (previewOnly) {
+                    val previewUrl = url
+                    scope.launch {
+                        val alt = runCatching {
+                            kotlinx.coroutines.withTimeoutOrNull(20_000) {
+                                findFullSource(
+                                    repo = repo,
+                                    source = source,
+                                    vodName = vodName,
+                                    episodeIndex = episodeIndex,
+                                    ioDispatcher = ioDispatcher,
+                                    // 后台升级不必试全部候选：先成功的那个立刻换上去，
+                                    // 少试几个就能少占出网位（详情页可能正在并发预取）
+                                    altLimit = 4,
+                                )
+                            }
+                        }.getOrNull() ?: return@launch
+                        // 期间用户可能换片/换集/离开/自己换了线路——只在仍播着
+                        // 这条试看链时才升级（否则会把用户刚选的片顶掉）。
+                        if (_state.value.url != previewUrl) return@launch
+                        val pos = engine?.currentPosition ?: 0L
+                        PlaybackProbe.note(
+                            "session-preview-upgrade",
+                            "pos=$pos len=${alt.first.length}",
+                        )
+                        val e2 = ensureEngine()
+                        e2.setMedia(alt.first, alt.second, pos)
+                        lastSetUrl = alt.first
+                        _state.value = _state.value.copy(
+                            url = alt.first,
+                            headers = alt.second,
+                            isPreview = false,
+                            status = Status.Buffering,
+                            buffering = true,
+                        )
+                        e2.play()
+                    }
+                }
             } catch (e: Exception) {
                 PlaybackProbe.note("session-play-fail", "${e::class.simpleName}: ${e.message?.take(100)}")
                 _state.value = _state.value.copy(
@@ -276,59 +334,15 @@ object PlaybackSession {
         source: String,
         vodId: Long,
         altUrls: List<String>,
-    ): Pair<String, String>? {
-        val src = com.dengying.player.core.CmsSources.byKey(source)
-        var url = raw
-        var headers = ""
-
-        // token 型源先换链
-        if (src != null && src.caps.token) {
-            val r = repo.resolveSourcePlay(src, vodId, raw, "")
-            if (r.url.isNotEmpty()) {
-                url = r.url
-                headers = r.headers
-            }
-        }
-
-        // 分享页解析
-        if (headers.isEmpty()) {
-            val outcome = HlsUtil.resolvePlayUrlOrFail(url)
-            if (outcome.resolved) {
-                return outcome.url to ""
-            }
-        } else {
-            return url to headers
-        }
-
-        // 换源兜底：**并发**试候选，谁先成功用谁（真机：串行 5 候选要十几秒）
-        PlaybackProbe.note("session-switch-source")
-        val vodName = _state.value.vodName
-        if (vodName.isEmpty()) return null
-        val alts = repo.findAltSources(repo.allSources(), source, vodName)
-        kotlinx.coroutines.coroutineScope {
-            val deferred = alts.map { alt ->
-                // coroutineScope 接收者上的 async：候选随作用域自动取消
-                async(ioDispatcher) {
-                    val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
-                        ?: return@async null
-                    val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, _state.value.episodeIndex)
-                    if (u.isEmpty()) return@async null
-                    val oc = HlsUtil.resolvePlayUrlOrFail(u)
-                    if (!oc.resolved) null else oc.url to ""
-                }
-            }
-            for (d in deferred) {
-                val r = runCatching { d.await() }.getOrNull()
-                if (r != null) {
-                    deferred.forEach { if (it.isActive) it.cancel() }
-                    return@coroutineScope r
-                }
-            }
-            null
-        }?.let { return it }
-
-        return null
-    }
+    ): PlayChainResult? = resolvePlayChain(
+        repo = repo,
+        raw = raw,
+        source = source,
+        vodId = vodId,
+        vodName = _state.value.vodName,
+        episodeIndex = _state.value.episodeIndex,
+        ioDispatcher = ioDispatcher,
+    )
 
     fun pause() {
         PlaybackProbe.note("session-pause")
@@ -444,4 +458,158 @@ object PlaybackSession {
             override fun onVideoSize(width: Int, height: Int) {}
         })
     }
+}
+
+/**
+ * 播放地址解析链（**全应用唯一入口**）：token 换链 → （试看链先跨源找全片）→
+ * 分享页解析 → （失败）跨源换线。
+ *
+ * 【为什么是 top-level】内嵌自动播放（发现页）与全屏会话需要同一条解析语义——
+ *  tv189 VIP 片换链拿不到试看流时，跨源兜底（同名资源换源）往往能救回来；
+ *  任何页面自己另写解析都会出现「详情能播、发现页说看不了」的分裂（§16.45 实录）。
+ *  [PlaybackSession.resolveChain] 是本函数的会话侧薄壳（取会话状态做参数）。
+ *
+ * 【试看链语义】tv189 免登录返回 `end=300` 的试看授权链（previewOnly=true）时，
+ *  先跨源找同名全片——找到播全片，所有源都没有才回落试看链（300 秒好过黑屏）。
+ *
+ * @param vodName 跨源换线需要片名查同名资源；为空则跳过换源兜底
+ * @param episodeIndex 换源时取候选源的同一集
+ */
+/**
+ * 播放链解析结果。[previewOnly] = tv189 免登录试看链（end=300）回落——跨源没
+ * 救回全片时 UI 据此打「试看」角标，不再默默只给 5 分钟（用户反馈 #1）。
+ */
+class PlayChainResult(val url: String, val headers: String, val previewOnly: Boolean)
+
+/**
+ * 跨源找同名片的**全片**直链：**并发**试候选，谁先成功用谁
+ * （真机：串行 5 候选要十几秒）。
+ *
+ * 抽成顶层函数是因为两个入口都要用：
+ * 1. 解析链里的试看分支（[resolvePlayChain]，`waitForFullSource = true` 时）；
+ * 2. 播放会话的**后台热升级**（试看已起播，随后换全片）。
+ */
+suspend fun findFullSource(
+    repo: com.dengying.player.data.source.SourceRepository,
+    source: String,
+    vodName: String,
+    episodeIndex: Int,
+    ioDispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    altLimit: Int = Int.MAX_VALUE,
+): Pair<String, String>? {
+    PlaybackProbe.note("session-switch-source")
+    if (vodName.isEmpty()) return null
+    val alts = repo.findAltSources(repo.allSources(), source, vodName).take(altLimit)
+    return kotlinx.coroutines.coroutineScope {
+        val deferred = alts.map { alt ->
+            // coroutineScope 接收者上的 async：候选随作用域自动取消
+            async(ioDispatcher) {
+                val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
+                    ?: return@async null
+                val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, episodeIndex)
+                if (u.isEmpty()) return@async null
+                val oc = HlsUtil.resolvePlayUrlOrFail(u)
+                if (!oc.resolved) null else oc.url to ""
+            }
+        }
+        for (d in deferred) {
+            val r = runCatching { d.await() }.getOrNull()
+            if (r != null) {
+                deferred.forEach { if (it.isActive) it.cancel() }
+                return@coroutineScope r
+            }
+        }
+        null
+    }
+}
+
+suspend fun resolvePlayChain(
+    repo: com.dengying.player.data.source.SourceRepository,
+    raw: String,
+    source: String,
+    vodId: Long,
+    vodName: String,
+    episodeIndex: Int,
+    ioDispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    /**
+     * 换源兜底最多试几个候选。详情页保持全量（默认）；发现页传小值——
+     * 它是**批量预解析**场景，跨源搜索一条就要 1-3s，全量候选会把
+     * 出网闸（OUTBOUND_LIMIT=6）堵死，中心项的起播延迟被拉到 10s 级。
+     */
+    altLimit: Int = Int.MAX_VALUE,
+    /**
+     * 试看链时是否**在这里等**跨源全片（阻塞语义）。
+     *
+     * - `false`（默认，用户等着起播的场景）：立刻返回试看链，由
+     *   [PlaybackSession.play] 后台热升级——起播延迟与跨源搜索彻底解耦。
+     * - `true`（批量预解析场景，如发现页）：在这里等到全片（有预算），
+     *   缓存里直接是全片，后续起播零等待。
+     */
+    waitForFullSource: Boolean = false,
+): PlayChainResult? {
+    val src = com.dengying.player.core.CmsSources.byKey(source)
+    var url = raw
+    var headers = ""
+    var previewUrl = ""
+
+    // token 型源先换链
+    if (src != null && src.caps.token) {
+        val r = repo.resolveSourcePlay(src, vodId, raw, "")
+        if (r.url.isNotEmpty()) {
+            if (r.previewOnly) {
+                // 【试看链】tv189 免登录只给 end=300 的 CDN 授权（全片 143 分钟只放
+                // 300 秒）。先不急着用它——跨源找全片，找不到才回落（见下）。
+                previewUrl = r.url
+            } else {
+                url = r.url
+                headers = r.headers
+            }
+        }
+    }
+
+    suspend fun tryAltSources(): Pair<String, String>? =
+        findFullSource(repo, source, vodName, episodeIndex, ioDispatcher, altLimit)
+
+    // 试看链：全片优先——跨源找到同名全片就播全片；所有源都没有，回落试看链
+    // （300 秒也好过黑屏）。cdn 链本身就是 m3u8，无需再过分享页解析。
+    //
+    // 【总预算 6 秒】tv189 免登录片几乎全是试看链（首页版块尤甚），这条路径
+    // 是它们的常规起播路——跨源全链（搜候选+逐个试播）最坏要十几秒，用户
+    // 感知"详情页加载变慢"。预算内拿到全片最好，拿不到先给试看链（秒开），
+    // 用户仍可通过详情页"其他资源站"手动换全片线路。
+    if (previewUrl.isNotEmpty()) {
+        // 【先播试看，后台热升级】旧实现在这里**阻塞等**跨源搜索（6s→12s），
+        // 而冷启动首点时详情页预取刚发起、两次搜索还在途，等满预算仍可能空手
+        // → 回落试看，这就是"首次进 app 点海报只有 5 分钟、第二次进就恢复"：
+        // 首次点片撞上在途搜索，播放链等不到；等播放链放弃后那一轮搜索才跑完
+        // 写进缓存，所以第二次点同一片直接全片。
+        //
+        // 现在改成**毫秒级起播**：试看链立刻返回给引擎播，全片搜索在
+        // play() 里作为后台任务继续跑，找到就原位换源（保留播放位置）。
+        // 用户永远看不到"干等转圈"，也基本碰不到 5 分钟上限（搜索通常
+        // 6-12 秒内出结果，远早于 300 秒）。
+        if (waitForFullSource) {
+            // 批量预解析：在这里等到全片（预算内），缓存里直接是全片。
+            val alt = runCatching {
+                kotlinx.coroutines.withTimeoutOrNull(12_000) { tryAltSources() }
+            }.getOrNull()
+            if (alt != null) return PlayChainResult(alt.first, alt.second, previewOnly = false)
+            PlaybackProbe.note("session-preview-fallback")
+            return PlayChainResult(previewUrl, "", previewOnly = true)
+        }
+        PlaybackProbe.note("session-preview-faststart")
+        return PlayChainResult(previewUrl, "", previewOnly = true)
+    }
+
+    // 分享页解析
+    if (headers.isEmpty()) {
+        val outcome = HlsUtil.resolvePlayUrlOrFail(url)
+        if (outcome.resolved) {
+            return PlayChainResult(outcome.url, "", previewOnly = false)
+        }
+    } else {
+        return PlayChainResult(url, headers, previewOnly = false)
+    }
+
+    return tryAltSources()?.let { PlayChainResult(it.first, it.second, previewOnly = false) }
 }

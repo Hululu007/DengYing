@@ -48,6 +48,7 @@ import com.dengying.player.domain.ui.ConfirmSpec
 import com.dengying.player.ui.components.ConfirmDialog
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
@@ -224,7 +225,6 @@ fun SearchScreen(
                 ) {
                     items(s.results, key = { "${it._source}_${it.vod_id}_${it.vod_name}" }) { item ->
                         ResultRow(item) {
-                            com.dengying.player.platform.Log.w("DY/Nav", "row tap id=" + item.vod_id + " name=" + item.vod_name)
                             onOpenDetail(
                                 Routes.detail(
                                     vodId = item.vod_id,
@@ -277,29 +277,34 @@ private fun SuggestBlock(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             for (it in items) {
-                Row(
-                    modifier = Modifier
-                        .background(Palette.CardBg, RoundedCornerShape(16.dp))
-                        .clickable { onClick(it.title) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                GlassSurface(
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = 4.dp,
+                    liquid = false,
                 ) {
-                    Text(
-                        text = it.title,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Palette.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 160.dp),
-                    )
-                    val meta = it.subtitle.ifEmpty { it.year }
-                    if (meta.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .clickable { onClick(it.title) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(
-                            text = meta,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Palette.Brand,
-                            modifier = Modifier.padding(start = 6.dp),
+                            text = it.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 160.dp),
                         )
+                        val meta = it.subtitle.ifEmpty { it.year }
+                        if (meta.isNotEmpty()) {
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Palette.Brand,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -357,32 +362,37 @@ private fun HistoryBlock(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             for (kw in history) {
-                Row(
-                    modifier = Modifier
-                        .background(Palette.CardBg, RoundedCornerShape(16.dp))
-                        .clickable { onClick(kw) }
-                        .padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                GlassSurface(
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = 4.dp,
+                    liquid = false,
                 ) {
-                    Text(
-                        text = kw,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Palette.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(120.dp),
-                    )
-                    // 【原为 "×" 字形】字号只有 bodySmall 时十字很细，热区也小。
-                    // 改矢量图标 + 显式 size，热区由 padding 补足。
-                    DyIcon(
-                        icon = DyIcons.Close,
-                        tint = Palette.TextSecondary,
-                        size = 14.dp,
-                        contentDescription = "删除",
+                    Row(
                         modifier = Modifier
-                            .padding(start = 6.dp)
-                            .clickable { onDelete(kw) },
-                    )
+                            .clickable { onClick(kw) }
+                            .padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = kw,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(120.dp),
+                        )
+                        // 【原为 "×" 字形】字号只有 bodySmall 时十字很细，热区也小。
+                        // 改矢量图标 + 显式 size，热区由 padding 补足。
+                        DyIcon(
+                            icon = DyIcons.Close,
+                            tint = Palette.TextSecondary,
+                            size = 14.dp,
+                            contentDescription = "删除",
+                            modifier = Modifier
+                                .padding(start = 6.dp)
+                                .clickable { onDelete(kw) },
+                        )
+                    }
                 }
             }
         }
@@ -391,13 +401,20 @@ private fun HistoryBlock(
 
 @Composable
 private fun ResultRow(item: VideoItem, onClick: () -> Unit) {
-    Row(
+    GlassSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Palette.CardBg, RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(10.dp),
+            .padding(vertical = 2.dp),
+        shape = RoundedCornerShape(14.dp),
+        elevation = 6.dp,
+        liquid = false,
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(10.dp),
+        ) {
         Poster(
             url = item.vod_pic,
             modifier = Modifier
@@ -456,6 +473,7 @@ private fun ResultRow(item: VideoItem, onClick: () -> Unit) {
                     modifier = Modifier.padding(start = 8.dp),
                 )
             }
+        }
         }
     }
 }

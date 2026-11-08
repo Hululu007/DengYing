@@ -15,19 +15,28 @@ data class RawResponse(
     val status: Int,
     val text: String,
     val bytes: ByteArray,
+    /**
+     * 响应头（头名小写；同名多头用 "; " 拼接）。
+     *
+     * 默认空：现有构造点不用改。只有「登录换 cookie」这类需要读 `set-cookie`
+     * 的调用方才会看它——全量透传响应头不是常态需求，别在上层乱用。
+     */
+    val headers: Map<String, String> = emptyMap(),
 ) {
     // data class 里含 ByteArray 必须手写 equals/hashCode，否则是引用比较。
     // 这里内容比较才有意义（测试会比对同一响应的两次结果）。
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is RawResponse) return false
-        return status == other.status && text == other.text && bytes.contentEquals(other.bytes)
+        return status == other.status && text == other.text && bytes.contentEquals(other.bytes) &&
+            headers == other.headers
     }
 
     override fun hashCode(): Int {
         var result = status
         result = 31 * result + text.hashCode()
         result = 31 * result + bytes.contentHashCode()
+        result = 31 * result + headers.hashCode()
         return result
     }
 }

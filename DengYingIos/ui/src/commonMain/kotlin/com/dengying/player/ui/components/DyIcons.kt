@@ -8,6 +8,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -303,12 +305,53 @@ object DyIcons {
         p.bar(10.2f, 13.8f, 20.2f, 21.6f)                    // 光晕二级
     }
 
+    /** 分类：四宫格（四个圆角块，Material dashboard 造型） */
+    val Grid: DyIcon = icon { p ->
+        val r = CornerRadius(2.2f, 2.2f)
+        listOf(
+            4f to 4f, 13f to 4f, 4f to 13f, 13f to 13f,
+        ).forEach { (x, y) ->
+            p.fill(
+                Path().apply {
+                    addRoundRect(
+                        RoundRect(
+                            rect = Rect(offset = Offset(x, y), size = Size(7f, 7f)),
+                            cornerRadius = r,
+                        ),
+                    )
+                },
+            )
+        }
+    }
+
+    /** 发现：罗盘（外圈 + 东北-西南指针，Material explore 造型） */
+    val Compass: DyIcon = icon { p ->
+        p.ring(12f, 12f, 8.4f, 1.9f)
+        p.fill(
+            Path().apply {
+                moveTo(16.2f, 7.8f); lineTo(13.4f, 13.4f)
+                lineTo(7.8f, 16.2f); lineTo(10.6f, 10.6f)
+                close()
+            },
+        )
+    }
+
+    /** 设置：调节滑杆（三横杆 + 错位环形旋钮，Material tune 造型） */
+    val Sliders: DyIcon = icon { p ->
+        p.bar(4f, 20f, 6f, 8f)
+        p.bar(4f, 20f, 11f, 13f)
+        p.bar(4f, 20f, 16f, 18f)
+        p.ring(15.5f, 7f, 2.6f, 1.7f)
+        p.ring(8f, 12f, 2.6f, 1.7f)
+        p.ring(14f, 17f, 2.6f, 1.7f)
+    }
+
     /** 全部图标（预览/一致性检查用，业务代码不遍历） */
     val all: List<DyIcon> = listOf(
         Play, Pause, SkipPrevious, SkipNext, FastForward, FastRewind,
         Fullscreen, FullscreenExit, Brightness, Volume,
         ArrowBack, Search, Person, Star, StarOutline, Close, ClearAll,
-        Refresh, History, ErrorFace, Lantern,
+        Refresh, History, ErrorFace, Lantern, Grid, Compass,
     )
 }
 

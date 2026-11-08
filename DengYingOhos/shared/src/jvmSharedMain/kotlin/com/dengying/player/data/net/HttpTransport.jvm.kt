@@ -58,6 +58,7 @@ actual object HttpTransport {
         var status = 0
         var text = ""
         var bytes = ByteArray(0)
+        var respHeaders: Map<String, String> = emptyMap()
         try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -75,6 +76,15 @@ actual object HttpTransport {
             }
             val tConn = Clock.nowMs()
             status = conn.responseCode
+            // 响应头小写化后收拢（同名多头 "; " 连接）：登录链路要读 set-cookie
+            respHeaders = try {
+                conn.headerFields.orEmpty()
+                    .filterKeys { it != null }
+                    .mapKeys { (k, _) -> k.lowercase() }
+                    .mapValues { (_, v) -> v.filterNotNull().joinToString("; ") }
+            } catch (e: Exception) {
+                emptyMap()
+            }
             val connectCost = Clock.nowMs() - tConn
             // 2xx 读 inputStream；其余读 errorStream——否则拿不到错误页正文，
             // 也就无法判断"网关劫持页"与"站点改版"的区别
@@ -127,7 +137,7 @@ actual object HttpTransport {
                 // 忽略：断开失败不影响已读到的结果
             }
         }
-        RawResponse(status, text, bytes)
+        RawResponse(status, text, bytes, respHeaders)
     }
 
     /**

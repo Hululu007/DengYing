@@ -15,6 +15,7 @@ import platform.Foundation.NSURLSession
 import platform.Foundation.NSURLSessionConfiguration
 import platform.Foundation.NSURLSessionTask
 import platform.Foundation.NSURLSessionTaskDelegateProtocol
+import platform.Foundation.setValue
 import platform.Foundation.dataTaskWithRequest
 import platform.darwin.NSObject
 import kotlin.coroutines.resume
@@ -49,10 +50,10 @@ actual object PosterFetch {
         val nsUrl = NSURL.URLWithString(url) ?: return null
         val request = NSMutableURLRequest.requestWithURL(nsUrl)
         request.setTimeoutInterval(READ_MS.toDouble() / 1000.0)
+        posterReferer(url)?.let { request.setValue(it, forHTTPHeaderField = "Referer") }
         val config = NSURLSessionConfiguration.ephemeralSessionConfiguration().apply {
             timeoutIntervalForRequest = READ_MS.toDouble() / 1000.0
             timeoutIntervalForResource = (CONNECT_MS + READ_MS).toDouble() / 1000.0
-            posterReferer(url)?.let { HTTPAdditionalHeaders = mapOf("Referer" to it) }
         }
         val delegate = FollowRedirects()
         val session = NSURLSession.sessionWithConfiguration(

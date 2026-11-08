@@ -87,6 +87,23 @@ object BttwoSign {
         hmacSha256Hex(v.encodeToByteArray(), "$dataId:$timestamp:$v".encodeToByteArray()).take(32)
 
     /**
+     * 登录签名 `client_sign`（`POST /api/login` 第 5 个字段）。
+     *
+     * 站点 JS（`bttwo_app_bundle.js` 首行函数 `t`）是 Java 风格 hashCode：
+     * `h = h*31 + c`（32 位溢出折叠），末尾 `format(h, '08x')` 小写 hex。
+     * 用户名要先 trim + 转小写——JS 侧 `username.trim().toLowerCase()`。
+     */
+    fun clientSign(username: String, password: String, clientTs: Long, nonce: String): String =
+        javaHashCode("nbmv_login_v1|$clientTs|${username.trim().lowercase()}|$password|$nonce")
+
+    /** Java `String.hashCode` 的 32 位折叠，转 8 位小写 hex。 */
+    fun javaHashCode(s: String): String {
+        var h = 0L
+        for (c in s) h = ((h shl 5) - h + c.code) and 0xFFFFFFFFL
+        return h.toString(16).padStart(8, '0')
+    }
+
+    /**
      * 拼出完整播放请求 URL。
      *
      * @param host 站点根域（如 `https://www.bttwo.life`），可为空则返回纯路径

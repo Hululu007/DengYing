@@ -93,11 +93,15 @@ object WebAdapter {
             CONNECT_MS, READ_MS,
         )
         if (page.status != 200) return PlayResolveResult()
+        // 两个BT 登录态：播放请求 k 与 cookie 都要带（接口清单 §9.2 实测只带其一 401）。
+        // 本地有登录会话用会话；没有就从播放页响应的 set-cookie 收匿名会话。
+        val playCookie = BttwoAuth.cookieHeader()
+            ?: BttwoAuth.parseSession(page.headers["set-cookie"])?.let { "nbmovie_session=$it" }
 
         // 签名换链型（两个BT）：播放页里取 userlink 与本集 dataid，签名后请求换链接口
         val tokenRule = rule.tokenPlay
         if (tokenRule != null) {
-            signedPlay(source, pageUrl, page.body, tokenRule)?.let { return it }
+            signedPlay(source, pageUrl, page.body, tokenRule, playCookie)?.let { return it }
             return PlayResolveResult()
         }
 
@@ -168,6 +172,7 @@ object WebAdapter {
         pageUrl: String,
         pageBody: String,
         rule: WebTokenPlayRule,
+        cookie: String?,
     ): PlayResolveResult? {
         val dataId = WebParser.dataIdOf(rule, pageBody, pageUrl)
         if (dataId.isEmpty()) return null
@@ -184,15 +189,13 @@ object WebAdapter {
                 userlink = userlink,
             )
         }
-        val r = HttpClient.get(
-            url,
-            mapOf(
-                "User-Agent" to HttpClient.UA_PC,
-                "Referer" to pageUrl,
-                "Accept" to "application/json, text/plain, */*",
-            ),
-            CONNECT_MS, READ_MS,
-        )
+        val reqHeaders = buildMap {
+            put("User-Agent", HttpClient.UA_PC)
+            put("Referer", pageUrl)
+            put("Accept", "application/json, text/plain, */*")
+            if (!cookie.isNullOrEmpty()) put("Cookie", cookie)
+        }
+        val r = HttpClient.get(url, reqHeaders, CONNECT_MS, READ_MS)
         if (r.status != 200) return null
         return WebParser.playFromTokenResponse(rule, r.body)
     }

@@ -24,9 +24,12 @@ import com.dengying.player.core.isSourceHealthy
 import com.dengying.player.core.shouldFailover
 import com.dengying.player.core.toHealthSignal
 import com.dengying.player.core.CmsClass
+import com.dengying.player.core.HomeSection
+import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import com.dengying.player.platform.Clock
 import com.dengying.player.platform.PlatformLock
 import com.dengying.player.platform.ioDispatcher
@@ -194,9 +197,9 @@ class SourceRepository {
             SourceProtocol.Guapi -> GuapiAdapter.search(source, keyword)
             SourceProtocol.Shanzha -> ShanzhaAdapter.search(source, keyword)
             SourceProtocol.Cms -> CmsAdapter.search(source, keyword)
-            // tv189 的 keyword 实测无效（返回全量），caps.search=false 挡在前面；
-            // 此分支只为穷举完备，走到这里即为配置错误
-            SourceProtocol.Tv189 -> unsupported(source, "搜索")
+            // 2026-11-08 起走 keywordSearchCtyun（programsearch.keyword 实测无效，
+            // 已弃用）；comeFrom=NEW_CPMS 只搜自营可播库
+            SourceProtocol.Tv189 -> Tv189Adapter.search(source, keyword)
         }
     }
 
@@ -352,6 +355,31 @@ class SourceRepository {
     private val classLock = PlatformLock()
 
     /**
+     * 跨源候选搜索的进程级缓存（片名归一化 → 候选列表）。
+     *
+     * 详情页预取与播放链兜底（FR-610 试看链全片优先）先后用同一片名调用
+     * [findAltSources]，每次全量并发搜 12+ 源要 2-5 秒——首搜结果缓存复用，
+     * 播放链只剩"试候选"一段。只在搜到非空结果时缓存（失败下次重搜）。
+     */
+    private val altSearchCache = HashMap<String, List<AltCandidate>>()
+    private val inflightAlt = HashMap<String, Deferred<List<AltCandidate>>>()
+    private val altSearchLock = PlatformLock()
+
+    /**
+     * 跨源搜索的**自有**作用域。
+     *
+     * 不能挂在调用方的 `coroutineScope` 上：首个发起者（详情页预取）被导航取消、
+     * 或播放链超时放弃时，共享 async 会跟着被取消 → 后到的调用方 `await()`
+     * 抛 CancellationException → 空候选 → 回落试看。这正是「首次进 app 点海报
+     * 只有 5 分钟、第二次进就恢复」的根因：首次点片撞上预取的在途搜索，
+     * 预取一取消，播放链就拿到空结果；而那轮搜索在别处跑完后写进了缓存，
+     * 所以第二次点同一片直接全片。
+     *
+     * 自有作用域下，任何调用方放弃都不影响搜索结果本身，结果照常落缓存。
+     */
+    private val altScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
      * 分类表**拉取失败**的时间戳（负缓存）。
      *
      * 【为什么需要负缓存】原实现只缓存「拉到的」分类表，拉失败什么都不留。
@@ -450,6 +478,67 @@ class SourceRepository {
             classFailAt.clear()
         }
         classCacheWriter?.invoke(emptyMap())
+    }
+
+    // ---------------- 首页版块缓存（tv189 jsondata） ----------------
+
+    /**
+     * 版块数据的内存 TTL 缓存，key = "源key|path"，TTL 节奏与 [cacheTtl] 一致。
+     *
+     * 【为什么比分类缓存简单】版块请求只在「推荐」页选中某个 tab 时发出，
+     * 不像分类表那样首屏多处并发触发，不需要在途合并；也不落磁盘——
+     * 它是运营位数据（轮播图/推荐位），过期重拉一次即可，缓存它收益很小。
+     * 失败负缓存照旧：WAF 间歇性拦截时不至于每次切 tab 都白等一次超时。
+     */
+    private data class HomeCacheEntry(val tabs: List<HomeTab>, val sections: List<HomeSection>, val time: Long)
+    private val homeCache = HashMap<String, HomeCacheEntry>()
+    private val homeFailAt = HashMap<String, Long>()
+    private val homeLock = PlatformLock()
+
+    /** 导航 tab（内存缓存，无磁盘层；force=true 跳过缓存与负缓存直拉网络） */
+    suspend fun fetchHomeTabs(source: CmsSource, force: Boolean = false): List<HomeTab> {
+        if (!source.caps.home) return emptyList()
+        val now = Clock.nowMs()
+        val key = "${source.key}|"
+        if (!force) {
+            val cached = homeLock.withLock {
+                val e = homeCache[key]
+                if (e != null && now - e.time < cacheTtl && e.tabs.isNotEmpty()) e.tabs else null
+            }
+            if (cached != null) return cached
+        }
+        val tabs = Tv189Adapter.homeTabs(source)
+        homeLock.withLock {
+            if (tabs.isNotEmpty()) homeCache[key] = HomeCacheEntry(tabs, emptyList(), Clock.nowMs())
+            else homeFailAt[key] = Clock.nowMs()
+        }
+        return tabs
+    }
+
+    /** 首页版块（内存 TTL + 失败负缓存；force=true 跳过两者直拉网络） */
+    suspend fun fetchHomeSections(source: CmsSource, path: String, force: Boolean = false): List<HomeSection> {
+        if (!source.caps.home || path.isEmpty()) return emptyList()
+        val key = "${source.key}|$path"
+        val now = Clock.nowMs()
+        if (!force) {
+            val cached = homeLock.withLock {
+                val e = homeCache[key]
+                if (e != null && now - e.time < cacheTtl && e.sections.isNotEmpty()) e.sections else null
+            }
+            if (cached != null) return cached
+            // 负缓存：刚拉失败过的 tab 不再立刻重试（WAF 间歇拦截时不白等超时）
+            val recentlyFailed = homeLock.withLock {
+                val at = homeFailAt[key]
+                at != null && now - at < failTtl
+            }
+            if (recentlyFailed) return emptyList()
+        }
+        val sections = Tv189Adapter.homeSections(source, path)
+        homeLock.withLock {
+            if (sections.isNotEmpty()) homeCache[key] = HomeCacheEntry(emptyList(), sections, Clock.nowMs())
+            else homeFailAt[key] = Clock.nowMs()
+        }
+        return sections
     }
 
     /**
@@ -801,56 +890,115 @@ class SourceRepository {
         sources: List<CmsSource>,
         currentSourceKey: String,
         title: String,
-    ): List<AltCandidate> = coroutineScope {
-        val out = ArrayList<AltCandidate>()
-        val seenSrc = HashSet<String>()
+    ): List<AltCandidate> {
         val norm = title.replace(Regex("[（(].*?[)）]"), "").trim()
-        if (norm.isEmpty()) return@coroutineScope out
-
-        val enabled = sources
-            .filter {
-                isSourceEnabled(it) && it.key != currentSourceKey &&
-                    it.caps.search && it.caps.detail
-            }
-            .sortedWith(compareBy<CmsSource> { it.tier }.thenBy { it.speed })
-
-        val tasks = enabled.map { s ->
-            // 后台档：候选源搜索是「多给几个线选项」，晚到几十毫秒无感，
-            // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
-            async(NetPriority.Background) {
-                val r = try {
-                    search(s, norm)
-                } catch (e: Exception) {
-                    return@async
-                }
-                if (!r.hasData) return@async
-
-                // 找名称最接近的条目（完全相等 > 前缀包含）
-                var best: VideoItem? = null
-                for (it in r.items) {
-                    val n = it.vod_name.replace(Regex("[（(].*?[)）]"), "").trim()
-                    if (n == norm) {
-                        best = it
-                        break
-                    }
-                    if (best == null && (n.startsWith(norm) || norm.startsWith(n))) best = it
-                }
-                if (best != null && !seenSrc.contains(s.key)) {
-                    seenSrc.add(s.key)
-                    out += AltCandidate(s.key, best.vod_id, best.vod_name)
-                }
-            }
+        if (norm.isEmpty()) return emptyList()
+        // 【进程级缓存】详情页预取与播放链兜底会先后用同一片名调本函数——
+        // 每次都是 12+ 源并发搜索（2-5 秒）。tv189 免登录片全部走"跨源找全片"
+        // 路径（v1.2.0 FR-610），播放链每次命中缓存才能把跨源代价压到只剩
+        // "试候选"一段。搜索结果短时稳定，进程内存缓存即可（不落盘）。
+        altSearchLock.withLock { altSearchCache[norm] }?.let { return it }
+        // 【在途合并】详情页预取与播放链兜底几乎同时调用（用户点正片时预取
+        // 往往还在搜）——两路并行各搜 12+ 源白费 2-5 秒还互相挤带宽。后到者
+        // 直接 await 首搜结果。
+        //
+        // 注意：这里只 await、不传自己的 Job——若共享任务被取消（理论上不该再有，
+        // 它跑在 altScope 上），CancellationException 必须吞在这层，不能让它
+        // 冒出去把调用方（播放链/预取）一起取消。
+        altSearchLock.withLock { inflightAlt[norm] }?.let { shared ->
+            return runCatching { shared.await() }.getOrDefault(emptyList())
         }
-        // 【到点就用已有候选，不等最慢的源】
-        //
-        // 原实现 `tasks.awaitAll()` 等**全部**源跑完。真机探针抓到
-        // `alt-sources-loaded elapsed=14824 / 14961 / 14310 / 21741 / 19363`，
-        // 而候选数只有 n=4~15 —— 早在第一两轮就已够用，后面十几秒全在等慢源。
-        //
-        // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
-        // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
-        withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
-        out
+        return coroutineScope {
+            val task = altScope.async {
+
+            // 【搜索词降级链】tv189 运营片名常带「·！：」等符号（杯雪·一战成名、
+            // 八仙！），采集站库存名往往不带或写法不同——首轮原名搜不到就降级
+            // 重搜，是试看片救回率的最大杠杆。缓存 key 固定用原名，命中即含
+            // 降级轮的成果。
+            val variants = LinkedHashSet<String>()
+            variants.add(norm)
+            val stripped = norm.replace(Regex("[·・!！:：、,，]"), " ")
+                .replace(Regex("\\s+"), " ").trim()
+            if (stripped.isNotEmpty() && stripped != norm) variants.add(stripped)
+            val main = norm.substringBefore('·').trim()
+            if (main.length >= 2 && !variants.contains(main)) variants.add(main)
+
+            // 名称比对也走「去符号」清洗：两边写法差异（空格/·）不再致命
+            fun cleanForMatch(s: String) =
+                s.replace(Regex("[·・!！:：、,，\\s]"), "")
+
+            suspend fun searchRound(q: String): ArrayList<AltCandidate> {
+                val out = ArrayList<AltCandidate>()
+                val seenSrc = HashSet<String>()
+                val enabled = sources
+                    .filter {
+                        isSourceEnabled(it) && it.key != currentSourceKey &&
+                            it.caps.search && it.caps.detail
+                    }
+                    .sortedWith(compareBy<CmsSource> { it.tier }.thenBy { it.speed })
+
+                val tasks = enabled.map { s ->
+                    // 后台档：候选源搜索是「多给几个线选项」，晚到几十毫秒无感，
+                    // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
+                    async(NetPriority.Background) {
+                        val r = try {
+                            search(s, q)
+                        } catch (e: Exception) {
+                            return@async
+                        }
+                        if (!r.hasData) return@async
+
+                        // 找名称最接近的条目（完全相等 > 前缀包含；均先去符号清洗）
+                        var best: VideoItem? = null
+                        val qClean = cleanForMatch(q)
+                        for (it in r.items) {
+                            val n = it.vod_name.replace(Regex("[（(].*?[)）]"), "").trim()
+                            if (n == q || cleanForMatch(n) == qClean) {
+                                best = it
+                                break
+                            }
+                            val nClean = cleanForMatch(n)
+                            if (best == null && (
+                                n.startsWith(q) || q.startsWith(n) ||
+                                    nClean.startsWith(qClean) || qClean.startsWith(nClean)
+                                )
+                            ) best = it
+                        }
+                        if (best != null && !seenSrc.contains(s.key)) {
+                            seenSrc.add(s.key)
+                            out += AltCandidate(s.key, best.vod_id, best.vod_name)
+                        }
+                    }
+                }
+                // 【到点就用已有候选，不等最慢的源】
+                //
+                // 原实现 `tasks.awaitAll()` 等**全部**源跑完。真机探针抓到
+                // `alt-sources-loaded elapsed=14824 / 14961 / 14310 / 21741 / 19363`，
+                // 而候选数只有 n=4~15 —— 早在第一两轮就已够用，后面十几秒全在等慢源。
+                //
+                // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
+                // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
+                withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
+                return out
+            }
+
+            // 首轮用原名，零候选才花时间降级（热门片不会进降级轮）
+            var out = ArrayList<AltCandidate>()
+            for (q in variants) {
+                out = searchRound(q)
+                if (out.isNotEmpty()) break
+            }
+            if (out.isNotEmpty()) {
+                altSearchLock.withLock { altSearchCache[norm] = out.toList() }
+            }
+            out
+            }
+            altSearchLock.withLock { inflightAlt[norm] = task }
+            // 任务自己收尾（完成/失败/取消都摘牌）：调用方中途放弃时不要把还在
+            // 跑的任务从表里删掉——后面的调用方还要 await 同一份结果。
+            task.invokeOnCompletion { altSearchLock.withLock { inflightAlt.remove(norm) } }
+            task.await()
+        }
     }
 
     /**

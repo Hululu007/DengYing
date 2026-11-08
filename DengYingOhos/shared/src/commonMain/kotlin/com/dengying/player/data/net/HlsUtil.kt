@@ -236,6 +236,14 @@ object HlsUtil {
     /** 解析链（带成败标记）：分享页 → m3u8 → 下钻主列表 */
     suspend fun resolvePlayUrlOrFail(url: String): ResolveOutcome {
         var cur = url
+        // 【无协议必败】token 型源换链失败时会把裸 ID 原样传进来（模拟器实测：
+        // tv189 VIP 内容 917 无试看流 → resolvePlay 空手 → raw="C47346905"）。
+        // 这种串连 URL 都不是，交给播放器必然 MalformedURLException
+        // （code=3003 "播放失败（解码错误或地址失效）"）。判解析失败，
+        // 让解析链走换源兜底、最终给出可读错误，而不是白等一次播放器报错。
+        if (!cur.contains("://")) {
+            return ResolveOutcome(cur, resolved = false)
+        }
         if (isSharePage(cur)) {
             val real = resolveSharePage(cur)
             if (real.isEmpty() || real == cur) {

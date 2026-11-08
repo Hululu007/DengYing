@@ -95,7 +95,14 @@ actual object HttpTransport {
                     val status = (response as? NSHTTPURLResponse)?.statusCode?.toInt() ?: 0
                     val bytes = data?.toByteArray() ?: ByteArray(0)
                     val text = if (binary) "" else decodeUtf8(bytes)
-                    RawResponse(status = status, text = text, bytes = bytes)
+                    // 响应头小写化收拢（同名多头 "; " 连接）：对齐 JVM 侧口径
+                    val hs = (response as? NSHTTPURLResponse)?.allHeaderFields
+                    val headers = hs?.entries
+                        ?.groupBy({ (k, _) -> (k as? String)?.lowercase() ?: "" },
+                            { (_, v) -> v?.toString() ?: "" })
+                        ?.mapValues { (_, v) -> v.joinToString("; ") }
+                        ?: emptyMap()
+                    RawResponse(status = status, text = text, bytes = bytes, headers = headers)
                 }
                 session.finishTasksAndInvalidate()
                 if (cont.isActive) cont.resume(result)

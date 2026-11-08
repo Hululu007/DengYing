@@ -36,6 +36,7 @@ import com.dengying.player.core.VideoItem
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
 import com.dengying.player.ui.components.Poster
@@ -71,7 +72,6 @@ fun DetailScreen(
      */
     pageActive: Boolean = true,
 ) {
-    com.dengying.player.platform.Log.w("DY/Nav", "DetailScreen enter vodId=" + vodId + " src=" + source)
     val vm: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
         key = "detail_$source$vodId",
     ) {
@@ -147,12 +147,12 @@ fun DetailScreen(
             .background(Palette.AppBg),
     ) {
         // ---- 返回栏 ----
-        // 品牌色需要延伸到状态栏区域：`background` 写在 `statusBarsPadding` **之前**，
-        // 前者成为外层、覆盖后者撑出来的避让高度；反过来会留一条 app_bg 色的缝。
+        // 【玻璃化 2026-11-08】原为品牌色实底延伸进状态栏；改版后顶栏融入
+        // 背景（Material You 的 blend top bar 形态），内容块自己以悬浮玻璃卡
+        // 承担视觉层次，不再靠顶栏压色。
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Palette.Brand)
                 .statusBarsPadding()
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -161,7 +161,7 @@ fun DetailScreen(
             // 左右留白也占宽度（"全角字符 + padding" 容易把标题挤偏）。改矢量箭头。
             DyIcon(
                 icon = DyIcons.ArrowBack,
- tint = Color.White,
+                tint = Palette.TextPrimary,
                 contentDescription = "返回",
                 size = 26.dp,
                 modifier = Modifier
@@ -171,7 +171,7 @@ fun DetailScreen(
             Text(
                 text = s.item?.vod_name ?: name,
                 style = MaterialTheme.typography.titleSmall,
-                color = Color.White,
+                color = Palette.TextPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -186,7 +186,7 @@ fun DetailScreen(
             ) {
                 DyIcon(
                     icon = if (s.faved) DyIcons.Star else DyIcons.StarOutline,
-                    tint = Color.White,
+                    tint = Palette.TextPrimary,
                     size = 17.dp,
                     contentDescription = if (s.faved) "取消收藏" else "收藏",
                 )
@@ -194,7 +194,7 @@ fun DetailScreen(
                 Text(
                     text = if (s.faved) "已收藏" else "收藏",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
+                    color = Palette.TextPrimary,
                 )
             }
         }
@@ -302,10 +302,17 @@ fun DetailScreen(
  */
 @Composable
 private fun SkeletonInfoBlock(name: String, pic: String) {
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = 6.dp,
+        liquid = false,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Palette.CardBg)
             .padding(14.dp),
     ) {
         Row {
@@ -339,14 +346,23 @@ private fun SkeletonInfoBlock(name: String, pic: String) {
             }
         }
     }
+    }
 }
 
 @Composable
 private fun InfoBlock(item: VideoItem) {
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 10.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = 6.dp,
+        liquid = false,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Palette.CardBg)
             .padding(14.dp),
     ) {
         Row {
@@ -424,6 +440,7 @@ private fun InfoBlock(item: VideoItem) {
             )
         }
     }
+    }
 }
 
 /** FR-417：跨源候选块 */
@@ -433,11 +450,18 @@ private fun AltSourceBlock(
     loading: Boolean,
     onSwitch: (AltItem) -> Unit,
 ) {
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 10.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = 6.dp,
+        liquid = false,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp)
-            .background(Palette.CardBg)
             .padding(14.dp),
     ) {
         Row(
@@ -480,6 +504,7 @@ private fun AltSourceBlock(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -492,11 +517,18 @@ private fun EpisodeBlock(
     isResumeEp: (Int) -> Boolean,
     onPlayEpisode: (Int) -> Unit,
 ) {
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 10.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = 6.dp,
+        liquid = false,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp)
-            .background(Palette.CardBg)
             .padding(14.dp),
     ) {
         // FR-309：解析不出剧集时给明确提示，且**不渲染空网格**
@@ -656,5 +688,6 @@ private fun EpisodeBlock(
                 }
             }
         }
+    }
     }
 }

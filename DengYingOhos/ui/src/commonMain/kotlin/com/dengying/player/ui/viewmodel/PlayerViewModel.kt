@@ -116,6 +116,8 @@ class PlayerViewModel(
         val selectedVariant: String = "",
         val showQualitySheet: Boolean = false,
         val curEpIndex: Int = 0,
+        /** 会话是 tv189 试看链（end=300）时提示「详情页可看全片」（FR-610 配套） */
+        val isPreview: Boolean = false,
         val controlsVisible: Boolean = true,
         val autoNext: Boolean = true,
         val dragging: Boolean = false,
@@ -219,6 +221,7 @@ class PlayerViewModel(
                     totalTime = s.totalTime,
                     prepared = true,
                     buffering = s.buffering,
+                    isPreview = s.isPreview,
                     isPlaying = s.status == com.dengying.player.playback.PlaybackSession.Status.Playing,
                 )
                 return@launch
@@ -682,6 +685,8 @@ class PlayerViewModel(
                     status = "",
                     errMsg = "",
                     buffering = false,
+                    // 试看标记此时会话已写好（play() 先于引擎就绪），两个路径都覆盖
+                    isPreview = com.dengying.player.playback.PlaybackSession.currentState().isPreview,
                 )
                 // prepared 后按续播点恢复位置（FR-405：小于 3 秒视为从头）
                 restorePosition()

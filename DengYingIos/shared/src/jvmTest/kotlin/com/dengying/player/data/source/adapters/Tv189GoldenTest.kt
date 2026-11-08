@@ -6,6 +6,7 @@ import com.dengying.player.core.SourceCaps
 import com.dengying.player.core.SourceProtocol
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -29,7 +30,7 @@ class Tv189GoldenTest {
         api = "https://h5.tv189.com",
         speed = 7, direct = false, enabled = true, tier = 2,
         protocol = SourceProtocol.Tv189,
-        caps = SourceCaps(search = false, category = true, detail = true, token = true),
+        caps = SourceCaps(search = true, category = true, detail = true, token = true, home = true),
     )
 
     // ---------- 列表金样本 ----------
@@ -303,6 +304,31 @@ class Tv189GoldenTest {
     }
 
     @Test
+    fun play_golden_preview_marks_previewOnly() {
+        // 2026-11-08 真实抓样：免登录试看响应（code=917）—— videos 在响应顶层
+        // 而非 info.videoInfo（旧实现解析不到这个形态，试看链被整条丢掉）。
+        val r = Tv189Parser.parsePlay(Golden.text("tv189_play_preview"))
+        assertTrue(r.url.startsWith("https://vod3.nty.tv189.cn/"), r.url)
+        assertTrue(r.url.contains("end=300"), "试看链带 end=300 截断参数")
+        assertTrue(r.previewOnly, "fullPlayable=false 必须标 previewOnly")
+        assertEquals("", r.headers)
+    }
+
+    @Test
+    fun play_full_stream_not_marked_preview() {
+        // code=0 全片流没有 fullPlayable/trySeeLength 字段，不得误标
+        assertFalse(Tv189Parser.parsePlay(Golden.text("tv189_play")).previewOnly)
+    }
+
+    @Test
+    fun play_preview_synthetic_top_level_videos() {
+        val body = """{"code":917,"msg":"用户未登录","trySeeLength":300,"fullPlayable":false,"videos":[{"playType":"P300","playUrl":"https://x.example/a.m3u8?end=300"}]}"""
+        val r = Tv189Parser.parsePlay(body)
+        assertEquals("https://x.example/a.m3u8?end=300", r.url)
+        assertTrue(r.previewOnly)
+    }
+
+    @Test
     fun play_malformed_returns_empty() {
         assertEquals("", Tv189Parser.parsePlay(null).url)
         assertEquals("", Tv189Parser.parsePlay("").url)
@@ -407,5 +433,83 @@ class Tv189GoldenTest {
     @Test
     fun free_product_id_frozen() {
         assertEquals("1000000218", Tv189Parser.FREE_PRODUCT_ID, "只出全片免费内容，改了就全是 300 秒试看")
+    }
+
+    // ---------- 搜索金样本（2026-11-08 keywordSearchCtyun 实录） ----------
+
+    @Test
+    fun search_golden_scale() {
+        val r = Tv189Parser.parseSearch(source, Golden.text("tv189_search"), 1)
+        assertEquals(RequestOutcome.SuccessWithData, r.outcome)
+        assertEquals(1, r.items.size, "「空枪」自营库（NEW_CPMS）命中 1 部")
+        assertEquals(1, r.total)
+        assertEquals(1, r.pageCount)
+        assertNull(r.err)
+    }
+    @Test
+    fun search_golden_first_item() {
+        val r = Tv189Parser.parseSearch(source, Golden.text("tv189_search"), 1)
+        val it0 = r.items.first()
+        assertEquals(47919262L, it0.vod_id, "contentId 剥掉 C 前缀")
+        assertEquals("空枪", it0.vod_name)
+        assertEquals("https://tp.nty.tv189.com/mcover/2026/10/22/C47919262/131072_2026102218A2cS48W7Z97DY84480311.jpg", it0.vod_pic)
+        assertEquals("免费正片", it0.vod_remarks, "nowSerialCount=0 → 免费正片")
+        assertEquals("2026", it0.vod_year)
+        assertEquals("电影", it0.type_name)
+        assertEquals("C47919262", it0.vod_uri)
+        assertEquals("tv189", it0._source)
+        assertTrue(it0.vod_actor.orEmpty().contains("朱一龙"))
+        assertEquals("韩延", it0.vod_director)
+    }
+    @Test
+    fun search_filters_out_non_cpms() {
+        // 请求固定带 comeFrom=NEW_CPMS；解析层再滤一道——全库模式下 AQY（爱奇艺
+        // 外采）条目 authPlayVod 返回 6201 不可播，不能混进结果
+        val body = """{"code":0,"info":{"total":2,"data":[
+            {"ct":"1","v":{"contentId":"C47919262","title":"空枪","comeFrom":"NEW_CPMS"}},
+            {"ct":"1","v":{"contentId":"C123","title":"爱奇艺外采","comeFrom":"AQY"}}
+        ]}}"""
+        val r = Tv189Parser.parseSearch(source, body, 1)
+        assertEquals(1, r.items.size)
+        assertEquals("空枪", r.items.first().vod_name)
+    }
+
+    // ---------- 首页版块金样本（2026-11-08 jsondata 实录） ----------
+
+    @Test
+    fun nav_golden_tabs() {
+        val tabs = Tv189Parser.parseNavTabs(Golden.text("tv189_nav"))
+        assertEquals(8, tabs.size, "9 个 tab 滤掉外链「少儿教育」（areaType=130）")
+        assertEquals("5G专区", tabs.first().name)
+        assertEquals("推荐", tabs[1].name)
+        assertEquals("/clt4/xtysxkhd/h5mh/tjysy/index.json", tabs[1].path, "推荐 tab 的版块数据 path")
+        assertTrue(tabs.none { it.path.startsWith("http") }, "外链 tab 不得出现")
+    }
+    @Test
+    fun home_golden_sections_scale() {
+        val sections = Tv189Parser.parseSections(source, Golden.text("tv189_home"))
+        assertEquals(5, sections.size, "12 模块 → 5 个有效版块（其余为空模块/children 嵌套/广告位）")
+        assertEquals(
+            listOf("今日焦点", "首播影院", "少儿益智", "热血动漫", "精品纪实"),
+            sections.map { it.title },
+            "标题取 label.name（对象形态），无 label 用 areaName；「推荐页KV图」是运营行话 → 别名映射为「今日焦点」",
+        )
+        assertEquals(213, sections.sumOf { it.items.size })
+    }
+    @Test
+    fun home_golden_section_details() {
+        val sections = Tv189Parser.parseSections(source, Golden.text("tv189_home"))
+        val kv = sections.first()
+        assertEquals("今日焦点", kv.title, "运营内部名「推荐页KV图」→ 别名映射")
+        assertEquals("八仙！", kv.items.first().vod_name)
+        val cinema = sections.first { it.title == "首播影院" }
+        assertEquals(151, cinema.items.size)
+        val it0 = cinema.items.first()
+        assertEquals(47982123L, it0.vod_id)
+        assertEquals("我想留在你身边", it0.vod_name)
+        assertEquals("C47982123", it0.vod_uri)
+        assertEquals("tv189", it0._source)
+        // 广告位里 clickType=0 但 title 为空的条目不收（金样本实录）
+        assertTrue(sections.none { it.title == "推荐页广告位" })
     }
 }
