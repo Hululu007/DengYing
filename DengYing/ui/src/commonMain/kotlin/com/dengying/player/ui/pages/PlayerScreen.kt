@@ -42,12 +42,14 @@ import com.dengying.player.domain.playback.HlsVariants
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.SeekPreviewBubble
 import com.dengying.player.ui.platform.PlatformBackHandler
 import com.dengying.player.ui.platform.VideoSurface
 import com.dengying.player.ui.platform.rememberBrightnessController
 import com.dengying.player.ui.platform.rememberIsLandscape
 import com.dengying.player.ui.platform.rememberVolumeController
+import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.PlayerViewModel
 
@@ -391,11 +393,16 @@ fun PlayerScreen(
         if (adjustVisible && info != null) {
             val pct = (info.fraction * 100).toInt().coerceIn(0, 100)
             val isBrightness = info.kind == 2
-            Row(
+            GlassSurface(
                 modifier = Modifier
                     .align(if (isBrightness) Alignment.CenterStart else Alignment.CenterEnd)
-                    .padding(horizontal = 28.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 28.dp),
+                shape = RoundedCornerShape(20.dp),
+                fill = Glass.DarkFill,
+                elevation = 0.dp,
+            ) {
+            Row(
+                modifier = Modifier
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -412,6 +419,7 @@ fun PlayerScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
                 )
+            }
             }
         }
 
@@ -513,13 +521,21 @@ private fun ControlOverlay(
 ) {
     Box(Modifier.fillMaxSize()) {
         // ---- 顶栏 ----
+        // 【玻璃化 2026-11-08】通栏黑条 → 悬浮胶囊暗玻璃条，与首页顶栏同一设计语言。
+        GlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .height(44.dp)
+                .align(Alignment.TopCenter),
+            shape = RoundedCornerShape(22.dp),
+            fill = Glass.DarkFill,
+            elevation = 0.dp,
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
-                .background(Color.Black.copy(alpha = 0.35f))
-                .padding(horizontal = 12.dp)
-                .align(Alignment.TopCenter),
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DyIcon(
@@ -549,6 +565,7 @@ private fun ControlOverlay(
                     .padding(horizontal = 10.dp, vertical = 12.dp),
             )
         }
+        }
 
         if (s.castBlockReason.isNotEmpty()) {
             Text(
@@ -577,11 +594,16 @@ private fun ControlOverlay(
 
         // ---- 倍速面板 ----
         if (s.showSpeedSheet) {
-            Column(
+            GlassSurface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 150.dp)
-                    .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                    .padding(end = 16.dp, bottom = 150.dp),
+                shape = RoundedCornerShape(18.dp),
+                fill = Glass.DarkFill,
+                elevation = 0.dp,
+            ) {
+            Column(
+                modifier = Modifier
                     .padding(vertical = 6.dp),
             ) {
                 for (v in listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)) {
@@ -595,15 +617,21 @@ private fun ControlOverlay(
                     )
                 }
             }
+            }
         }
 
         // ---- 清晰度面板（FR-412：只在 >1 且档位可区分时出现）----
         if (s.showQualitySheet && vm.showQualityEntry) {
-            Column(
+            GlassSurface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 150.dp)
-                    .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(10.dp))
+                    .padding(end = 16.dp, bottom = 150.dp),
+                shape = RoundedCornerShape(18.dp),
+                fill = Glass.DarkFill,
+                elevation = 0.dp,
+            ) {
+            Column(
+                modifier = Modifier
                     .padding(vertical = 6.dp),
             ) {
                 for (v in s.variants) {
@@ -617,6 +645,7 @@ private fun ControlOverlay(
                     )
                 }
             }
+            }
         }
 
         // ---- 底部控制条（FR-707：**单行**）----
@@ -629,12 +658,22 @@ private fun ControlOverlay(
         //   当前时间 · 倍速 · 上一集 · 播放暂停 · 下一集 · 退出全屏 · 总时长
         // 进度条放在这一行**上方**，但它很薄（24dp）且半透明，视觉上仍是一条。
         // 连播/清晰度这两个低频开关移到了顶栏区域（见上方），不再占底部高度。
-        Column(
+        //
+        // 【玻璃化 2026-11-08】通栏黑条 → 悬浮暗玻璃圆角条。
+        GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 10.dp)
+                .padding(bottom = 10.dp),
+            shape = RoundedCornerShape(20.dp),
+            fill = Glass.DarkFill,
+            elevation = 0.dp,
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
             // 进度条（细，贴在控制行上方）
             val duration = if (s.totalTime > 0) s.totalTime else 1L
@@ -760,6 +799,7 @@ private fun ControlOverlay(
                     }
                 }
             }
+        }
         }
 
         // ---- 滑动 seek 提示已迁出 ----

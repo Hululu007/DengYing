@@ -54,6 +54,8 @@ object HttpClient {
         val status: Int,
         val body: String,
         val elapsedMs: Long,
+        /** 响应头（头名小写）：登录链路读 `set-cookie` 用，见 [HttpTransport.RawResponse] */
+        val headers: Map<String, String> = emptyMap(),
     )
 
     data class HttpBinaryResult(
@@ -153,7 +155,7 @@ object HttpClient {
         return if (binary) {
             HttpBinaryResult(raw.status, raw.bytes, elapsed)
         } else {
-            HttpResult(raw.status, raw.text, elapsed)
+            HttpResult(raw.status, raw.text, elapsed, raw.headers)
         }
     }
 

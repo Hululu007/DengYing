@@ -267,11 +267,12 @@ object CmsSources {
             // 分类浏览 / 详情 / 换链全通，免费整片（m3u8 无 end= 截断）。
             // 列表固定筛 productId=1000000218（全片免费）：电影 589 / 电视剧 72 /
             // 少儿 586 / 动漫 123；不过滤则大部分是 VIP 试看（300s）。
-            // keyword 搜索实测无效（返回全量），故 caps.search=false。
+            // 2026-11-08 复核：keywordSearchCtyun 搜索 + jsondata 首页版块打通
+            // （均免登录；移动端 UA 必须——桌面 UA 被 WAF 拦 403）。
             speed = 7, direct = false, enabled = true, tier = 2,
             protocol = SourceProtocol.Tv189,
-            caps = SourceCaps(search = false, category = true, detail = true, token = true),
-            note = "2026-10-24 实测：全链路通（分类/详情/换链），免费整片播放正常",
+            caps = SourceCaps(search = true, category = true, detail = true, token = true, home = true),
+            note = "2026-10-24 全链路通；2026-11-08 补搜索与首页版块",
         ),
         CmsSource(
             key = "lzi", name = "量子资源",

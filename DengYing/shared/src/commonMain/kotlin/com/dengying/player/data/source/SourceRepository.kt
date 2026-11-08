@@ -24,6 +24,8 @@ import com.dengying.player.core.isSourceHealthy
 import com.dengying.player.core.shouldFailover
 import com.dengying.player.core.toHealthSignal
 import com.dengying.player.core.CmsClass
+import com.dengying.player.core.HomeSection
+import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -194,9 +196,9 @@ class SourceRepository {
             SourceProtocol.Guapi -> GuapiAdapter.search(source, keyword)
             SourceProtocol.Shanzha -> ShanzhaAdapter.search(source, keyword)
             SourceProtocol.Cms -> CmsAdapter.search(source, keyword)
-            // tv189 的 keyword 实测无效（返回全量），caps.search=false 挡在前面；
-            // 此分支只为穷举完备，走到这里即为配置错误
-            SourceProtocol.Tv189 -> unsupported(source, "搜索")
+            // 2026-11-08 起走 keywordSearchCtyun（programsearch.keyword 实测无效，
+            // 已弃用）；comeFrom=NEW_CPMS 只搜自营可播库
+            SourceProtocol.Tv189 -> Tv189Adapter.search(source, keyword)
         }
     }
 
@@ -450,6 +452,67 @@ class SourceRepository {
             classFailAt.clear()
         }
         classCacheWriter?.invoke(emptyMap())
+    }
+
+    // ---------------- 首页版块缓存（tv189 jsondata） ----------------
+
+    /**
+     * 版块数据的内存 TTL 缓存，key = "源key|path"，TTL 节奏与 [cacheTtl] 一致。
+     *
+     * 【为什么比分类缓存简单】版块请求只在「推荐」页选中某个 tab 时发出，
+     * 不像分类表那样首屏多处并发触发，不需要在途合并；也不落磁盘——
+     * 它是运营位数据（轮播图/推荐位），过期重拉一次即可，缓存它收益很小。
+     * 失败负缓存照旧：WAF 间歇性拦截时不至于每次切 tab 都白等一次超时。
+     */
+    private data class HomeCacheEntry(val tabs: List<HomeTab>, val sections: List<HomeSection>, val time: Long)
+    private val homeCache = HashMap<String, HomeCacheEntry>()
+    private val homeFailAt = HashMap<String, Long>()
+    private val homeLock = PlatformLock()
+
+    /** 导航 tab（内存缓存，无磁盘层；force=true 跳过缓存与负缓存直拉网络） */
+    suspend fun fetchHomeTabs(source: CmsSource, force: Boolean = false): List<HomeTab> {
+        if (!source.caps.home) return emptyList()
+        val now = Clock.nowMs()
+        val key = "${source.key}|"
+        if (!force) {
+            val cached = homeLock.withLock {
+                val e = homeCache[key]
+                if (e != null && now - e.time < cacheTtl && e.tabs.isNotEmpty()) e.tabs else null
+            }
+            if (cached != null) return cached
+        }
+        val tabs = Tv189Adapter.homeTabs(source)
+        homeLock.withLock {
+            if (tabs.isNotEmpty()) homeCache[key] = HomeCacheEntry(tabs, emptyList(), Clock.nowMs())
+            else homeFailAt[key] = Clock.nowMs()
+        }
+        return tabs
+    }
+
+    /** 首页版块（内存 TTL + 失败负缓存；force=true 跳过两者直拉网络） */
+    suspend fun fetchHomeSections(source: CmsSource, path: String, force: Boolean = false): List<HomeSection> {
+        if (!source.caps.home || path.isEmpty()) return emptyList()
+        val key = "${source.key}|$path"
+        val now = Clock.nowMs()
+        if (!force) {
+            val cached = homeLock.withLock {
+                val e = homeCache[key]
+                if (e != null && now - e.time < cacheTtl && e.sections.isNotEmpty()) e.sections else null
+            }
+            if (cached != null) return cached
+            // 负缓存：刚拉失败过的 tab 不再立刻重试（WAF 间歇拦截时不白等超时）
+            val recentlyFailed = homeLock.withLock {
+                val at = homeFailAt[key]
+                at != null && now - at < failTtl
+            }
+            if (recentlyFailed) return emptyList()
+        }
+        val sections = Tv189Adapter.homeSections(source, path)
+        homeLock.withLock {
+            if (sections.isNotEmpty()) homeCache[key] = HomeCacheEntry(emptyList(), sections, Clock.nowMs())
+            else homeFailAt[key] = Clock.nowMs()
+        }
+        return sections
     }
 
     /**

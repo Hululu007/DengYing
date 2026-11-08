@@ -13,6 +13,8 @@ import com.dengying.player.data.cache.PageCache
 import com.dengying.player.data.net.NetPriority
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.core.CmsSources
+import com.dengying.player.core.HomeSection
+import com.dengying.player.core.HomeTab
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.core.DiscoverItem
 import com.dengying.player.core.DoubanRankingTag
@@ -69,10 +71,22 @@ class IndexViewModel(
         val ranking: List<DiscoverItem> = emptyList(),
         /** 是否已发起过首次加载（见 [onShown]） */
         val started: Boolean = false,
+        /**
+         * 「推荐」页当前 tab 的版块流（天翼 jsondata，FR-612）。
+         * 其余分类恒为空表——版块流与网格 [items] 语义不同（栏目横滑条 vs 全量网格），
+         * 混用会让空态/加载态判断互相踩。
+         */
+        val sections: List<HomeSection> = emptyList(),
+        /** 「推荐」页顶部的内容导航 tab（5G专区/推荐/电影…），其余分类恒为空表 */
+        val homeTabs: List<HomeTab> = emptyList(),
+        /** 「推荐」页当前选中的 tab path；空串 = 尚未选中 */
+        val homeTabPath: String = "",
     )
 
     data class UiState(
-        val categories: List<String> = CmsSources.HOME_CATEGORIES,
+        // 「推荐」置顶：天翼运营版块流是"不知道看什么"的主入口，类主流 App 的精选页；
+        // 其余六个聚合分类照旧（FR-301 分类不变，只增不改）
+        val categories: List<String> = listOf(RECOMMEND) + CmsSources.HOME_CATEGORIES,
         val currentTab: Int = 0,
         val cats: Map<Int, CatState> = emptyMap(),
     ) {
@@ -81,6 +95,11 @@ class IndexViewModel(
 
     var state by mutableStateOf(UiState())
         private set
+
+    companion object {
+        /** 首页第一 tab：天翼推荐版块流（见 [loadRecommend]） */
+        const val RECOMMEND = "推荐"
+    }
 
     /** 每个分类各自的请求序号：只作废**同一分类**的过期响应 */
     private val seqByCat = HashMap<Int, Int>()
@@ -106,6 +125,18 @@ class IndexViewModel(
     private val rankingByCat = HashMap<String, List<DiscoverItem>>()
 
     /**
+     * 推荐页各 tab 的版块流（key = "源key|path"，成败都记，口径同 [rankingByCat]）。
+     *
+     * 【为什么 VM 侧也存一份】仓库层的 TTL 缓存兜网络，这份兜「切回来不用重组」——
+     * 用户在推荐页来回切 tab 时直接命中，不发请求也不闪加载态。
+     * 声明顺序同 [rankingByCat] 的教训：必须先于任何使用点的初始化。
+     */
+    private val sectionsByPath = HashMap<String, List<HomeSection>>()
+
+    /** 推荐页的天翼源；未启用时返回 null，由调用方给引导文案而不是空白页 */
+    private fun tv189Source() = CmsSources.byKey("tv189")?.takeIf { it.enabled }
+
+    /**
      * 某一页真正呈现给用户时调用（Pager 停稳、或 tab 被点）。
      *
      * 【为什么不在构造时一次性加载】横向预组合会把相邻页也组合出来，
@@ -115,6 +146,20 @@ class IndexViewModel(
         if (idx != state.currentTab) state = state.copy(currentTab = idx)
         if (!state.cat(idx).started) loadData(idx)
         loadRanking(idx)
+    }
+
+    /**
+     * 发现页混合片池的燃料：把六个内容分类后台拉起来（已启动的跳过）。
+     *
+     * 【为什么】发现页片池主体是分类聚合条目（多源混合、直链几乎必播），
+     * tv189 版块只作辅料。用户冷启直奔发现页时这些分类还没加载，池子会
+     * 退化成只剩 tv189 辅料（VIP 独播多、失败率高）——这里把它们全部预热。
+     * 各分类本就有槽位缓存 + PageCache，重复调用无副作用。
+     */
+    fun warmAllCategories() {
+        for (i in 1 until state.categories.size) {
+            if (!state.cat(i).started) loadData(i)
+        }
     }
 
     /**
@@ -220,8 +265,13 @@ class IndexViewModel(
 
     /** 重新加载某分类第一页 */
     fun loadData(idx: Int) {
-        val seq = beginReq(idx)
         val cat = state.categories[idx]
+        // 推荐页不走聚合分类管线（无 PageCache/豆瓣榜/翻页），见 [loadRecommend]
+        if (cat == RECOMMEND) {
+            loadRecommend(idx)
+            return
+        }
+        val seq = beginReq(idx)
         setCat(idx) { it.copy(started = true) }
 
         // 【FR-701 stale-while-revalidate：有缓存就先给内容，用户零等待】
@@ -372,6 +422,11 @@ class IndexViewModel(
 
     /** 下拉刷新某分类：清缓存后重新加载（FR-103 + FR-701 的强制失效） */
     fun refresh(idx: Int) {
+        // 推荐页的刷新语义不同（无 PageCache 可失效），单走一条管线
+        if (state.categories[idx] == RECOMMEND) {
+            refreshRecommend(idx)
+            return
+        }
         // 防手抖重复触发：已经在刷就别再发一轮
         if (state.cat(idx).refining) return
         val seq = beginReq(idx)
@@ -468,8 +523,176 @@ class IndexViewModel(
         state = state.copy(currentTab = idx)
     }
 
+    /**
+     * 推荐页首载：拉导航 tab → 默认选「推荐」→ 拉该 tab 的版块流（FR-612）。
+     *
+     * 【为什么默认选「推荐」】导航 9 个 tab（滤外链后 8 个）里 5G专区是运营活动位，
+     * 内容最单薄；「推荐」才是版块流最全的首页（12 模块）。按名称匹配，
+     * 运营改顺序也不受影响；匹配不到取首个。
+     *
+     * 【为什么没有磁盘缓存】版块流是运营位数据（轮播图/推荐位），过期重拉成本低，
+     * 磁盘缓存收益小（与仓库层注释同一结论）。内存两级：仓库 TTL + [sectionsByPath]。
+     */
+    private fun loadRecommend(idx: Int) {
+        val seq = beginReq(idx)
+        val src = tv189Source()
+        if (src == null) {
+            setCat(idx) {
+                it.copy(
+                    started = true,
+                    loading = false,
+                    hasMore = false,
+                    errMsg = "推荐内容来自「天翼视讯」源，当前未启用——可在「源状态」里开启",
+                )
+            }
+            return
+        }
+        setCat(idx) { it.copy(started = true, loading = true, errMsg = "") }
+        viewModelScope.launch {
+            try {
+                val t0 = com.dengying.player.platform.Clock.nowMs()
+                val tabs = repo.fetchHomeTabs(src)
+                if (!isLatest(idx, seq)) return@launch
+                if (tabs.isEmpty()) {
+                    setCat(idx) {
+                        it.copy(loading = false, hasMore = false, errMsg = "推荐页暂时拉不到内容，请下拉重试")
+                    }
+                    return@launch
+                }
+                val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.first()
+                val sections = repo.fetchHomeSections(src, tab.path)
+                if (!isLatest(idx, seq)) return@launch
+                sectionsByPath["${src.key}|${tab.path}"] = sections
+                PlaybackProbe.note(
+                    "index-recommend",
+                    "tabs=${tabs.size} sections=${sections.size} " +
+                        "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                )
+                setCat(idx) {
+                    it.copy(
+                        homeTabs = tabs,
+                        homeTabPath = tab.path,
+                        sections = sections,
+                        items = emptyList(),
+                        loading = false,
+                        hasMore = false,
+                        // 版块全空不算失败（运营位可能临时下架），但要说清楚
+                        errMsg = if (sections.isEmpty()) "版块暂时没有内容" else "",
+                    )
+                }
+                // 版块卡片同样预取详情：推荐页是第一入口，点进去的频次最高
+                prefetchDetails(idx, sections.flatMap { it.items })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isLatest(idx, seq)) {
+                    val msg = if (e is IllegalStateException) "应用初始化失败，请重启应用（${e.message}）"
+                    else "网络异常，请检查连接"
+                    com.dengying.player.platform.Log.w(
+                        "DY/Index",
+                        "loadRecommend failed: ${e::class.simpleName ?: "Exception"}: ${e.message}",
+                        e,
+                    )
+                    setCat(idx) { it.copy(sections = emptyList(), errMsg = msg, loading = false, hasMore = false) }
+                }
+            }
+        }
+    }
+
+    /**
+     * 推荐页内切换内容导航 tab：命中 [sectionsByPath] 直接显示，否则拉取。
+     *
+     * 【过期判定不用 seq】tab 切换不递增分类请求号（它不该作废下拉刷新的在途请求），
+     * 用「返回时当前 path 是否还是发起时的 path」判定——更快发起的切 tab 自然作废慢的。
+     */
+    fun selectHomeTab(idx: Int, tab: HomeTab) {
+        val cur = state.cat(idx)
+        if (cur.homeTabPath == tab.path) return
+        val src = tv189Source() ?: return
+        val path = tab.path
+        setCat(idx) { it.copy(homeTabPath = path) }
+        val cached = sectionsByPath["${src.key}|$path"]
+        if (cached != null) {
+            setCat(idx) {
+                it.copy(sections = cached, loading = false, errMsg = if (cached.isEmpty()) "版块暂时没有内容" else "")
+            }
+            return
+        }
+        setCat(idx) { it.copy(sections = emptyList(), loading = true, errMsg = "") }
+        viewModelScope.launch {
+            try {
+                val sections = repo.fetchHomeSections(src, path)
+                sectionsByPath["${src.key}|$path"] = sections
+                // 在途期间用户又切了别的 tab：本结果过期，只写缓存不动 UI
+                if (state.cat(idx).homeTabPath != path) return@launch
+                setCat(idx) {
+                    it.copy(
+                        sections = sections,
+                        loading = false,
+                        errMsg = if (sections.isEmpty()) "版块暂时没有内容" else "",
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (state.cat(idx).homeTabPath == path) {
+                    setCat(idx) { it.copy(loading = false, errMsg = "网络异常，请检查连接") }
+                }
+            }
+        }
+    }
+
+    /**
+     * 下拉刷新推荐页：force 直拉网络（跳过仓库 TTL 与失败负缓存）+ 换回默认 tab。
+     *
+     * 【换回默认 tab】刷新是"重新开始"的语义；停留在小众 tab（如 5G专区）
+     * 刷新完容易让人误以为刷新没生效。
+     */
+    private fun refreshRecommend(idx: Int) {
+        if (state.cat(idx).refining) return
+        val seq = beginReq(idx)
+        val src = tv189Source()
+        if (src == null) {
+            setCat(idx) { it.copy(refining = false, errMsg = "推荐内容来自「天翼视讯」源，当前未启用") }
+            return
+        }
+        setCat(idx) { it.copy(refining = true, errMsg = "") }
+        viewModelScope.launch {
+            try {
+                val tabs = repo.fetchHomeTabs(src, force = true)
+                if (!isLatest(idx, seq)) return@launch
+                val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.firstOrNull()
+                if (tab == null) {
+                    setCat(idx) { it.copy(refining = false, sections = emptyList(), errMsg = "推荐页暂时拉不到内容") }
+                    return@launch
+                }
+                val sections = repo.fetchHomeSections(src, tab.path, force = true)
+                if (!isLatest(idx, seq)) return@launch
+                sectionsByPath["${src.key}|${tab.path}"] = sections
+                setCat(idx) {
+                    it.copy(
+                        homeTabs = tabs,
+                        homeTabPath = tab.path,
+                        sections = sections,
+                        errMsg = if (sections.isEmpty()) "版块暂时没有内容" else "",
+                        refining = false,
+                        loading = false,
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isLatest(idx, seq)) {
+                    setCat(idx) { it.copy(refining = false, errMsg = "网络异常，请检查连接") }
+                }
+            }
+        }
+    }
+
     /** 加载某分类的下一页（带并发锁，防止重复触发） */
     fun loadMore(idx: Int) {
+        // 推荐页是版块流（无分页概念），hasMore 恒为 false，这里双保险
+        if (state.categories[idx] == RECOMMEND) return
         val s = state.cat(idx)
         if (s.loading || s.loadingMore || !s.hasMore) return
         val seq = beginReq(idx)

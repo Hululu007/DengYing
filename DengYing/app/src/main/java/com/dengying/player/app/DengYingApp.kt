@@ -95,6 +95,10 @@ class DengYingApp : Application(), UiDeps {
         val prefs = getSharedPreferences("hmvideo_store", Context.MODE_PRIVATE)
         val kv = SharedPrefsStore(prefs)
         store = Store(kv)
+        // 两个BT 登录态与用户资产共用同一 preferences 文件（独立键，见 BttwoAuth）
+        com.dengying.player.data.source.adapters.BttwoAuth.init(kv)
+        // 主题风格偏好（我的页可切，见 ThemePrefs）同样走这份 kv
+        com.dengying.player.ui.theme.ThemePrefs.init(kv)
         sources = SourceRepository()
         // 分页缓存与用户资产**共用同一个 preferences 文件**但独立键：
         // 这样"清空用户资产"不会误删缓存，反之亦然

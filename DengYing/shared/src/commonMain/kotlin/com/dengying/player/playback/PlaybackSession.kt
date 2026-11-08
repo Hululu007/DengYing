@@ -276,59 +276,15 @@ object PlaybackSession {
         source: String,
         vodId: Long,
         altUrls: List<String>,
-    ): Pair<String, String>? {
-        val src = com.dengying.player.core.CmsSources.byKey(source)
-        var url = raw
-        var headers = ""
-
-        // token 型源先换链
-        if (src != null && src.caps.token) {
-            val r = repo.resolveSourcePlay(src, vodId, raw, "")
-            if (r.url.isNotEmpty()) {
-                url = r.url
-                headers = r.headers
-            }
-        }
-
-        // 分享页解析
-        if (headers.isEmpty()) {
-            val outcome = HlsUtil.resolvePlayUrlOrFail(url)
-            if (outcome.resolved) {
-                return outcome.url to ""
-            }
-        } else {
-            return url to headers
-        }
-
-        // 换源兜底：**并发**试候选，谁先成功用谁（真机：串行 5 候选要十几秒）
-        PlaybackProbe.note("session-switch-source")
-        val vodName = _state.value.vodName
-        if (vodName.isEmpty()) return null
-        val alts = repo.findAltSources(repo.allSources(), source, vodName)
-        kotlinx.coroutines.coroutineScope {
-            val deferred = alts.map { alt ->
-                // coroutineScope 接收者上的 async：候选随作用域自动取消
-                async(ioDispatcher) {
-                    val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
-                        ?: return@async null
-                    val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, _state.value.episodeIndex)
-                    if (u.isEmpty()) return@async null
-                    val oc = HlsUtil.resolvePlayUrlOrFail(u)
-                    if (!oc.resolved) null else oc.url to ""
-                }
-            }
-            for (d in deferred) {
-                val r = runCatching { d.await() }.getOrNull()
-                if (r != null) {
-                    deferred.forEach { if (it.isActive) it.cancel() }
-                    return@coroutineScope r
-                }
-            }
-            null
-        }?.let { return it }
-
-        return null
-    }
+    ): Pair<String, String>? = resolvePlayChain(
+        repo = repo,
+        raw = raw,
+        source = source,
+        vodId = vodId,
+        vodName = _state.value.vodName,
+        episodeIndex = _state.value.episodeIndex,
+        ioDispatcher = ioDispatcher,
+    )
 
     fun pause() {
         PlaybackProbe.note("session-pause")
@@ -444,4 +400,103 @@ object PlaybackSession {
             override fun onVideoSize(width: Int, height: Int) {}
         })
     }
+}
+
+/**
+ * 播放地址解析链（**全应用唯一入口**）：token 换链 → （试看链先跨源找全片）→
+ * 分享页解析 → （失败）跨源换线。
+ *
+ * 【为什么是 top-level】内嵌自动播放（发现页）与全屏会话需要同一条解析语义——
+ *  tv189 VIP 片换链拿不到试看流时，跨源兜底（同名资源换源）往往能救回来；
+ *  任何页面自己另写解析都会出现「详情能播、发现页说看不了」的分裂（§16.45 实录）。
+ *  [PlaybackSession.resolveChain] 是本函数的会话侧薄壳（取会话状态做参数）。
+ *
+ * 【试看链语义】tv189 免登录返回 `end=300` 的试看授权链（previewOnly=true）时，
+ *  先跨源找同名全片——找到播全片，所有源都没有才回落试看链（300 秒好过黑屏）。
+ *
+ * @param vodName 跨源换线需要片名查同名资源；为空则跳过换源兜底
+ * @param episodeIndex 换源时取候选源的同一集
+ */
+suspend fun resolvePlayChain(
+    repo: com.dengying.player.data.source.SourceRepository,
+    raw: String,
+    source: String,
+    vodId: Long,
+    vodName: String,
+    episodeIndex: Int,
+    ioDispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    /**
+     * 换源兜底最多试几个候选。详情页保持全量（默认）；发现页传小值——
+     * 它是**批量预解析**场景，跨源搜索一条就要 1-3s，全量候选会把
+     * 出网闸（OUTBOUND_LIMIT=6）堵死，中心项的起播延迟被拉到 10s 级。
+     */
+    altLimit: Int = Int.MAX_VALUE,
+): Pair<String, String>? {
+    val src = com.dengying.player.core.CmsSources.byKey(source)
+    var url = raw
+    var headers = ""
+    var previewUrl = ""
+
+    // token 型源先换链
+    if (src != null && src.caps.token) {
+        val r = repo.resolveSourcePlay(src, vodId, raw, "")
+        if (r.url.isNotEmpty()) {
+            if (r.previewOnly) {
+                // 【试看链】tv189 免登录只给 end=300 的 CDN 授权（全片 143 分钟只放
+                // 300 秒）。先不急着用它——跨源找全片，找不到才回落（见下）。
+                previewUrl = r.url
+            } else {
+                url = r.url
+                headers = r.headers
+            }
+        }
+    }
+
+    // 跨源兜底：**并发**试候选，谁先成功用谁（真机：串行 5 候选要十几秒）
+    suspend fun tryAltSources(): Pair<String, String>? {
+        PlaybackProbe.note("session-switch-source")
+        if (vodName.isEmpty()) return null
+        val alts = repo.findAltSources(repo.allSources(), source, vodName).take(altLimit)
+        return kotlinx.coroutines.coroutineScope {
+            val deferred = alts.map { alt ->
+                // coroutineScope 接收者上的 async：候选随作用域自动取消
+                async(ioDispatcher) {
+                    val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
+                        ?: return@async null
+                    val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, episodeIndex)
+                    if (u.isEmpty()) return@async null
+                    val oc = HlsUtil.resolvePlayUrlOrFail(u)
+                    if (!oc.resolved) null else oc.url to ""
+                }
+            }
+            for (d in deferred) {
+                val r = runCatching { d.await() }.getOrNull()
+                if (r != null) {
+                    deferred.forEach { if (it.isActive) it.cancel() }
+                    return@coroutineScope r
+                }
+            }
+            null
+        }
+    }
+
+    // 试看链：全片优先——跨源找到同名全片就播全片；所有源都没有，回落试看链
+    // （300 秒也好过黑屏）。cdn 链本身就是 m3u8，无需再过分享页解析。
+    if (previewUrl.isNotEmpty()) {
+        tryAltSources()?.let { return it }
+        PlaybackProbe.note("session-preview-fallback")
+        return previewUrl to ""
+    }
+
+    // 分享页解析
+    if (headers.isEmpty()) {
+        val outcome = HlsUtil.resolvePlayUrlOrFail(url)
+        if (outcome.resolved) {
+            return outcome.url to ""
+        }
+    } else {
+        return url to headers
+    }
+
+    return tryAltSources()
 }
