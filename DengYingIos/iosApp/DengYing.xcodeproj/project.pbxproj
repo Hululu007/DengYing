@@ -194,6 +194,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.dengying.player.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			PRODUCT_MODULE_NAME = DengYingApp;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -213,6 +214,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.dengying.player.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			PRODUCT_MODULE_NAME = DengYingApp;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};

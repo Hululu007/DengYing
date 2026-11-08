@@ -55,7 +55,7 @@ final class OrientationHostingController: UIViewController {
     /// `IosOrientationLock.mask` 在 Kotlin 侧是 `platform.UIKit.UIInterfaceOrientationMask`
     /// （即 `NSUInteger`），导出到 Swift 变成 `UInt`，故需显式包成 OptionSet。
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        UIInterfaceOrientationMask(rawValue: DengYing.IosOrientationLock.shared.mask)
+        UIInterfaceOrientationMask(rawValue: UInt(DengYing.IosOrientationLock.shared.mask))
     }
 
     /// 全屏态隐藏状态栏。当前恒 false：全屏由 Compose 侧控制层承担，
