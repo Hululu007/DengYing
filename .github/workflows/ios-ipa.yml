@@ -1,0 +1,56 @@
+name: iOS IPA (unsigned)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/ios-ipa.yml"
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK 36
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Make gradlew executable
+        run: chmod +x DengYingIos/gradlew
+
+      - name: Archive (no signing)
+        working-directory: DengYingIos/iosApp
+        run: |
+          xcodebuild -project DengYing.xcodeproj \
+            -scheme DengYing \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/DengYing.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH=$(find "$RUNNER_TEMP/DengYing.xcarchive/Products/Applications" -maxdepth 1 -name "*.app" | head -n 1)
+          echo "App: $APP_PATH"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -r DengYing-unsigned.ipa Payload
+          ls -lh DengYing-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: DengYing-unsigned-ipa
+          path: ${{ runner.temp }}/DengYing-unsigned.ipa
+          retention-days: 7
