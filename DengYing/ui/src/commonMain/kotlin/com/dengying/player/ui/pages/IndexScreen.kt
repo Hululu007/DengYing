@@ -991,18 +991,31 @@ private fun DiscoverPane(
         setSurface(active)
     }
 
+    // 【续播断点】各片暂停时的播放位置（下标 → ms）。切走/换片时记下当前片的
+    // 位置，回来（active 恢复或滚回该片）带位置 setMedia 续播，而不是从头播。
+    // setMedia 而非 play() 续：期间其它页面（详情内嵌位）可能借走共享引擎换了
+    // 媒体，只有重设媒体才能保证回到的是本片。
+    val pausedPositions = remember { mutableStateMapOf<Int, Long>() }
+    var startedIdx by remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+
     // 【中心项起播】playingIdx / active 变化：先停旧声（切中心/滑走都不许
     // 旧片继续响），再等该项解析落袋（可见即解析已在跑）→ setMedia 播。
     // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废；滚回
-    // （或从别的窗格滑回来）→ 协程重启命中缓存立即播。
+    // （或从别的窗格滑回来）→ 协程重启命中缓存立即续播。
     LaunchedEffect(playingIdx, active) {
         val idx = playingIdx
+        // 被切走的片记断点：滑到新中心、或整窗格失焦，都要留位置
+        if (startedIdx >= 0 && (startedIdx != idx || !active)) {
+            pausedPositions[startedIdx] = engine.currentPosition
+        }
         engine.pause()
         if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
-        engine.setMedia(hit.first, hit.second, 0L)
+        // 同一片切走又切回 → 从断点续播；没看过的新片从 0 起
+        engine.setMedia(hit.first, hit.second, pausedPositions[idx] ?: 0L)
         engine.play()
+        startedIdx = idx
     }
 
     // 【中心判定（主流口径：B 站/微博内嵌视频流）】滚动**停止**后才动作：

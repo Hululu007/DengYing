@@ -889,51 +889,84 @@ class SourceRepository {
         altSearchLock.withLock { inflightAlt[norm] }?.let { return it.await() }
         return coroutineScope {
             val task = async {
-            val out = ArrayList<AltCandidate>()
-            val seenSrc = HashSet<String>()
-            val enabled = sources
-            .filter {
-                isSourceEnabled(it) && it.key != currentSourceKey &&
-                    it.caps.search && it.caps.detail
-            }
-            .sortedWith(compareBy<CmsSource> { it.tier }.thenBy { it.speed })
 
-        val tasks = enabled.map { s ->
-            // 后台档：候选源搜索是「多给几个线选项」，晚到几十毫秒无感，
-            // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
-            async(NetPriority.Background) {
-                val r = try {
-                    search(s, norm)
-                } catch (e: Exception) {
-                    return@async
-                }
-                if (!r.hasData) return@async
+            // 【搜索词降级链】tv189 运营片名常带「·！：」等符号（杯雪·一战成名、
+            // 八仙！），采集站库存名往往不带或写法不同——首轮原名搜不到就降级
+            // 重搜，是试看片救回率的最大杠杆。缓存 key 固定用原名，命中即含
+            // 降级轮的成果。
+            val variants = LinkedHashSet<String>()
+            variants.add(norm)
+            val stripped = norm.replace(Regex("[·・!！:：、,，]"), " ")
+                .replace(Regex("\\s+"), " ").trim()
+            if (stripped.isNotEmpty() && stripped != norm) variants.add(stripped)
+            val main = norm.substringBefore('·').trim()
+            if (main.length >= 2 && !variants.contains(main)) variants.add(main)
 
-                // 找名称最接近的条目（完全相等 > 前缀包含）
-                var best: VideoItem? = null
-                for (it in r.items) {
-                    val n = it.vod_name.replace(Regex("[（(].*?[)）]"), "").trim()
-                    if (n == norm) {
-                        best = it
-                        break
+            // 名称比对也走「去符号」清洗：两边写法差异（空格/·）不再致命
+            fun cleanForMatch(s: String) =
+                s.replace(Regex("[·・!！:：、,，\\s]"), "")
+
+            suspend fun searchRound(q: String): ArrayList<AltCandidate> {
+                val out = ArrayList<AltCandidate>()
+                val seenSrc = HashSet<String>()
+                val enabled = sources
+                    .filter {
+                        isSourceEnabled(it) && it.key != currentSourceKey &&
+                            it.caps.search && it.caps.detail
                     }
-                    if (best == null && (n.startsWith(norm) || norm.startsWith(n))) best = it
+                    .sortedWith(compareBy<CmsSource> { it.tier }.thenBy { it.speed })
+
+                val tasks = enabled.map { s ->
+                    // 后台档：候选源搜索是「多给几个线选项」，晚到几十毫秒无感，
+                    // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
+                    async(NetPriority.Background) {
+                        val r = try {
+                            search(s, q)
+                        } catch (e: Exception) {
+                            return@async
+                        }
+                        if (!r.hasData) return@async
+
+                        // 找名称最接近的条目（完全相等 > 前缀包含；均先去符号清洗）
+                        var best: VideoItem? = null
+                        val qClean = cleanForMatch(q)
+                        for (it in r.items) {
+                            val n = it.vod_name.replace(Regex("[（(].*?[)）]"), "").trim()
+                            if (n == q || cleanForMatch(n) == qClean) {
+                                best = it
+                                break
+                            }
+                            val nClean = cleanForMatch(n)
+                            if (best == null && (
+                                n.startsWith(q) || q.startsWith(n) ||
+                                    nClean.startsWith(qClean) || qClean.startsWith(nClean)
+                                )
+                            ) best = it
+                        }
+                        if (best != null && !seenSrc.contains(s.key)) {
+                            seenSrc.add(s.key)
+                            out += AltCandidate(s.key, best.vod_id, best.vod_name)
+                        }
+                    }
                 }
-                if (best != null && !seenSrc.contains(s.key)) {
-                    seenSrc.add(s.key)
-                    out += AltCandidate(s.key, best.vod_id, best.vod_name)
-                }
+                // 【到点就用已有候选，不等最慢的源】
+                //
+                // 原实现 `tasks.awaitAll()` 等**全部**源跑完。真机探针抓到
+                // `alt-sources-loaded elapsed=14824 / 14961 / 14310 / 21741 / 19363`，
+                // 而候选数只有 n=4~15 —— 早在第一两轮就已够用，后面十几秒全在等慢源。
+                //
+                // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
+                // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
+                withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
+                return out
             }
-        }
-        // 【到点就用已有候选，不等最慢的源】
-        //
-        // 原实现 `tasks.awaitAll()` 等**全部**源跑完。真机探针抓到
-        // `alt-sources-loaded elapsed=14824 / 14961 / 14310 / 21741 / 19363`，
-        // 而候选数只有 n=4~15 —— 早在第一两轮就已够用，后面十几秒全在等慢源。
-        //
-        // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
-        // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
-        withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
+
+            // 首轮用原名，零候选才花时间降级（热门片不会进降级轮）
+            var out = ArrayList<AltCandidate>()
+            for (q in variants) {
+                out = searchRound(q)
+                if (out.isNotEmpty()) break
+            }
             if (out.isNotEmpty()) {
                 altSearchLock.withLock { altSearchCache[norm] = out.toList() }
             }
