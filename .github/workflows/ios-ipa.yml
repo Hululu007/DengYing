@@ -25,7 +25,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Make gradlew executable
-        run: chmod +x DengYingIos/gradlew
+        run: chmod +x DengYingIos/gradlew DengYingIos/iosApp/build-phase.sh
 
       - name: Archive (no signing)
         working-directory: DengYingIos/iosApp
