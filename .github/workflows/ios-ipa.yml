@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - ".github/workflows/ios-ipa.yml"
+      - "DengYingIos/**"
   workflow_dispatch:
 
 jobs:
