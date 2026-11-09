@@ -184,3 +184,28 @@ interface PlayerEngineHost {
     /** 当前表面计数（排障用） */
     fun surfaceCount(): Int
 }
+
+/**
+ * 空引擎：`engine()` 拿不到真引擎时的安全替代（2026-11-09，ohos 桩崩溃修复）。
+ *
+ * 发现页在**组合期** `remember { engineHost.engine() }`（IndexScreen 发现窗格），
+ * 而 ohos 侧 `engine()` 是显式抛错桩（OH_AVPlayer 未接入）——组合期抛出即未捕获
+ * 异常，进程 SIGABRT（faultlog cppcrash 实录：点开发现页闪退回桌面）。Android 侧
+ * `engine()` 恒成功，行为不变；ohos 桩的抛错语义保留（全屏播放器路径有错误弹层
+ * 接住）。发现页改用本对象兜底：**只浏览不自动播**，`viewHandle()` 返回 null →
+ * `VideoSurface` 渲染空画面（expect 契约明文允许：null = 暂无画面，不得抛异常）。
+ */
+object NullPlayerEngine : PlayerEngine {
+    override fun setMedia(url: String, headersJson: String, startPositionMs: Long) {}
+    override fun play() {}
+    override fun pause() {}
+    override fun seekTo(positionMs: Long) {}
+    override fun setSpeed(speed: Float) {}
+    override fun release() {}
+    override val currentPosition: Long get() = 0L
+    override val duration: Long get() = 0L
+    override val isPlaying: Boolean get() = false
+    override val currentUrl: String? get() = null
+    override fun addListener(listener: PlayerListener) {}
+    override fun viewHandle(): Any? = null
+}

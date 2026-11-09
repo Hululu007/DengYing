@@ -140,6 +140,8 @@ fun IndexScreen(
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSourceStatus: () -> Unit,
+    /** 「我的」页点登录：进独立登录页，而不是就地展开表单 */
+    onOpenLogin: () -> Unit,
     onOpenDetail: (String) -> Unit,
     vm: IndexViewModel = androidx.lifecycle.viewmodel.compose.viewModel {
         val deps = UiDepsHolder.get()
@@ -337,6 +339,7 @@ fun IndexScreen(
                     onOpenFavorites = onOpenFavorites,
                     onOpenHistory = onOpenHistory,
                     onOpenSettings = onOpenSourceStatus,
+                    onOpenLogin = onOpenLogin,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,
                 )
@@ -937,7 +940,14 @@ private fun DiscoverPane(
             }
     }
     val deps = UiDepsHolder.get()
-    val engine = remember { deps.engineHost.engine() }
+    // 【ohos 桩防崩】engine() 在 ohos 上是显式抛错桩（OH_AVPlayer 未接入），
+    // 组合期抛出 = 未捕获异常杀进程（faultlog cppcrash 实录：点发现页闪退）。
+    // 拿不到就退化 NullPlayerEngine：只浏览不自动播，VideoSurface 渲染空画面。
+    // Android 侧 engine() 恒成功，runCatching 不改变任何行为。
+    val engine = remember {
+        runCatching { deps.engineHost.engine() }
+            .getOrElse { com.dengying.player.player.NullPlayerEngine }
+    }
     // 【无限流】显示列表 = 池子按批追加；cursor 记住池子消费到哪（取模循环）。
     // 首批在 remember 初始化里同步填好（之后追加都在协程里做，不在组合期改状态）。
     val items = remember(pool) {

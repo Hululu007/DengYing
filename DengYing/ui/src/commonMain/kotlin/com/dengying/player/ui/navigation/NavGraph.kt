@@ -21,7 +21,9 @@ import com.dengying.player.ui.pages.DetailScreen
 import com.dengying.player.ui.pages.FavoritesScreen
 import com.dengying.player.ui.pages.HistoryScreen
 import com.dengying.player.ui.pages.IndexScreen
+import com.dengying.player.ui.pages.LoginScreen
 import com.dengying.player.ui.pages.PlayerScreen
+import com.dengying.player.ui.pages.RegisterScreen
 import com.dengying.player.ui.pages.SearchScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
 import com.dengying.player.ui.platform.rememberFullscreenState
@@ -31,7 +33,7 @@ import com.dengying.player.ui.viewmodel.PlayerViewModel
  * 全应用的路由表与返回栈。
  *
  * 【为什么在 `:ui` 而不是 `:app`】
- * 路由的目标页面（7 个 Screen）与参数编解码（[Routes]）全部住在 `:ui`，
+ * 路由的目标页面（含登录 / 注册共 9 个 Screen）与参数编解码（[Routes]）全部住在 `:ui`，
  * 把 NavHost 留在 `:app` 会让壳层反向依赖每一个页面。搬进来之后 `:app`
  * 只剩「Activity + 系统栏 + 调试入口」三件事，iOS 侧将来用同一份
  * NavHost 起 ComposeUIViewController 即可。
@@ -90,6 +92,7 @@ fun DengYingNavHost(
                 onOpenFavorites = { nav.navigate(Routes.FAVORITES) },
                 onOpenHistory = { nav.navigate(Routes.HISTORY) },
                 onOpenSourceStatus = { nav.navigate(Routes.SOURCE_STATUS) },
+                onOpenLogin = { nav.navigate(Routes.LOGIN) },
                 onOpenDetail = { route -> nav.navigate(route) },
             )
         }
@@ -253,6 +256,17 @@ fun DengYingNavHost(
 
         composable(Routes.SOURCE_STATUS) {
             SourceStatusScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable(Routes.LOGIN) {
+            LoginScreen(
+                onBack = { nav.popBackStack() },
+                onOpenRegister = { nav.navigate(Routes.REGISTER) },
+            )
+        }
+
+        composable(Routes.REGISTER) {
+            RegisterScreen(onBack = { nav.popBackStack() })
         }
         }
     }

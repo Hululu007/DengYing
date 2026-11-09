@@ -36,6 +36,9 @@ object Routes {
     const val FAVORITES = "favorites"
     const val HISTORY = "history"
     const val SOURCE_STATUS = "source_status"
+    /** AH 账号体系：独立登录 / 注册页，无参数（从「我的」页进入） */
+    const val LOGIN = "login"
+    const val REGISTER = "register"
 
     // ---- detail ----
     fun detail(

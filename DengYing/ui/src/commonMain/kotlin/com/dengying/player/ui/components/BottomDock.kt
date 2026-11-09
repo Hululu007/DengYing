@@ -14,7 +14,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.theme.Glass
@@ -56,10 +58,18 @@ fun BottomDock(
     onSelect: (DockSpec) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 导航条避让带上限（不用 navigationBarsPadding）：ohos 的 compose-arkui 可能
+    // 回报异常大的 nav inset——实测把 56dp 内容挤成 0 高，dock 整个消失
+    //（docs/04 §16.41.4）。钳到 56.dp：Android 手势条 ~16-24dp、三键导航 48dp，
+    // 都在限内不受影响；ohos 回报异常值时 dock 仍贴底可见。
+    val density = LocalDensity.current
+    val navBottom = WindowInsets.navigationBars.getBottom(density)
+        .let { with(density) { it.toDp() } }
+        .coerceAtMost(56.dp)
     GlassSurface(
         modifier = modifier
             // 底部全局悬浮 + 导航条避让：dock"浮"在内容层上（内容满铺）
-            .navigationBarsPadding()
+            .padding(bottom = navBottom)
             .padding(horizontal = 20.dp)
             .padding(bottom = 10.dp, top = 4.dp)
             .fillMaxWidth()

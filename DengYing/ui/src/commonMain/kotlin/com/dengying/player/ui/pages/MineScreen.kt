@@ -17,12 +17,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,14 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dengying.player.data.source.adapters.BttwoAuth
@@ -57,10 +50,10 @@ import kotlinx.coroutines.launch
  *
  * 【v5 形态】顶栏（品牌+搜索）在本页隐藏（由 [IndexScreen] 负责），本页自带
  * 页头 = 标题 + 右上角设置钮。内容自上而下：个人信息卡（头像/姓名/登录态）→
- * 登录表单（未登录且展开时）→ 收藏/历史统计 → 主题风格 → 源状态入口。
+ * 收藏/历史统计 → 主题风格 → 源状态入口。点卡片或「登录」胶囊进入独立登录页。
  *
  * 【登录态】[BttwoAuth] 是进程级单例（kv 落盘），本页用本地 state 镜像它的
- * 快照，登录/登出成功后显式刷新——不引入新 VM，这一页的状态够简单。
+ * 快照；从登录页返回后重新读取一次，避免返回栈复用旧组合时不刷新。
  */
 @Composable
 fun MineScreen(
@@ -68,6 +61,8 @@ fun MineScreen(
     onOpenHistory: () -> Unit,
     /** 右上角设置钮：目前直达源状态页（源的启用/探测） */
     onOpenSettings: () -> Unit,
+    /** 个人信息卡 / 登录胶囊：跳独立登录页 */
+    onOpenLogin: () -> Unit,
     topPadding: Dp,
     bottomPadding: Dp,
 ) {
@@ -76,12 +71,10 @@ fun MineScreen(
     var userName by remember { mutableStateOf(BttwoAuth.userName()) }
     var favCount by remember { mutableStateOf(0) }
     var histCount by remember { mutableStateOf(0) }
-    var showLogin by remember { mutableStateOf(false) }
-    var username by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var errMsg by remember { mutableStateOf<String?>(null) }
+    // 登录页/注册页在独立 destination；其 NavBackStackEntry 回到 RESUMED 时才刷新。
+    // 「我的」是 Pager 窗格，不随路由切换重组，不能靠 LaunchedEffect(Unit) 兜底。
+    val backStackEntry = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
+        as? androidx.navigation.NavBackStackEntry
 
     fun refreshCounts() {
         scope.launch {
@@ -91,6 +84,17 @@ fun MineScreen(
         }
     }
     LaunchedEffect(Unit) { refreshCounts() }
+    androidx.compose.runtime.DisposableEffect(backStackEntry) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                loggedIn = BttwoAuth.isLoggedIn()
+                userName = BttwoAuth.userName()
+                refreshCounts()
+            }
+        }
+        backStackEntry?.lifecycle?.addObserver(observer)
+        onDispose { backStackEntry?.lifecycle?.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -140,7 +144,7 @@ fun MineScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = !loggedIn) { showLogin = !showLogin }
+                    .clickable(enabled = !loggedIn, onClick = onOpenLogin)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -177,118 +181,7 @@ fun MineScreen(
                     )
                 }
                 if (!loggedIn) {
-                    GlassChip(text = "登录", selected = false, onClick = { showLogin = !showLogin })
-                }
-            }
-        }
-
-        // ---- 登录表单（未登录且展开时） ----
-        if (showLogin && !loggedIn) {
-            GlassSurface(
-                modifier = Modifier
-                    .padding(start = 16.dp, end = 16.dp, top = 10.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text(
-                        text = "登录两个BT",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Palette.TextPrimary,
-                    )
-                    Text(
-                        text = "登录后解锁 4K 高清线路（AH 接口登录态）",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Palette.TextSecondary,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("用户名") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(),
-                    )
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("密码") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            Text(
-                                text = if (showPassword) "隐藏" else "显示",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Palette.TextSecondary,
-                                modifier = Modifier
-                                    .clickable { showPassword = !showPassword }
-                                    .padding(horizontal = 8.dp),
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(),
-                    )
-                    errMsg?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Palette.Danger,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp)
-                            .height(42.dp)
-                            .clip(RoundedCornerShape(21.dp))
-                            .background(Palette.Brand)
-                            .clickable(enabled = !busy) {
-                                if (username.isBlank() || password.isBlank()) {
-                                    errMsg = "请输入账号和密码"
-                                } else {
-                                    busy = true
-                                    errMsg = null
-                                    scope.launch {
-                                        val outcome = BttwoAuth.login(username, password)
-                                        busy = false
-                                        when (outcome) {
-                                            is BttwoAuth.LoginOutcome.Ok -> {
-                                                loggedIn = true
-                                                userName = outcome.username
-                                                showLogin = false
-                                                username = ""
-                                                password = ""
-                                                refreshCounts()
-                                            }
-                                            is BttwoAuth.LoginOutcome.Error -> errMsg = outcome.message
-                                        }
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (busy) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(18.dp),
-                                strokeWidth = 2.dp,
-                                color = Palette.AppBg,
-                            )
-                        } else {
-                            Text(
-                                text = "登 录",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Palette.AppBg,
-                            )
-                        }
-                    }
+                    GlassChip(text = "登录", selected = false, onClick = onOpenLogin)
                 }
             }
         }

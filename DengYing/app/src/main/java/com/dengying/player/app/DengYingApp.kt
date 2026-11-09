@@ -97,6 +97,9 @@ class DengYingApp : Application(), UiDeps {
         store = Store(kv)
         // 两个BT 登录态与用户资产共用同一 preferences 文件（独立键，见 BttwoAuth）
         com.dengying.player.data.source.adapters.BttwoAuth.init(kv)
+        // AH 账号体系的签名令牌 / device_id / 会话原始数据也落在同一份 kv；
+        // 与 BttwoAuth 的键互不相交，初始化顺序必须在 setContent 之前。
+        com.dengying.player.ui.account.AhAuth.init(kv)
         // 主题风格偏好（我的页可切，见 ThemePrefs）同样走这份 kv
         com.dengying.player.ui.theme.ThemePrefs.init(kv)
         sources = SourceRepository()

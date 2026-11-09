@@ -51,10 +51,11 @@ harmony/
 ├── build-profile.json5                   signingConfigs 已配（见上）
 ├── entry/
 │   ├── build-profile.json5               externalNativeOptions → src/main/cpp/CMakeLists.txt
-│   ├── libs/x86_64/                      libdengying.so + libc++_shared.so（手工放置）
+│   ├── libs/x86_64/                      libc++_shared.so（手工放置；libdengyui.so 不放这，
+│   │                                     走 thirdparty 单通道，双份会撞 hvigor 00306049）
 │   ├── oh-package.json5                  依赖 libdengyingnapi.so (types 目录)
 │   └── src/main/
-│       ├── cpp/                          napi_init.cpp / CMakeLists.txt / include/ / types/
+│       ├── cpp/                          napi_init.cpp / CMakeLists.txt / thirdparty/(libdengyui.so) / include/ / types/
 │       ├── ets/pages/Index.ets           ← NAPI 探针页（四条 PASS/FAIL）
 │       └── resources/base/{element,media,profile}
 ```

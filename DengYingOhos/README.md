@@ -55,8 +55,8 @@ harmony/  鸿蒙壳工程（DevEco Studio / hvigor），不参与 Gradle 构建
 ### 鸿蒙侧打包
 
 ```bash
-# 1) 把 .so 放到壳工程
-cp ui/build/bin/ohosX64/debugShared/libdengyui.so harmony/entry/libs/x86_64/
+# 1) 把 .so 放到壳工程（只放 thirdparty，走 CMake 单通道打包。
+#    不要再放 entry/libs/x86_64/：与 CMake 中间产物重复，hvigor 00306049 拒打）
 cp ui/build/bin/ohosX64/debugShared/libdengyui.so harmony/entry/src/main/cpp/thirdparty/
 
 # 2) hvigor 打包（需 DevEco 的 JDK 与 SDK）
