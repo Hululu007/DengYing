@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -196,6 +197,16 @@ object DyIcons {
         )
     }
 
+    /** 前进：右向箭头（替换列表项尾部的 `›` 字形，与返回同一笔宽） */
+    val ArrowForward: DyIcon = icon { p ->
+        p.stroke(
+            Path().apply {
+                moveTo(9.2f, 4.4f); lineTo(16.8f, 12f); lineTo(9.2f, 19.6f)
+            },
+            2.2f,
+        )
+    }
+
     /** 搜索：圆 + 斜柄 */
     val Search: DyIcon = icon { p ->
         p.ring(10.4f, 10.4f, 6.2f, 2.2f)
@@ -346,12 +357,180 @@ object DyIcons {
         p.ring(14f, 17f, 2.6f, 1.7f)
     }
 
+    /**
+     * 设置：齿轮。
+     *
+     * 用 Material Icons `settings` 的官方 24×24 pathData 逐段转成 Path（外圈 12 齿 + 内圈孔，
+     * EvenOdd 挖空）。此前是手写折线近似，齿形不对称，缩小到 20dp 后看着像「不规则花形」，
+     * 故整段替换为官方轮廓。填充色由 [Pen] 统一 tint，不写死颜色。
+     */
+    val Settings: DyIcon = icon { p ->
+        p.fill(
+            Path().apply {
+                moveTo(19.43f, 12.98f)
+                cubicTo(19.47f, 12.66f, 19.5f, 12.34f, 19.5f, 12f)
+                cubicTo(19.5f, 11.66f, 19.47f, 11.34f, 19.43f, 11.02f)
+                lineTo(21.54f, 9.37f)
+                cubicTo(21.73f, 9.22f, 21.78f, 8.95f, 21.66f, 8.73f)
+                lineTo(19.66f, 5.27f)
+                cubicTo(19.54f, 5.05f, 19.27f, 4.97f, 19.05f, 5.05f)
+                lineTo(16.56f, 6.05f)
+                cubicTo(16.04f, 5.65f, 15.48f, 5.32f, 14.87f, 5.07f)
+                lineTo(14.49f, 2.42f)
+                cubicTo(14.46f, 2.18f, 14.25f, 2f, 14f, 2f)
+                lineTo(10f, 2f)
+                cubicTo(9.75f, 2f, 9.54f, 2.18f, 9.51f, 2.42f)
+                lineTo(9.13f, 5.07f)
+                cubicTo(8.52f, 5.32f, 7.96f, 5.66f, 7.44f, 6.05f)
+                lineTo(4.95f, 5.05f)
+                cubicTo(4.72f, 4.96f, 4.46f, 5.05f, 4.34f, 5.27f)
+                lineTo(2.34f, 8.73f)
+                cubicTo(2.21f, 8.95f, 2.27f, 9.22f, 2.46f, 9.37f)
+                lineTo(4.57f, 11.02f)
+                cubicTo(4.53f, 11.34f, 4.5f, 11.67f, 4.5f, 12f)
+                cubicTo(4.5f, 12.33f, 4.53f, 12.66f, 4.57f, 12.98f)
+                lineTo(2.46f, 14.63f)
+                cubicTo(2.27f, 14.78f, 2.22f, 15.05f, 2.34f, 15.27f)
+                lineTo(4.34f, 18.73f)
+                cubicTo(4.46f, 18.95f, 4.73f, 19.03f, 4.95f, 18.95f)
+                lineTo(7.44f, 17.95f)
+                cubicTo(7.96f, 18.35f, 8.52f, 18.68f, 9.13f, 18.93f)
+                lineTo(9.51f, 21.58f)
+                cubicTo(9.54f, 21.82f, 9.75f, 22f, 10f, 22f)
+                lineTo(14f, 22f)
+                cubicTo(14.25f, 22f, 14.46f, 21.82f, 14.49f, 21.58f)
+                lineTo(14.87f, 18.93f)
+                cubicTo(15.48f, 18.68f, 16.04f, 18.34f, 16.56f, 17.95f)
+                lineTo(19.05f, 18.95f)
+                cubicTo(19.28f, 19.04f, 19.54f, 18.95f, 19.66f, 18.73f)
+                lineTo(21.66f, 15.27f)
+                cubicTo(21.78f, 15.05f, 21.73f, 14.78f, 21.54f, 14.63f)
+                lineTo(19.43f, 12.98f)
+                close()
+                moveTo(12f, 15.5f)
+                cubicTo(10.07f, 15.5f, 8.5f, 13.93f, 8.5f, 12f)
+                cubicTo(8.5f, 10.07f, 10.07f, 8.5f, 12f, 8.5f)
+                cubicTo(13.93f, 8.5f, 15.5f, 10.07f, 15.5f, 12f)
+                cubicTo(15.5f, 13.93f, 13.93f, 15.5f, 12f, 15.5f)
+                close()
+                fillType = PathFillType.EvenOdd
+            },
+        )
+    }
+
+    /**
+     * QQ 官方企鹅标识（多色矢量重绘）。
+     *
+     * 不是 `Text("Q")`、不是 emoji、不引字体/位图：按 QQ 企鹅的
+     * 「黑身 + 白肚 + 红围巾 + 黄脚」品牌配色画 Path，调用方传
+     * `tint = Color.Unspecified` 走 [multiIcon] 分支；单色 tint 时退化为黑色剪影，
+     * 保证任意主题下都能绘制。24×24 网格与其余图标一致。
+     */
+    val QQ: DyIcon = multiIcon {
+        val black = Color(0xFF1B1B1B)
+        val white = Color(0xFFFFFFFF)
+        val red = Color(0xFFE6162D)
+        val yellow = Color(0xFFFFB800)
+        // 双脚
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(5.2f, 19.6f, 10.1f, 22f))
+            },
+            yellow,
+        )
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(13.9f, 19.6f, 18.8f, 22f))
+            },
+            yellow,
+        )
+        // 身体 + 头 + 双翼：贝塞尔勾出企鹅轮廓
+        val body = Path().apply {
+            moveTo(12f, 1.8f)
+            cubicTo(8.4f, 1.8f, 6.2f, 4.6f, 6.2f, 8.5f)
+            cubicTo(6.2f, 10.1f, 5.6f, 11.6f, 4.4f, 13.9f)
+            cubicTo(3.3f, 16.1f, 3.6f, 18.1f, 5.2f, 19.1f)
+            cubicTo(6.3f, 19.8f, 7.7f, 19.2f, 8.5f, 17.5f)
+            cubicTo(9.2f, 19.6f, 14.8f, 19.6f, 15.5f, 17.5f)
+            cubicTo(16.3f, 19.2f, 17.7f, 19.8f, 18.8f, 19.1f)
+            cubicTo(20.4f, 18.1f, 20.7f, 16.1f, 19.6f, 13.9f)
+            cubicTo(18.4f, 11.6f, 17.8f, 10.1f, 17.8f, 8.5f)
+            cubicTo(17.8f, 4.6f, 15.6f, 1.8f, 12f, 1.8f)
+            close()
+        }
+        drawPath(body, black)
+        // 白肚皮（下宽上窄的椭圆）
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(8.3f, 9.6f, 15.7f, 19.2f))
+            },
+            white,
+        )
+        // 眼睛（白底 + 黑瞳，错位形成 QQ 的呆萌视角）
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(9.2f, 6.4f, 11.4f, 9.2f))
+            },
+            white,
+        )
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(12.6f, 6.4f, 14.8f, 9.2f))
+            },
+            white,
+        )
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(10f, 7.2f, 10.9f, 8.5f))
+            },
+            black,
+        )
+        drawPath(
+            Path().apply {
+                addPath(ovalPath(13.1f, 7.2f, 14f, 8.5f))
+            },
+            black,
+        )
+        // 黄嘴
+        drawPath(
+            Path().apply {
+                moveTo(10.6f, 9.4f)
+                lineTo(13.4f, 9.4f)
+                lineTo(12f, 10.9f)
+                close()
+            },
+            yellow,
+        )
+        // 红围巾（横带 + 右侧飘带）
+        drawPath(
+            Path().apply {
+                moveTo(6.9f, 11.3f)
+                cubicTo(9.2f, 12.4f, 14.8f, 12.4f, 17.1f, 11.3f)
+                lineTo(17.4f, 13.2f)
+                cubicTo(14.7f, 14.3f, 9.3f, 14.3f, 6.6f, 13.2f)
+                close()
+            },
+            red,
+        )
+        drawPath(
+            Path().apply {
+                moveTo(16.1f, 12.5f)
+                lineTo(19.2f, 13.3f)
+                lineTo(18.4f, 16.3f)
+                lineTo(15.8f, 14.4f)
+                close()
+            },
+            red,
+        )
+    }
+
     /** 全部图标（预览/一致性检查用，业务代码不遍历） */
     val all: List<DyIcon> = listOf(
         Play, Pause, SkipPrevious, SkipNext, FastForward, FastRewind,
         Fullscreen, FullscreenExit, Brightness, Volume,
-        ArrowBack, Search, Person, Star, StarOutline, Close, ClearAll,
+        ArrowBack, ArrowForward, Search, Person, Star, StarOutline, Close, ClearAll,
         Refresh, History, ErrorFace, Lantern, Grid, Compass,
+        Sliders, Settings, QQ,
     )
 }
 
@@ -364,12 +543,41 @@ object DyIcons {
  * 栅格化就与那次绘制绑定，跨尺寸复用会有语义歧义。用"每次绘制现算"最省心；
  * 代价是每次重建几条 Path——图标数量极少，可忽略。
  */
-class DyIcon internal constructor(internal val render: DrawScope.(Color) -> Unit)
+class DyIcon internal constructor(
+    internal val render: DrawScope.(Color) -> Unit,
+    /** 品牌多色图标（如 QQ 企鹅）走这里；null = 普通单色图标 */
+    internal val renderBrand: (DrawScope.() -> Unit)? = null,
+)
 
 /** 图标工厂：`p` 是 24 网格坐标系里的画笔 */
-private fun icon(block: (Pen) -> Unit): DyIcon = DyIcon { color ->
-    block(Pen(this, color))
-}
+private fun icon(block: (Pen) -> Unit): DyIcon = DyIcon(
+    render = { color -> block(Pen(this, color)) },
+)
+
+/**
+ * 品牌图标工厂：保留企鹅的红围巾 / 黄脚等固定品牌色，不随 tint 变化。
+ * 调用方传 `tint = Color.Unspecified` 时走此分支；传具体色则渲染黑色剪影，
+ * 这样同一个句柄在深色/浅色主题下都能用。
+ */
+private fun multiIcon(block: DrawScope.() -> Unit): DyIcon = DyIcon(
+    render = { color ->
+        val body = Path().apply {
+            moveTo(12f, 1.8f)
+            cubicTo(8.4f, 1.8f, 6.2f, 4.6f, 6.2f, 8.5f)
+            cubicTo(6.2f, 10.1f, 5.6f, 11.6f, 4.4f, 13.9f)
+            cubicTo(3.3f, 16.1f, 3.6f, 18.1f, 5.2f, 19.1f)
+            cubicTo(6.3f, 19.8f, 7.7f, 19.2f, 8.5f, 17.5f)
+            cubicTo(9.2f, 19.6f, 14.8f, 19.6f, 15.5f, 17.5f)
+            cubicTo(16.3f, 19.2f, 17.7f, 19.8f, 18.8f, 19.1f)
+            cubicTo(20.4f, 18.1f, 20.7f, 16.1f, 19.6f, 13.9f)
+            cubicTo(18.4f, 11.6f, 17.8f, 10.1f, 17.8f, 8.5f)
+            cubicTo(17.8f, 4.6f, 15.6f, 1.8f, 12f, 1.8f)
+            close()
+        }
+        drawPath(body, if (color == Color.Unspecified) Color(0xFF1B1B1B) else color)
+    },
+    renderBrand = block,
+)
 
 /**
  * 24 网格画笔。
@@ -424,6 +632,25 @@ private class Pen(private val scope: DrawScope, private val color: Color) {
     }
 }
 
+
+/** 椭圆轮廓（近似贝塞尔）：避免依赖各平台 Path.addOval 扩展，commonMain 通用 */
+private fun ovalPath(left: Float, top: Float, right: Float, bottom: Float): Path {
+    val cx = (left + right) / 2f
+    val cy = (top + bottom) / 2f
+    val rx = (right - left) / 2f
+    val ry = (bottom - top) / 2f
+    val kx = rx * 0.55228475f
+    val ky = ry * 0.55228475f
+    return Path().apply {
+        moveTo(cx + rx, cy)
+        cubicTo(cx + rx, cy + ky, cx + kx, cy + ry, cx, cy + ry)
+        cubicTo(cx - kx, cy + ry, cx - rx, cy + ky, cx - rx, cy)
+        cubicTo(cx - rx, cy - ky, cx - kx, cy - ry, cx, cy - ry)
+        cubicTo(cx + kx, cy - ry, cx + rx, cy - ky, cx + rx, cy)
+        close()
+    }
+}
+
 /** 五角星路径（外接圆 y = 12.4，外半径 8.9，内半径按黄金比） */
 private fun starPath(): Path {
     val outer = 8.9f
@@ -461,6 +688,7 @@ fun DyIcon(
     size: Dp = 24.dp,
     contentDescription: String? = null,
 ) {
+    val brandDraw = if (tint == Color.Unspecified) icon.renderBrand else null
     Box(
         modifier = if (contentDescription != null) {
             modifier.semantics { this.contentDescription = contentDescription }
@@ -474,7 +702,11 @@ fun DyIcon(
             val k = this.size.width / 24f
             if (k <= 0f) return@Canvas
             scale(scaleX = k, scaleY = k, pivot = Offset.Zero) {
-                icon.render(this, tint)
+                if (brandDraw != null) {
+                    brandDraw.invoke(this)
+                } else {
+                    icon.render(this, tint)
+                }
             }
         }
     }

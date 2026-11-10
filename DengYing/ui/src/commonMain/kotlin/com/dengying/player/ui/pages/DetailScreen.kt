@@ -36,10 +36,12 @@ import com.dengying.player.core.VideoItem
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassBackButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.glassPageBackdrop
 import com.dengying.player.ui.platform.ConsumePortraitOrientation
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.AltItem
@@ -141,10 +143,15 @@ fun DetailScreen(
         }
     }
 
+    // 【这里不用 GlassPage】详情页内容区含内嵌播放位（SurfaceView/TextureView）。
+    // 把视频面录进 GraphicsLayer 会采不到画面（SurfaceView 不参与图层合成），
+    // 实测风险大于收益，故本页只保留柔光底：顶栏玻璃透出的是页面柔光，
+    // 不采样内容。首页/列表页无视频面，才用 GlassPage 做真实内容透射。
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg),
+            // 【透射源】纯色底换成柔光渐变层——玻璃件才有真实内容可透（见 GlassPageBackdrop）
+            .glassPageBackdrop(),
     ) {
         // ---- 返回栏 ----
         // 【玻璃化 2026-11-08】原为品牌色实底延伸进状态栏；改版后顶栏融入
@@ -159,15 +166,7 @@ fun DetailScreen(
         ) {
             // 【原为全角 "‹" 字形】它属于字体里的符号字符，粗细随字重漂移、
             // 左右留白也占宽度（"全角字符 + padding" 容易把标题挤偏）。改矢量箭头。
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(end = 10.dp),
-            )
+            GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
             Text(
                 text = s.item?.vod_name ?: name,
                 style = MaterialTheme.typography.titleSmall,
@@ -199,7 +198,7 @@ fun DetailScreen(
             }
         }
 
-        when {
+            when {
             // 【加载速度：有内容就先画内容】`s.loading` 曾经是第一分支，
             // 于是即便详情已经到手，只要那次本地 IO（收藏态/历史态）没回来，
             // 整页就还是一个转圈——数据在手却不让看。

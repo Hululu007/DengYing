@@ -42,6 +42,7 @@ import com.dengying.player.domain.playback.HlsVariants
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassBackButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.SeekPreviewBubble
 import com.dengying.player.ui.platform.PlatformBackHandler
@@ -538,15 +539,7 @@ private fun ControlOverlay(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Color.White,
-                contentDescription = "返回",
-                size = 22.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(end = 10.dp),
-            )
+            GlassBackButton(onClick = onBack, dark = true, modifier = Modifier.padding(end = 10.dp))
             Text(
                 text = s.title,
                 style = MaterialTheme.typography.bodyMedium,

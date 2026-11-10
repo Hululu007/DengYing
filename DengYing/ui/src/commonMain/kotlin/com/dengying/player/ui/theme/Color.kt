@@ -58,7 +58,10 @@ val DarkPalette = PaletteScheme(
     cardBg = Color(0xFF1C1C20),
     searchBg = Color(0xFF2A2A2F),
     textPrimary = Color(0xFFF2F2EE),
-    textSecondary = Color(0xFF9B9B93),
+    // 【v1.3.0】0xFF9B9B93 在玻璃卡上（卡片实测 rgb(95,91,114)）对比度约 2.5:1，
+    // 达不到可读线（4.5:1）。磨砂玻璃卡比纯色卡片亮一档，副文本必须跟着提亮：
+    // 0xFFB6B6AD 在同样卡片上约 4.4:1，且与 textPrimary 仍拉开层次。
+    textSecondary = Color(0xFFB6B6AD),
     divider = Color(0xFF2E2E33),
     danger = Color(0xFFE15555),
     badgeScrim = Color(0xB3000000),

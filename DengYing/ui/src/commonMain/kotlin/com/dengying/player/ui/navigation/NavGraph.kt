@@ -3,6 +3,7 @@ package com.dengying.player.ui.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
 import com.dengying.player.ui.components.GlassBackdropState
+import com.dengying.player.ui.components.LocalGlassBackdrop
 import com.dengying.player.ui.components.glassBackdrop
 import com.dengying.player.ui.pages.DetailScreen
 import com.dengying.player.ui.pages.FavoritesScreen
@@ -79,11 +81,16 @@ fun DengYingNavHost(
         }
     }
 
-    // Liquid Glass 采样根（2026-11-08 二次改版）：整棵导航内容树录制进一张
-    // GraphicsLayer，顶栏/Dock/播放器控制层等玻璃件按位置采样它做实时磨砂。
+    // 【采样状态是全局单例，采样图层是每页私有的】
+    // 曾经把 `Modifier.glassBackdrop` 挂在下面这个 Box 上（祖先），它把整棵
+    // NavHost 录进图层——玻璃件自己也在图层里，玻璃再 drawLayer(同一图层)
+    // 就是自引用，RenderThread 无限递归到栈溢出（SIGSEGV / 512 frames）。
+    // 现在采样层由每个页面的 `Modifier.glassPageBackdrop()` 提供，且**只录
+    // 柔光渐变、不录内容树**，所以图层里永远没有玻璃件，结构上不可能递归。
+    // 这里只负责把 state 挂进 CompositionLocal 供 GlassSurface 读取。
     val glassBackdrop = remember { GlassBackdropState() }
-
-    Box(modifier = Modifier.fillMaxSize().glassBackdrop(glassBackdrop)) {
+    CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+    Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Routes.INDEX) {
 
         composable(Routes.INDEX) {
@@ -269,6 +276,7 @@ fun DengYingNavHost(
             RegisterScreen(onBack = { nav.popBackStack() })
         }
         }
+    }
     }
 }
 

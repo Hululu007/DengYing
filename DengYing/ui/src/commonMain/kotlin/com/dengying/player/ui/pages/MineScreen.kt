@@ -2,7 +2,6 @@ package com.dengying.player.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,8 +37,8 @@ import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassChip
+import com.dengying.player.ui.components.GlassCircleButton
 import com.dengying.player.ui.components.GlassSurface
-import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.theme.ThemeMode
 import com.dengying.player.ui.theme.ThemePrefs
@@ -115,22 +114,12 @@ fun MineScreen(
                 color = Palette.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
-            GlassSurface(
-                modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(20.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { onOpenSettings() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    DyIcon(icon = DyIcons.Sliders, tint = Palette.TextPrimary, size = 19.dp)
-                }
-            }
+            GlassCircleButton(
+                icon = DyIcons.Settings,
+                contentDescription = "设置",
+                onClick = onOpenSettings,
+                iconSize = 20.dp,
+            )
         }
         Spacer(Modifier.height(10.dp))
 
@@ -140,6 +129,7 @@ fun MineScreen(
                 .padding(horizontal = 16.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
+            liquid = false,
         ) {
             Row(
                 modifier = Modifier
@@ -200,6 +190,7 @@ fun MineScreen(
                     .height(72.dp)
                     .clickable { onOpenFavorites() },
                 shape = RoundedCornerShape(18.dp),
+                liquid = false,
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -224,6 +215,7 @@ fun MineScreen(
                     .height(72.dp)
                     .clickable { onOpenHistory() },
                 shape = RoundedCornerShape(18.dp),
+                liquid = false,
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -250,6 +242,7 @@ fun MineScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 10.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
+            liquid = false,
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                 Text(
@@ -278,6 +271,7 @@ fun MineScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 10.dp)
                 .fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
+            liquid = false,
         ) {
             Row(
                 modifier = Modifier
@@ -308,10 +302,10 @@ fun MineScreen(
                         color = Palette.TextSecondary,
                     )
                 }
-                Text(
-                    text = "›",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Palette.TextSecondary,
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
                 )
             }
         }

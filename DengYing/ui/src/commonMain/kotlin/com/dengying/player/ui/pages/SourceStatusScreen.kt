@@ -30,7 +30,9 @@ import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.domain.source.SourceHealthRules
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassBackButton
 import com.dengying.player.ui.components.GlassSurface
+import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.SourceStatusViewModel
 
@@ -45,56 +47,18 @@ fun SourceStatusScreen(
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.reload() }
     val s = vm.state
 
+    // 【透射源】顶栏是 overlay、源卡片列表是 content（兄弟层）：
+    // 列表上滑时从顶栏背后穿过，玻璃返回环与「刷新」透出真实卡片。
+    GlassPage(
+        modifier = Modifier.fillMaxSize(),
+        content = {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        // ---- 顶栏 ----
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(end = 8.dp),
-            )
-            Text(
-                text = "源状态",
-                style = MaterialTheme.typography.titleMedium,
-                color = Palette.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            // 原为「刷新」纯文字：加一个矢量刷新图标
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .height(44.dp)
-                    .clickable { vm.reload() }
-                    .padding(horizontal = 12.dp),
-            ) {
-                DyIcon(
-                    icon = DyIcons.Refresh,
-                    tint = Palette.Brand,
-                    size = 15.dp,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "刷新",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Palette.Brand,
-                )
-            }
-        }
+        // 让出顶栏高度（顶栏在 overlay 层，不参与内容排版）
+        Spacer(Modifier.height(56.dp))
 
         // ---- FR-601：改动计数 + 恢复默认 ----
         Row(
@@ -251,6 +215,47 @@ fun SourceStatusScreen(
                 }
             }
     }
+        },
+        overlay = {
+            // ---- 顶栏（玻璃 overlay：采样下方列表）----
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(56.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
+                Text(
+                    text = "源状态",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Palette.TextPrimary,
+                    modifier = Modifier.weight(1f),
+                )
+                // 原为「刷新」纯文字：加一个矢量刷新图标
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .height(44.dp)
+                        .clickable { vm.reload() }
+                        .padding(horizontal = 12.dp),
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Refresh,
+                        tint = Palette.Brand,
+                        size = 15.dp,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = "刷新",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Palette.Brand,
+                    )
+                }
+            }
+        },
+    )
 }
 
 /** 最近一次结果的可读说法 */

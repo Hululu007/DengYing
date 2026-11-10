@@ -81,6 +81,14 @@ class IndexViewModel(
         val homeTabs: List<HomeTab> = emptyList(),
         /** 「推荐」页当前选中的 tab path；空串 = 尚未选中 */
         val homeTabPath: String = "",
+        /**
+         * 一次性操作反馈（"已刷新"等），UI 展示后自行清空。
+         *
+         * 【为什么需要】下拉刷新成功后源站常返回同一批内容，界面上没有任何
+         * 变化，用户会认为「刷新没生效」（实测反馈）。给一条短提示，让"确实
+         * 拉到了新数据"这件事可见；它不是错误信息，故与 [errMsg] 分开。
+         */
+        val notice: String = "",
     )
 
     data class UiState(
@@ -675,6 +683,9 @@ class IndexViewModel(
                         homeTabPath = tab.path,
                         sections = sections,
                         errMsg = if (sections.isEmpty()) "版块暂时没有内容" else "",
+                        // 刷新成功给一次可见反馈：源站常返回同一批内容，界面无变化
+                        // 会被当成「刷新没生效」。
+                        notice = if (sections.isEmpty()) "" else "已刷新 · ${sections.sumOf { s -> s.items.size }} 个内容",
                         refining = false,
                         loading = false,
                     )
@@ -687,6 +698,12 @@ class IndexViewModel(
                 }
             }
         }
+    }
+
+    /** 消费掉一次性提示（UI 展示完调用，避免下次进页又出现） */
+    fun dismissNotice(idx: Int) {
+        if (state.cat(idx).notice.isEmpty()) return
+        setCat(idx) { it.copy(notice = "") }
     }
 
     /** 加载某分类的下一页（带并发锁，防止重复触发） */

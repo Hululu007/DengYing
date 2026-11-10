@@ -20,5 +20,10 @@ expect fun glassRenderEffect(
     heightPx: Float,
 ): RenderEffect?
 
-/** 饱和度提升倍数：透射感的核心参数（iOS vibrancy ≈ 1.5-1.8） */
-const val GLASS_SATURATION = 1.6f
+/**
+ * 饱和度提升倍数：v3/v4 的 1.6 是「透射玻璃」口径（把背后颜色调得比原图还艳）。
+ *
+ * v5 改磨砂后降到 1.28：磨砂玻璃只是柔化背后画面，不该改变它的色相浓度；
+ * 1.6 在浅色柔光底上会让玻璃面泛出塑料感的品红。
+ */
+const val GLASS_SATURATION = 1.28f

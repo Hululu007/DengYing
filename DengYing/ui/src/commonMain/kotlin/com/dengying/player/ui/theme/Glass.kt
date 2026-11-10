@@ -40,30 +40,56 @@ data class GlassScheme(
     val chipSelectedFill: Color,
     /** Dock 选中项背后的滑动高光面板 */
     val dockHighlight: Color,
+    /**
+     * 静态玻璃面左上高光的峰值 alpha（`GlassSurface` 退化/静态分支用）。
+     *
+     * 【为什么必须是 token】v1.3.0 之前这里硬编码 `if (fill.luminance() < 0.5f) 0.10f else 0.34f`，
+     * 判据是「fill 自身亮不亮」——但深色主题下 fill 是**低 alpha 白**
+     * （`0x1CFFFFFF`，luminance≈0.11 但实际叠加后是深色），被判成暗色给 0.10f 高光，
+     * 叠加在深色柔光底上仍然把卡片整体抬亮一档，副文本压不住。
+     * 高光强度取决于**主题**，不取决于 fill 的算术亮度，所以提升为 token。
+     */
+    val sheenAlpha: Float,
 )
 
 val LightGlass = GlassScheme(
-    fill = Color(0xD9FFFFFF),
-    fillStrong = Color(0xF0FFFFFF),
+    // v5 磨砂（对齐 vivo OriginOS 组件的观感）：v4 把静态面压到 42% 白追求"透"，
+    // 结果用户看到的是"几乎透明的塑料片"——底色一冲就没了玻璃的体感。
+    // 磨砂玻璃的正解是「白面够实 + 模糊够浅」：60% 白保证有面，模糊 12dp 保证
+    // 背后内容还认得出形状。太透（<45%）像塑料膜，太实（>75%）又变回白卡。
+    fill = Color(0x99FFFFFF),
+    fillStrong = Color(0xC7FFFFFF),
     darkFill = Color(0x73000000),
-    liquidTint = Color(0x2EFFFFFF),
-    border = Color(0x140C0C09),
+    // 采样路径的补色 40% 白。
+    // 【取值理由】24% 时海报细节在玻璃里还能读出来（用户：不要做透明）；
+    // 55% 以上背后只剩一片白雾（不要很模糊）。40% 是「能看出这里有一张图、
+    // 但读不清图上的字」的分界，正对 vivo 系统组件的磨砂厚度。
+    liquidTint = Color(0x66FFFFFF),
+    border = Color(0x240C0C09),
     shadow = Color(0x1A0C0C09),
-    chipFill = Color(0x99FFFFFF),
-    chipSelectedFill = Color(0xF2FFFFFF),
-    dockHighlight = Color(0xE6FFFFFF),
+    chipFill = Color(0x5CFFFFFF),
+    chipSelectedFill = Color(0xCCFFFFFF),
+    dockHighlight = Color(0xD9FFFFFF),
+    sheenAlpha = 0.30f,
 )
 
 val DarkGlass = GlassScheme(
-    fill = Color(0x1FFFFFFF),
-    fillStrong = Color(0xF0FFFFFF),
+    // 深色同理：白面 18%（v4 是 10%）——纯靠模糊的暗玻璃在深色底上会糊成一团，
+    // 需要一层白霜把边缘与层次"提"出来。
+    // 【v1.3.0 实测回调】18% 在深色底上把卡片抬到 rgb(140,137,154)，
+    // 而副文本 textSecondary 是 rgb(155,155,147)——两者几乎同亮度，
+    // 「登录两个BT 解锁 4K 高清线路」直接糊在卡片里。压到 11% 后卡片落回
+    // rgb(≈96,92,108)，与副文本拉开一档，同时仍比页面底亮，玻璃层次不丢。
+    fill = Color(0x1CFFFFFF),
+    fillStrong = Color(0xC7FFFFFF),
     darkFill = Color(0x73000000),
-    liquidTint = Color(0x1AFFFFFF),
-    border = Color(0x26FFFFFF),
+    liquidTint = Color(0x1CFFFFFF),
+    border = Color(0x3DFFFFFF),
     shadow = Color(0x66000000),
-    chipFill = Color(0x14FFFFFF),
-    chipSelectedFill = Color(0x30FFFFFF),
-    dockHighlight = Color(0x26FFFFFF),
+    chipFill = Color(0x2EFFFFFF),
+    chipSelectedFill = Color(0x52FFFFFF),
+    dockHighlight = Color(0x3DFFFFFF),
+    sheenAlpha = 0.06f,
 )
 
 /** 当前主题的玻璃方案，由 [com.dengying.player.ui.theme.DengYingTheme] 提供。 */
@@ -80,4 +106,5 @@ object Glass {
     val ChipFill: Color @Composable get() = LocalGlassScheme.current.chipFill
     val ChipSelectedFill: Color @Composable get() = LocalGlassScheme.current.chipSelectedFill
     val DockHighlight: Color @Composable get() = LocalGlassScheme.current.dockHighlight
+    val SheenAlpha: Float @Composable get() = LocalGlassScheme.current.sheenAlpha
 }

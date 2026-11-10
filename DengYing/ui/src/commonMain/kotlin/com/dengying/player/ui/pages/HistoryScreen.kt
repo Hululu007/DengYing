@@ -28,11 +28,12 @@ import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.domain.ui.ConfirmSpec
 import com.dengying.player.ui.components.ConfirmDialog
-import com.dengying.player.ui.components.DyIcon
-import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.EmptyView
+import com.dengying.player.ui.components.GlassBackButton
+import com.dengying.player.ui.components.GlassClearButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.HistoryViewModel
@@ -57,56 +58,18 @@ fun HistoryScreen(
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.reload() }
     val s = vm.state
 
+    // 【透射源】顶栏是 overlay、历史列表是 content（兄弟层）：
+    // 列表上滑时从顶栏背后穿过，玻璃返回环与「清空」透出真实封面。
+    GlassPage(
+        modifier = Modifier.fillMaxSize(),
+        content = {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(end = 8.dp),
-            )
-            Text(
-                text = "播放历史",
-                style = MaterialTheme.typography.titleMedium,
-                color = Palette.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            // 【原为「清空」纯文字】加一个垃圾桶图标，让“破坏性操作”一眼可辨
-            // （FR-505 要求破坏性操作有明确视觉区别，图标比只靠红色单通道更稳）
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .height(44.dp)
-                    .clickable { vm.requestClear() }
-                    .padding(horizontal = 8.dp),
-            ) {
-                DyIcon(
-                    icon = DyIcons.ClearAll,
-                    tint = Palette.Danger,
-                    size = 16.dp,
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "清空",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Palette.Danger,
-                )
-            }
-        }
+        // 让出顶栏高度（顶栏在 overlay 层，不参与内容排版）
+        Spacer(Modifier.height(56.dp))
 
         if (s.tip.isNotEmpty()) {
             Text(
@@ -194,6 +157,28 @@ fun HistoryScreen(
             }
         }
     }
+        },
+        overlay = {
+            // ---- 顶栏（玻璃 overlay：采样下方列表）----
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(56.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
+                Text(
+                    text = "播放历史",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Palette.TextPrimary,
+                    modifier = Modifier.weight(1f),
+                )
+                GlassClearButton(text = "清空", onClick = { vm.requestClear() })
+            }
+        },
+    )
 
     if (s.showClearConfirm) {
         ConfirmDialog(

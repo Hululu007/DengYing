@@ -85,6 +85,9 @@ import com.dengying.player.ui.components.GlassChip
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.LoadingView
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.GlassPage
+import com.dengying.player.ui.components.GlassPullIndicator
+import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
@@ -252,11 +255,12 @@ fun IndexScreen(
                 .distinctBy { it.vod_name ?: it.vod_id.toString() }
         }
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Palette.AppBg),
-    ) {
+    // 【透射源】拆成「内容层（被采样）+ 玻璃浮层（去采样）」两个兄弟层：
+    // 海报滚到顶栏/Dock 背后时，玻璃里透出的是真实封面而不是一片色雾。
+    // 玻璃件绝不能留在 content 里，否则会录到自己 → 自引用栈溢出。
+    GlassPage(
+        modifier = Modifier.fillMaxSize(),
+        content = {
         // ---- 内容层（铺满全屏，从玻璃件背后穿过） ----
         androidx.compose.foundation.pager.HorizontalPager(
             state = pagerState,
@@ -285,10 +289,26 @@ fun IndexScreen(
                             savedScroll[0] = it
                         }
                     }
+                    // 【v5 下拉刷新】自定义玻璃 indicator，放在顶栏**下方**：
+                    // 默认 Indicator 由 PullToRefreshBox 摆在 Box 顶部并从屏幕外
+                    // 滑入，正好被玻璃顶栏挡住/压在其上（用户实测否决）。
+                    // 这里显式给 indicator 插槽，用 topPadding 把转圈推到顶栏下面。
+                    val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
                     androidx.compose.material3.pulltorefresh.PullToRefreshBox(
                         isRefreshing = cs.refining,
                         onRefresh = { vm.refresh(0) },
+                        state = pullState,
                         modifier = Modifier.fillMaxSize(),
+                        indicator = {
+                            GlassPullIndicator(
+                                state = pullState,
+                                isRefreshing = cs.refining,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    // 顶栏高度（状态栏 + 44dp 胶囊 + 上下边距）再留 8dp 间隙
+                                    .padding(top = topPad + 8.dp),
+                            )
+                        },
                     ) {
                         RecommendPage(
                             cs = cs,
@@ -297,6 +317,8 @@ fun IndexScreen(
                             onOpenDetail = onOpenDetail,
                             onRetry = { vm.loadData(0) },
                             state = listState,
+                            notice = cs.notice,
+                            onNoticeShown = { vm.dismissNotice(0) },
                         )
                     }
                 }
@@ -345,6 +367,8 @@ fun IndexScreen(
                 )
             }
         }
+        },
+        overlay = {
         // ---- 悬浮层（玻璃顶栏：品牌 + 长条搜索框）----
         // v5：「我的」页整条隐藏（该页自带页头 + 右上角设置钮）；搜索改长条。
         androidx.compose.animation.AnimatedVisibility(
@@ -442,7 +466,8 @@ fun IndexScreen(
             },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
-    }
+        },
+    )
 }
 
 /** Dock 项 key，下标与 Pager 页一一对应。 */
@@ -465,12 +490,25 @@ private fun RecommendPage(
     onOpenDetail: (String) -> Unit,
     onRetry: () -> Unit,
     state: androidx.compose.foundation.lazy.LazyListState,
+    /** 一次性反馈（"已刷新 · N 个内容"），空串不显示 */
+    notice: String,
+    onNoticeShown: () -> Unit,
 ) {
+    // 提示条出现 2.6s 后自动消失（不用 Snackbar：首页底部被 Dock 占满）
+    if (notice.isNotEmpty()) {
+        LaunchedEffect(notice) {
+            kotlinx.coroutines.delay(2600)
+            onNoticeShown()
+        }
+    }
     when {
         // 首拉中：占位避免闪空
         cs.loading && cs.sections.isEmpty() -> LoadingView()
-        // 真失败（网络/源异常）：可重试
-        cs.errMsg != null && cs.sections.isEmpty() -> ErrorView(message = cs.errMsg ?: "", onRetry = onRetry)
+        // 真失败（网络/源异常）：可重试。
+        // 【v5 修复】原判断是 `cs.errMsg != null`——errMsg 是**非空 String**，
+        // 该条件恒为 true，于是「版块为空但没有错误」时也走 ErrorView，且 message
+        // 是空串 → 屏幕一片空白，看着就像「下拉刷新没反应」。改成按空串判断。
+        cs.sections.isEmpty() && cs.errMsg.isNotEmpty() -> ErrorView(message = cs.errMsg, onRetry = onRetry)
         // 源未启用或版块拉空：给引导文案，不算失败态
         cs.sections.isEmpty() -> Column(
             modifier = Modifier
@@ -487,22 +525,36 @@ private fun RecommendPage(
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
-        else -> androidx.compose.foundation.lazy.LazyColumn(
-            state = state,
-            modifier = Modifier.fillMaxSize(),
-            // 顶部垫出悬浮层的空间，底部垫出 Dock 的空间：内容从这里开始露出，
-            // 滚动时穿过玻璃背后（Liquid Glass 采样源）
-            contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            // 【v5】首页不再放频道 tab 行（用户反馈：首页里不要 chips）——
-            // cs.homeTabs 数据仍在（VM 缓存），只是不再渲染。
-            items(cs.sections.size, key = { "sec-$it" }) { i ->
-                val sec = cs.sections[i]
-                SectionRail(
-                    title = sec.title,
-                    items = sec.items,
-                    onOpenDetail = onOpenDetail,
+        else -> Box(Modifier.fillMaxSize()) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = state,
+                modifier = Modifier.fillMaxSize(),
+                // 顶部垫出悬浮层的空间，底部垫出 Dock 的空间：内容从这里开始露出，
+                // 滚动时穿过玻璃背后（Liquid Glass 采样源）
+                contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                // 【v5】首页不再放频道 tab 行（用户反馈：首页里不要 chips）——
+                // cs.homeTabs 数据仍在（VM 缓存），只是不再渲染。
+                items(cs.sections.size, key = { "sec-$it" }) { i ->
+                    val sec = cs.sections[i]
+                    SectionRail(
+                        title = sec.title,
+                        items = sec.items,
+                        onOpenDetail = onOpenDetail,
+                    )
+                }
+            }
+            // 刷新反馈条：浮在顶栏正下方，不随列表滚动。
+            // 源站常返回同一批内容，界面无变化会被当成「刷新没生效」；
+            // 放进 LazyColumn 当 item 会被顶部 padding 顶到玻璃顶栏背后（实测），
+            // 所以改成独立浮层。
+            if (notice.isNotEmpty()) {
+                InlineNotice(
+                    text = notice,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding + 8.dp),
                 )
             }
         }
@@ -772,10 +824,22 @@ private fun CategoryPane(
     onRefresh: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
+        // 同首页：玻璃 indicator 落在分段控件**下方**，不压在胶囊上。
+        val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
         androidx.compose.material3.pulltorefresh.PullToRefreshBox(
             isRefreshing = cs.refining,
             onRefresh = onRefresh,
+            state = pullState,
             modifier = Modifier.fillMaxSize(),
+            indicator = {
+                GlassPullIndicator(
+                    state = pullState,
+                    isRefreshing = cs.refining,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding + 52.dp),
+                )
+            },
         ) {
             Column(Modifier.fillMaxSize()) {
                 // 分类分段控件（v5.2）：与底部 Dock 同款交互——玻璃胶囊容器 +
@@ -1219,6 +1283,7 @@ private fun DiscoverVideoCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
             elevation = 10.dp,
+            liquid = false,
         ) {
             Column {
                 // 16:9 播放窗：视频与海报同一几何，起播瞬间无跳变。

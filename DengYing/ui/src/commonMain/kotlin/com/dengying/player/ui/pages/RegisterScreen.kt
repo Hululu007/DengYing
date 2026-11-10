@@ -1,8 +1,6 @@
 package com.dengying.player.ui.pages
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,18 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,18 +24,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.account.AhAuth
-import com.dengying.player.ui.components.DyIcon
-import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassBackButton
+import com.dengying.player.ui.components.GlassTextField
+import com.dengying.player.ui.components.GlassActionButton
 import com.dengying.player.ui.components.GlassSurface
+import com.dengying.player.ui.components.glassPageBackdrop
 import com.dengying.player.ui.theme.Palette
 import kotlinx.coroutines.launch
 
@@ -70,7 +60,8 @@ fun RegisterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg)
+            // 【透射源】纯色底换成柔光渐变层——玻璃件才有真实内容可透（见 GlassPageBackdrop）
+            .glassPageBackdrop()
             .windowInsetsPadding(WindowInsets.statusBars)
             .verticalScroll(rememberScrollState())
             .padding(bottom = 28.dp),
@@ -82,15 +73,7 @@ fun RegisterScreen(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(start = 4.dp, end = 10.dp),
-            )
+            GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
             Text(
                 text = "创建账号",
                 style = MaterialTheme.typography.titleMedium,
@@ -123,93 +106,42 @@ fun RegisterScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 Spacer(Modifier.height(14.dp))
-                val fieldColors = TextFieldDefaults.colors(
-                    focusedContainerColor = Palette.SearchBg,
-                    unfocusedContainerColor = Palette.SearchBg,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                )
-                val fieldModifier = Modifier.fillMaxWidth().height(52.dp)
-                OutlinedTextField(
+                GlassTextField(
                     value = account,
                     onValueChange = { account = it; feedback = "" },
-                    placeholder = {
-                        Text("请输入账号", style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    modifier = fieldModifier,
+                    placeholder = "请输入账号",
+                    modifier = Modifier.fillMaxWidth(),
+                    imeAction = ImeAction.Next,
                 )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
+                GlassTextField(
                     value = password,
                     onValueChange = { password = it; feedback = "" },
-                    placeholder = {
-                        Text("密码（不少于6位）", style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    visualTransformation = if (showPassword) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Next,
-                    ),
-                    trailingIcon = {
-                        Text(
-                            text = if (showPassword) "隐藏" else "显示",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Palette.TextSecondary,
-                            modifier = Modifier
-                                .clickable { showPassword = !showPassword }
-                                .padding(horizontal = 10.dp),
-                        )
-                    },
-                    colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    modifier = fieldModifier,
+                    placeholder = "密码（不少于6位）",
+                    modifier = Modifier.fillMaxWidth(),
+                    password = !showPassword,
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next,
+                    trailingText = if (showPassword) "隐藏" else "显示",
+                    onTrailingClick = { showPassword = !showPassword },
                 )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
+                GlassTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it; feedback = "" },
-                    placeholder = {
-                        Text("重复新密码", style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    visualTransformation = if (showPassword) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Next,
-                    ),
-                    colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    modifier = fieldModifier,
+                    placeholder = "重复新密码",
+                    modifier = Modifier.fillMaxWidth(),
+                    password = !showPassword,
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next,
                 )
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
+                GlassTextField(
                     value = inviteCode,
                     onValueChange = { inviteCode = it; feedback = "" },
-                    placeholder = {
-                        Text("邀请码（选填）", style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    colors = fieldColors,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    modifier = fieldModifier,
+                    placeholder = "邀请码（选填）",
+                    modifier = Modifier.fillMaxWidth(),
+                    imeAction = ImeAction.Done,
                 )
                 if (feedback.isNotEmpty()) {
                     Text(
@@ -220,13 +152,9 @@ fun RegisterScreen(
                     )
                 }
                 Spacer(Modifier.height(14.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .clip(RoundedCornerShape(23.dp))
-                        .background(Palette.Brand)
-                        .clickable(enabled = !busy) {
+                GlassActionButton(
+                    text = "注 册",
+                    onClick = {
                             scope.launch {
                                 busy = true
                                 feedback = ""
@@ -240,24 +168,11 @@ fun RegisterScreen(
                                 }
                                 busy = false
                             }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (busy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = Palette.AppBg,
-                        )
-                    } else {
-                        Text(
-                            text = "注 册",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Palette.AppBg,
-                        )
-                    }
-                }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !busy,
+                    busy = busy,
+                )
             }
         }
 

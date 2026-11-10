@@ -5,9 +5,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.theme.DengYingTheme
+import com.dengying.player.ui.theme.ThemeMode
+import com.dengying.player.ui.theme.ThemePrefs
 
 /**
  * 单 Activity 入口。只做三件事：edge-to-edge、调试 Intent 消费、起 Compose 内容。
@@ -48,6 +54,24 @@ class MainActivity : ComponentActivity() {
         consumeDebugIntent(intent)
         setContent {
             DengYingTheme {
+                // 【系统栏图标配色必须跟着 App 内主题走，不能跟系统走】
+                // enableEdgeToEdge() 的默认实现按 **系统** 深浅色决定状态栏图标是黑还是白。
+                // 但本 App 允许在「我的」里把主题钉成浅色/深色，与系统设置无关：
+                // 系统是浅色、App 选深色时，状态栏会画黑字压在深色玻璃上，几乎不可读。
+                // 所以这里每次重组都把 isAppearanceLightStatusBars 同步到**实际生效的主题**。
+                val view = LocalView.current
+                val dark = when (ThemePrefs.mode) {
+                    ThemeMode.DARK -> true
+                    ThemeMode.LIGHT -> false
+                    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                }
+                SideEffect {
+                    val window = window ?: return@SideEffect
+                    val controller = WindowCompat.getInsetsController(window, view)
+                    controller.isAppearanceLightStatusBars = !dark
+                    // 三键导航栏同理：浅色主题要深色图标，深色主题要浅色图标。
+                    controller.isAppearanceLightNavigationBars = !dark
+                }
                 DengYingNavHost(
                     debugRoute = pendingDebugRoute.value,
                     onDebugRouteConsumed = { pendingDebugRoute.value = null },

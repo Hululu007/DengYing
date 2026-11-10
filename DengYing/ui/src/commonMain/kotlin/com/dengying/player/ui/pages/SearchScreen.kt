@@ -3,7 +3,6 @@ package com.dengying.player.ui.pages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -20,21 +19,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,8 +41,13 @@ import com.dengying.player.domain.ui.ConfirmSpec
 import com.dengying.player.ui.components.ConfirmDialog
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
+import com.dengying.player.ui.components.GlassBackButton
+import com.dengying.player.ui.components.GlassTextField
+import com.dengying.player.ui.components.GlassActionButton
+import com.dengying.player.ui.components.GlassClearButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.SearchViewModel
@@ -81,75 +79,23 @@ fun SearchScreen(
         }
     }
 
+    // 【透射源】搜索栏是 overlay 层、结果列表是 content 层（兄弟关系）：
+    // 列表上滑时从搜索栏背后穿过，玻璃框里透出真实封面与片名。
+    // 搜索栏自身不能留在 content 里——玻璃件若被录进采样图层会自引用（栈溢出）。
+    GlassPage(
+        modifier = Modifier.fillMaxSize(),
+        content = {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        // ---- 搜索栏 ----
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
-                tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(start = 4.dp, end = 10.dp),
-            )
-
-            OutlinedTextField(
-                value = s.keyword,
-                onValueChange = {
-                    vm.onKeywordChange(it)
-                    vm.loadSuggest(it)
-                },
-                placeholder = {
-                    Text("输入片名搜索", style = MaterialTheme.typography.bodyMedium,
-                        color = Palette.TextSecondary)
-                },
-                singleLine = true,
-                shape = CircleShape,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { vm.doSearch() }),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Palette.SearchBg,
-                    unfocusedContainerColor = Palette.SearchBg,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                textStyle = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .focusRequester(focusRequester),
-            )
-
-            // 搜索中显示「取消」（FR-207 的可取消入口），否则显示「搜索」
-            Box(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .background(
-                        if (s.searching) Palette.AppBg else Palette.SearchBg,
-                        RoundedCornerShape(14.dp),
-                    )
-                    .clickable { if (s.searching) vm.cancelSearch() else vm.doSearch() }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
-                Text(
-                    text = if (s.searching) "取消" else "搜索",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (s.searching) Palette.TextSecondary else Palette.Brand,
-                )
-            }
-        }
+        // 让出搜索栏高度（栏在 overlay 层，不参与内容排版）。
+        // 【只在没有结果时垫】有结果时列表要铺满整屏、从 y=0 开始画，
+        // 由 LazyColumn 的 contentPadding.top 让出搜索栏高度——否则列表被
+        // 这个 Spacer 顶到搜索栏下方，条目永远滑不到玻璃搜索栏背后，
+        // 透射就只剩一片柔光（实测）。
+        if (s.results.isEmpty()) Spacer(Modifier.height(60.dp))
 
         // ---- 联想词（正在输入、尚未搜索时）----
         // 放在历史之前：用户正在打字时，联想比历史更贴近当下意图
@@ -205,24 +151,33 @@ fun SearchScreen(
             }
 
             s.results.isNotEmpty() -> {
-                // FR-208：流式文案同样由启用集合计算
-                Text(
-                    text = if (s.searching) {
-                        SearchNotice.partialText(s.results.size, vm.searchSourceCount())
-                    } else {
-                        "共 ${s.results.size} 个结果"
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
-                )
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    // 顶部让出搜索栏（overlay 层）的高度：条目从 y=0 开始排，
+                    // 上滑时穿过玻璃搜索栏背后，玻璃里透出真实封面与片名。
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = 60.dp,
+                        bottom = 12.dp,
+                    ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    // FR-208：流式文案同样由启用集合计算
+                    item(key = "count") {
+                        Text(
+                            text = if (s.searching) {
+                                SearchNotice.partialText(s.results.size, vm.searchSourceCount())
+                            } else {
+                                "共 ${s.results.size} 个结果"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Palette.TextSecondary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
+                        )
+                    }
                     items(s.results, key = { "${it._source}_${it.vod_id}_${it.vod_name}" }) { item ->
                         ResultRow(item) {
                             onOpenDetail(
@@ -240,6 +195,41 @@ fun SearchScreen(
             }
         }
     }
+        },
+        overlay = {
+            // ---- 搜索栏（玻璃 overlay：采样下方列表）----
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(60.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
+
+                GlassTextField(
+                    value = s.keyword,
+                    onValueChange = {
+                        vm.onKeywordChange(it)
+                        vm.loadSuggest(it)
+                    },
+                    placeholder = "输入片名搜索",
+                    modifier = Modifier.weight(1f),
+                    focusRequester = focusRequester,
+                    imeAction = ImeAction.Search,
+                    onSearch = { vm.doSearch() },
+                )
+                Spacer(Modifier.width(8.dp))
+                // 搜索中显示「取消」（FR-207 的可取消入口），否则显示「搜索」
+                GlassActionButton(
+                    text = if (s.searching) "取消" else "搜索",
+                    onClick = { if (s.searching) vm.cancelSearch() else vm.doSearch() },
+                    modifier = Modifier.width(76.dp),
+                )
+            }
+        },
+    )
 
     if (s.showClearConfirm) {
         ConfirmDialog(
@@ -332,25 +322,7 @@ private fun HistoryBlock(
                 color = Palette.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
-            // 原为「清空」纯文字：此处没用红色，图标是唯一的「这是删除」信号
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable(onClick = onClear)
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-            ) {
-                DyIcon(
-                    icon = DyIcons.ClearAll,
-                    tint = Palette.TextSecondary,
-                    size = 14.dp,
-                )
-                Spacer(Modifier.width(3.dp))
-                Text(
-                    text = "清空",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
-                )
-            }
+            GlassClearButton(text = "清空", onClick = onClear)
         }
 
         // 流式换行 chips

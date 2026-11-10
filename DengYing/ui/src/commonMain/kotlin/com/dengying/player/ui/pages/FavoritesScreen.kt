@@ -25,11 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
-import com.dengying.player.ui.components.DyIcon
-import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.EmptyView
+import com.dengying.player.ui.components.GlassBackButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.FavoritesViewModel
@@ -48,55 +48,18 @@ fun FavoritesScreen(
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.reload() }
     val s = vm.state
 
+    // 【透射源】顶栏是 overlay、收藏列表是 content（兄弟层）：
+    // 列表上滑时从顶栏背后穿过，玻璃返回环与标题条透出真实封面。
+    GlassPage(
+        modifier = Modifier.fillMaxSize(),
+        content = {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Palette.AppBg)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
-        // ---- 顶栏 ----
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DyIcon(
-                icon = DyIcons.ArrowBack,
- tint = Palette.TextPrimary,
-                contentDescription = "返回",
-                size = 26.dp,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(end = 8.dp),
-            )
-            Text(
-                text = "我的收藏",
-                style = MaterialTheme.typography.titleMedium,
-                color = Palette.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            // OPS-005：源状态的调试入口（需求原文要求"个人资产页外的独立页面"）
-            Text(
-                text = "源状态",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.Brand,
-                modifier = Modifier
-                    .height(44.dp)
-                    .clickable(onClick = onOpenSourceStatus)
-                    .padding(horizontal = 8.dp, vertical = 12.dp),
-            )
-            Text(
-                text = "历史",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.Brand,
-                modifier = Modifier
-                    .height(44.dp)
-                    .clickable(onClick = onOpenHistory)
-                    .padding(horizontal = 8.dp, vertical = 12.dp),
-            )
-        }
+        // 让出顶栏高度（顶栏在 overlay 层，不参与内容排版）
+        Spacer(Modifier.height(56.dp))
 
         if (s.tip.isNotEmpty()) {
             Text(
@@ -179,4 +142,44 @@ fun FavoritesScreen(
             }
         }
     }
+        },
+        overlay = {
+            // ---- 顶栏（玻璃 overlay：采样下方列表）----
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .height(56.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlassBackButton(onClick = onBack, modifier = Modifier.padding(end = 10.dp))
+                Text(
+                    text = "我的收藏",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Palette.TextPrimary,
+                    modifier = Modifier.weight(1f),
+                )
+                // OPS-005：源状态的调试入口（需求原文要求"个人资产页外的独立页面"）
+                Text(
+                    text = "源状态",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Palette.Brand,
+                    modifier = Modifier
+                        .height(44.dp)
+                        .clickable(onClick = onOpenSourceStatus)
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                )
+                Text(
+                    text = "历史",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Palette.Brand,
+                    modifier = Modifier
+                        .height(44.dp)
+                        .clickable(onClick = onOpenHistory)
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                )
+            }
+        },
+    )
 }
