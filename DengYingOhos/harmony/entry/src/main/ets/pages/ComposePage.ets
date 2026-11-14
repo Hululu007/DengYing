@@ -36,9 +36,10 @@ struct ComposePage {
 
   build(): void {
     // Stack 的绘制顺序：先 XComponent（视频层），再 Compose（UI 层）——SurfaceView
-    // 式打洞模型。har 的 Compose 以 TEXTURE XComponent / CanvasNode 渲染，
-    // 其私有 bgColor 在字节码里带 #00000000（全透明）缺省色，故这里不改
-    // har、不传私有属性；外层 Column 显式透明，播放页根 Box 在 surface
+    // 式打洞模型。har 的 Compose 以 TEXTURE XComponent / CanvasNode 渲染；
+    // 字节码里有 #00000000 / Transparent、上游示例也不传私有 bgColor，但 .d.ets
+    // 没有默认值、har 不含源码，缺省透明色只有旁证，未直接证明，仍需真机确认。
+    // 故这里不改 har、不传私有属性；外层 Column 显式透明，播放页根 Box 在 surface
     // 生效后透明（PlayerScreen.kt），视频从下层透出；未就绪时 Kotlin 侧画黑底。
     // 其余页面根都有不透明柔光底，不会意外透出视频。全屏 XComponent 只保证
     // 「播放页铺满」这一种版式，内嵌小窗需后续 interop 定位。

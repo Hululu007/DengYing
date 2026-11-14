@@ -37,16 +37,20 @@ Compose ↔ ArkUI interop（CMP `insertInteropView`），尚未实现。
 
 现状（修后）：`ComposePage.ets` 的 Stack 顺序仍是「XComponent 在下、Compose 在上」，
 外层 `Column` 显式透明；播放页根 Box 在画面生效后不再铺黑，视频从 Compose
-透明区域透出。har 的私有 `bgColor` 在字节码里带 `#00000000`（全透明）缺省色，
-因此不向 `Compose({...})` 传私有属性，避免 ArkTS 编译期报错。
+透明区域透出。har 的私有 `bgColor` 没有可读取的默认值：`.d.ets` 不含初始值，
+字节码里虽有 `#00000000` / `Transparent` 字面量、上游示例也不传 `bgColor`，
+但这些只是旁证，不能直接证明缺省透明，仍需真机确认。因此不向 `Compose({...})`
+传私有属性，避免 ArkTS 编译期报错。
 
 真正的原因（修正 2026-11-13 的判断）：
 
 - CMP 的 `Compose` 组件**不是**整块不透明的 EGL 输出面。解包 `compose.har` 看
   `Compose.d.ets`/`CanvasNode.d.ets`：渲染走 `CanvasNode`（RenderNode fusion）或
-  `XComponent(TEXTURE)`，`bgColor` 缺省色是 `#00000000`（全透明）——都是 ArkUI
-  渲染树内的普通纹理，与下层的 SURFACE XComponent 同树合成，透明区域按 alpha
-  透出下层内容。（2026-11-13 的调查只翻了 klib，没拆 har，误判了这一点。）
+  `XComponent(TEXTURE)`，字节码里有 `Transparent` 与单个 `#00000000` 字面量
+  ——都是 ArkUI 渲染树内的普通纹理，与下层的 SURFACE XComponent 同树合成，
+  透明区域按 alpha 透出下层内容。私有 `bgColor` 的缺省值未直接证明，不能把
+  字面量当成「已确认的缺省透明色」。（2026-11-13 的调查只翻了 klib，没拆 har，
+  误判了这一点。）
 - 遮住视频的其实是 Kotlin 侧自己画的黑底：`PlayerScreen.kt` 根
   `Box(fillMaxSize().background(Color.Black))` 全屏不透明，恰好盖在视频之上；
   `VideoSurface` 的透明擦不掉父 Box 的黑。其他页面根都有不透明柔光底
