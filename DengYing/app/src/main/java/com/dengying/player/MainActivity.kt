@@ -10,6 +10,11 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import com.dengying.player.playback.PlaybackEngineHolder
+import com.dengying.player.playback.PlaybackSession
+import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.theme.DengYingTheme
 import com.dengying.player.ui.theme.ThemeMode
@@ -52,6 +57,31 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         consumeDebugIntent(intent)
+        // 【退后台必须停声】发现页预览/详情内嵌这类「组合仍活着」的播放位，
+        // Home/切走时不会触发组合销毁，引擎没人 pause（真机实测：退到桌面
+        // 声音继续）。组合层管不到生命周期，唯一的收口点是 Activity 的
+        // ON_STOP——在此统一暂停全局引擎，回前台由各播放位自己的续播逻辑
+        // 恢复（发现页回焦自动续播是既有行为）。peek() 引擎不存在时（还没
+        // 播过任何东西）不动它，避免无谓创建。
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                // 注意转型坑：Media3Engine 实现的是 PlayerEngine，不是
+                // androidx.media3.common.Player，`as? Player` 恒 null（真机
+                // 实测退后台声不停）——直接走 PlayerEngine.pause()。
+                PlaybackEngineHolder.peek()?.pause()
+            }
+
+            override fun onStart(owner: LifecycleOwner) {
+                // 【回前台续播】ON_STOP 统一 pause 后，发现页预览不会自己恢复：
+                // active 仍为 true → LaunchedEffect(active) 不重跑。详情/全屏
+                // 有 PlaybackSession 会话时由各自 resumeInlineIfPlaying 接管，
+                // 这里只在**无会话**时恢复发现页预览引擎，避免与详情抢播。
+                if (!PlaybackSession.currentState().hasSession) {
+                    PlaybackEngineHolder.peek()?.play()
+                    PlaybackProbe.note("foreground-resume")
+                }
+            }
+        })
         setContent {
             DengYingTheme {
                 // 【系统栏图标配色必须跟着 App 内主题走，不能跟系统走】

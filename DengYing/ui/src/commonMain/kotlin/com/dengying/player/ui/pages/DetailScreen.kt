@@ -43,6 +43,9 @@ import com.dengying.player.ui.components.InlinePlayer
 import com.dengying.player.ui.components.Poster
 import com.dengying.player.ui.components.glassPageBackdrop
 import com.dengying.player.ui.platform.ConsumePortraitOrientation
+import com.dengying.player.ui.platform.FullscreenState
+import com.dengying.player.ui.platform.PlatformBackHandler
+import com.dengying.player.ui.platform.rememberFullscreenState
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.AltItem
 import com.dengying.player.ui.viewmodel.DetailViewModel
@@ -97,7 +100,27 @@ fun DetailScreen(
     // 【FR-711 方向收敛】详情页是竖屏形态的宿主：组合期间显式保证竖屏方向。
     // 全屏页把方向设为横屏，返回详情页后 `requestedOrientation` 残留横屏值，
     // 无人改回就会一直横屏——由本页收敛（页面自己知道自己是竖屏形态）。
-    ConsumePortraitOrientation()
+    //
+    // 【纯屏幕形态例外（FR-711）】内嵌全屏形态下本页自己请求横屏（见全屏分支），
+    // 若这里仍无条件收敛，进入形态的下一帧就被顶回竖屏——方向横竖抖动。
+    // 故全屏形态时不收敛；退出形态后本调用重新生效，兜底收敛竖屏。
+    if (!vm.screenOnlyFullscreen) ConsumePortraitOrientation()
+
+    // FR-711：平台方向/系统栏状态。进入/退出全屏形态时与 VM 状态成对调用：
+    // 进入 = vm.enterScreenFullscreen() + fullscreen.enter(landscape=true)，
+    // 退出 = vm.exitScreenFullscreen() + fullscreen.exit()。
+    // 【注册顺序即返回键优先级】OnBackPressedDispatcher 后注册者优先：
+    // 本实例先注册，全屏分支里的 PlatformBackHandler 后注册——全屏形态下
+    // 返回键先被「退形态」消费，不会直接退出详情页。
+    val fullscreen = rememberFullscreenState()
+
+    // FR-711：形态状态驱动的平台成对请求。手动点全屏键的路径在回调里显式
+    // 成对调用；**历史直达**（tryAutoPlay → playInline + enterScreenFullscreen）
+    // 没有点击事件，方向/系统栏必须由状态变化驱动——这里统一兜底。
+    // enter 是幂等请求（对同方向重复设置无害），与回调里的显式调用不冲突。
+    androidx.compose.runtime.LaunchedEffect(vm.screenOnlyFullscreen) {
+        if (vm.screenOnlyFullscreen) fullscreen.enter(landscape = true)
+    }
 
     // 导航副作用：VM 里只置一个「待跳转路由」，跳转由 UI 层执行（VM 不持有导航器）
     val route = vm.pendingPlayerRoute
@@ -153,11 +176,25 @@ fun DetailScreen(
             // 【透射源】纯色底换成柔光渐变层——玻璃件才有真实内容可透（见 GlassPageBackdrop）
             .glassPageBackdrop(),
     ) {
+        // ---- FR-711 纯屏幕形态：同一会话的全屏视图 ----
+        //
+        // 【与路由式全屏的区别】不跳 PLAYER 页、不新建 PlayerViewModel、
+        // 不做任何播放操作（设计：docs/superpowers/specs/
+        // 2026-11-15-screen-only-fullscreen-design.md）。同一个 InlinePlayer
+        // 实例铺满全屏，控制栏与手势全部保留；退出方式：返回键或「退出全屏」键。
+        //
+        // 【为什么仍然 attachInlineSurface】本页仍是引擎的视图宿主，
+        // 全屏形态只是布局变化，表面登记语义不变。
+        if (vm.screenOnlyFullscreen) {
+            DetailFullscreenView(vm = vm, fullscreen = fullscreen, pageActive = pageActive)
+        }
+
         // ---- 返回栏 ----
         // 【玻璃化 2026-11-08】原为品牌色实底延伸进状态栏；改版后顶栏融入
         // 背景（Material You 的 blend top bar 形态），内容块自己以悬浮玻璃卡
         // 承担视觉层次，不再靠顶栏压色。
-        Row(
+        // 【全屏形态下不画返回栏】整屏交给播放器（FR-711）
+        if (!vm.screenOnlyFullscreen) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
@@ -198,7 +235,8 @@ fun DetailScreen(
             }
         }
 
-            when {
+            // 【全屏形态下不画内容区】（FR-711）整屏只有播放器
+            if (!vm.screenOnlyFullscreen) when {
             // 【加载速度：有内容就先画内容】`s.loading` 曾经是第一分支，
             // 于是即便详情已经到手，只要那次本地 IO（收藏态/历史态）没回来，
             // 整页就还是一个转圈——数据在手却不让看。
@@ -241,7 +279,12 @@ fun DetailScreen(
                     onSeek = { pos -> vm.seekInline(pos) },
                     onPrev = { vm.inlineSwitchEpisode(-1) },
                     onNext = { vm.inlineSwitchEpisode(1) },
-                    onEnterFullscreen = { vm.toFullscreen() },
+                    // FR-711：进入纯屏幕形态。VM 只记形态状态；平台方向/系统栏
+                    // 由本层请求——两步必须成对（见 rememberFullscreenState 处注释）。
+                    onEnterFullscreen = {
+                        vm.enterScreenFullscreen()
+                        fullscreen.enter(landscape = true)
+                    },
                     modifier = Modifier.background(Color.Black),
                 )
 
@@ -699,5 +742,62 @@ private fun EpisodeBlock(
             }
         }
     }
+    }
+}
+
+/**
+ * FR-711 纯屏幕形态的全屏视图：同一会话、同一 [InlinePlayer] 实例铺满宿主。
+ *
+ * 【为什么抽成独立 Composable】主 [DetailScreen] 已是超大 Compose 函数，
+ * 叠加全屏分支后 Kotlin/Native（CPF LLVM 19）侧 clang++ -cc1 在 X64 目标
+ * 稳定 0xC0000005 崩溃（Arm64 抽出 InlinePlayer 顶栏/倍速面板后已通过，
+ * X64 仍崩）。拆出本函数后主函数体缩小；改这段时不要合回主函数。
+ *
+ * 【语义】不跳 PLAYER 页、不新建 PlayerViewModel、零播放操作；返回键只退
+ * 形态不退页面。iOS/OHOS/JVM 的 PlatformBackHandler 为空实现，退出依赖
+ * 「退出全屏」键（平台差异见设计文档）。
+ */
+@Composable
+private fun DetailFullscreenView(
+    vm: DetailViewModel,
+    fullscreen: FullscreenState,
+    pageActive: Boolean,
+) {
+    SideEffect { vm.attachInlineSurface() }
+    InlinePlayer(
+        engine = vm.inlineEngine,
+        title = vm.inlineState.title,
+        isPlaying = vm.inlineState.isPlaying,
+        curTime = vm.inlineState.curTime,
+        totalTime = vm.inlineState.totalTime,
+        buffering = vm.inlineState.buffering,
+        errMsg = vm.inlineState.errMsg,
+        status = vm.inlineState.status,
+        active = vm.inlineState.active,
+        hidden = vm.inlineState.hidden || !pageActive,
+        canPrev = vm.inlineHasEp(-1),
+        canNext = vm.inlineHasEp(1),
+        onTogglePlay = { vm.toggleInlinePlay() },
+        onSeek = { pos -> vm.seekInline(pos) },
+        onPrev = { vm.inlineSwitchEpisode(-1) },
+        onNext = { vm.inlineSwitchEpisode(1) },
+        fullscreen = true,
+        // 全屏形态下控制栏的进全屏键已切换为「退出全屏」，本回调不会触发
+        onEnterFullscreen = {},
+        onExitFullscreen = {
+            vm.exitScreenFullscreen()
+            fullscreen.exit()
+        },
+        // FR-711 全屏形态扩展（2026-11-15 用户反馈）：倍速 + 投屏键
+        speed = vm.inlineSpeed,
+        onSpeedChange = { vm.applyInlineSpeed(it) },
+        // 「投屏」= 升级到播放页：投屏状态机只在 PlayerViewModel，
+        // 详情页不复制它；交接走 FR-705 既有会话 adopt（不重解析）。
+        onCast = { vm.openPlayerForCast() },
+        modifier = Modifier.fillMaxSize(),
+    )
+    PlatformBackHandler(enabled = true) {
+        vm.exitScreenFullscreen()
+        fullscreen.exit()
     }
 }

@@ -34,7 +34,7 @@
 
 | # | 状态 | 结论与证据 |
 |---|---|---|
-| M-1 | **done-on-Windows** | `git update-index --chmod=+x gradlew` 后 `git ls-files -s gradlew` → `100755 23d15a93… 0	gradlew`。可执行位存在 Git index 里，与文件系统无关，Mac 克隆即带。 |
+| M-1 | **done-on-Windows** | 三个平级工程的 `gradlew` 已用 `git update-index --chmod=+x` 恢复 Git index 中的 `100755`（blob `23d15a93`），本机 `git -C D:/workspace/dengY ls-files -s` 复核为 `100755`。历史提交 `3810f1c` 曾把三者改成 `100644`，本轮已纠正；可执行位存在 Git index 里，与文件系统无关，Mac 克隆即带。 |
 | M-2 | **Mac-only** | Windows 侧已实做：JDK 18.0.2.1 + Kotlin 2.4.21 + CMP 1.11.1 下四个 klib 任务全绿，**跨主机可编译已证明**。剩下只有一项必须在 Mac 上确认：`xcodebuild -version` ≥ 16.0。这不是本仓代码问题，是环境确认。注意本机默认 `JAVA_HOME` 是 JDK 1.8，Gradle 配置期直接失败；跑任何 Gradle 任务前必须 `export JAVA_HOME="/c/Program Files/Java/jdk-18.0.2.1"`。 |
 | M-3 | **done-on-Windows** | 实验三步。① `local.properties` 的 `sdk.dir` 指向 `D:\nonexistent-no-such-sdk` → `:app:compileDebugKotlin`报 `SDK location not found. Define a valid SDK location …`（证明该配置真的被读取）。② 同一状态下 `:ui:compileKotlinIosArm64 --rerun-tasks` → `BUILD SUCCESSFUL`（33 秒，`8 actionable tasks: 8 executed`，即强制真实配置 + 执行）。③ 整个删除 `local.properties`（= Mac 上的真实状态）→ 两个 iOS klib 任务 `BUILD SUCCESSFUL in 17s`。**结论：iOS 编译链与 Android SDK 完全解耦**，且 `local.properties` 已在 `.gitignore`（`.gitignore:3`），Mac 上不需要任何额外动作。`docs/09` §9.6 末行的退路（把 iOS target 收进条件块）**不需要启用**——该退路保持未使用状态，不必施作。 |
 
@@ -80,7 +80,7 @@
 | M-25 | **done-on-Windows** | `shared/src/iosMain/kotlin/com/dengying/player/player/PlaybackProbe.ios.kt`（4283 B）写实：POSIX `fopen(path,"a")` + `fputs` + `fclose` 追加，`NSFileManager` 建目录，`reset()` 删文件，`dumpSharePage(url)` 用 `NSURLSession.sharedSession.dataTaskWithRequest` 写 `sharepage.html` 并 `note("sharePage-dumped", "len=…")`。`init` 所有方法 no-op（契约：单测不得产生文件副作用）。**没用 `NSFileHandle.fileHandleForWritingAtPath`**——cinterop 里不可用（`Unresolved reference`，实测），且共享 handle 在后台挂起时会抛 `NSFileHandleOperationException`。**接线一并做了**（原清单点名要求）：`MainViewController.kt` 的 `ensureStarted()` 调 `PlaybackProbe.init(probeDir())`，`probeDir()` = `NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, true)` 下的 `Caches`（回退 `NSHomeDirectory()`）。 |
 | M-26 | **Mac-only** | pbxproj 两处 `DEVELOPMENT_TEAM = ""` 保持空串。**Mac 上要做**：填入 Team ID，`xcodebuild -allowProvisioningUpdates` 能自动签名。空串是刻意的——写一个假 Team ID 会让 `xcodebuild` 报更难的错。 |
 | M-27 | **Mac-only**（非代码项） | 免费 Apple ID签名 7 天过期、不能给别人装；长期给朋友用需付费账号走 TestFlight 或 Ad Hoc。IPA 必须在 macOS + Xcode 上编出，Windows 无法转换。此项无 Windows 可做的工作。 |
-| M-28 | **done-on-Windows** | `iosApp/Info.plist` 两个版本键已与 Android 对齐：`CFBundleShortVersionString = 1.1.0`、`CFBundleVersion = 1000100`（Android 侧 `app/build.gradle.kts:15-16` = `versionCode 1000100` / `versionName "1.1.0"`，`docs/01-移植说明.md:7` 已是「1.1.0（versionCode 1000100）」）。校验项：`plist version synced to Android 1.1.0` + `plist build number synced to 1000100`。`PRODUCT_BUNDLE_IDENTIFIER = com.dengying.player.ios` 未动。 |
+| M-28 | **done-on-Windows** | iOS 与 Android 版本已由后续迭代统一递增；本轮复核 `DengYingIos/iosApp/Info.plist` 与三工程 `app/build.gradle.kts` 同为当前发布版本（见各文件的 `versionCode` / `versionName`、`CFBundleShortVersionString` / `CFBundleVersion`，本表不复制会过期的数字）。`DengYingOhos/harmony/AppScope/app.json5` 亦已对齐。`PRODUCT_BUNDLE_IDENTIFIER = com.dengying.player.ios` 未动。旧记录的 `1.1.0 / 1000100` 是当时值，不是当前值。 |
 
 ## 五、清单之外
 

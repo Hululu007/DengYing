@@ -108,6 +108,15 @@ class DetailViewModel(
     var pendingPlayerRoute by mutableStateOf<String?>(null)
         private set
 
+    // FR-711 纯屏幕形态：true = 内嵌位铺满全屏。只表示**屏幕形态**，不表示播放状态
+    // ——会话、引擎、进度一概不动。状态机独立成类的原因见 [ScreenFullscreenState]。
+    private val screenFullscreen = ScreenFullscreenState {
+        com.dengying.player.playback.PlaybackSession.currentState().hasSession
+    }
+
+    /** 内嵌位当前是否处于全屏形态（FR-711）。 */
+    val screenOnlyFullscreen: Boolean get() = screenFullscreen.active
+
     private var curSource = source
     private var curVodId = vodId
     private var curName = name
@@ -500,10 +509,11 @@ class DetailViewModel(
     /**
      * 详情页是否已登记为"活跃播放表面"。
      *
-     * 【为什么用独立标志而不是"engine 是否非空"】真机踩坑：切全屏时
-     * `toFullscreen()` 会把 `inlineEngine` 置 null，之后 `releaseInline()`
+     * 【为什么用独立标志而不是"engine 是否非空"】真机踩坑：旧路由式全屏
+     * （FR-711 改造前）会把 `inlineEngine` 置 null，之后 `releaseInline()`
      * 里 `if (e != null)` 判断失败 → 计数没减 → 泄漏 → 引擎永不暂停
-     * （"返回首页还有声音"）。
+     * （"返回首页还有声音"）。改造后本页不再置空引擎，但注销仍须无条件减
+     * ——与字段是否被清无关。
      *
      * 用独立标志记录"我登记过"，注销时无条件减——与字段是否被清无关。
      */
@@ -856,60 +866,114 @@ class DetailViewModel(
     }
 
     /**
-     * 内嵌态点全屏键（FR-711：**纯导航，零播放操作**）。
+     * 内嵌态点全屏键（FR-711：**纯屏幕形态切换，零播放操作**）。
      *
-     * 会话继续播——全屏页只是同一会话的**全屏视图宿主**：
-     * 不重新解析、不 setMedia、不 pause、不交接引擎。
+     * 同一会话、同一引擎、同一个 [com.dengying.player.ui.components.InlinePlayer]
+     * 实例，只是布局从 16:9 内嵌变为铺满全屏——不重新解析、不 setMedia、
+     * 不 pause、不交接引擎、不跳 PLAYER 路由、不新建 PlayerViewModel。
      *
-     * 初版在这里做了三件事（surfaceInactive / 清会话 / 传参重新解析），
-     * 每一件都在真机上产生过问题："又触发一次缓存"、"直接不播放"、"返回不恢复"。
-     * 单会话架构下这些操作**全部不存在**。
+     * 【历史】初版（路由式全屏）在这里构造 `Routes.player(...)` 跳独立播放页，
+     * 由此产生过一串真机问题："又触发一次缓存"、"直接不播放"、"返回不恢复"、
+     * 表面计数泄漏。单会话架构下这些操作全部不存在；2026-11-15 设计进一步把
+     * 「切全屏」还原为「换屏幕形态」（`docs/superpowers/specs/
+     * 2026-11-15-screen-only-fullscreen-design.md`）。
+     *
+     * 平台方向/系统栏的请求不在这里做——VM 不持有平台类型，由 UI 层
+     * （[com.dengying.player.ui.pages.DetailScreen]）与本调用成对执行。
      */
-    fun toFullscreen() {
+    fun enterScreenFullscreen() {
         val s = com.dengying.player.playback.PlaybackSession.currentState()
         if (!s.hasSession) return
-        // 【带上 curTime 与 headers】切全屏后如果画面跑错位置，这里是唯一能判断
-        // "路由到底传了什么" 的一行。之前只记 pos，无法区分"pos 记对了但没传进路由"。
-        PlaybackProbe.note(
-            "inline-to-fullscreen",
-            "pos=${s.curTime} headers=${s.headers.isNotEmpty()} ep=${s.episodeIndex}",
-        )
-        // 【全屏页的上下集依赖这两张表】此前传 emptyList：全屏页 `hasEp()` 恒 false，
-        // 上/下集按钮常年禁用（用户反馈"没有上下集按钮功能"）。会话的 episodeIndex
-        // 就是 currentEps() 的真实下标，两张表与之一一对应。
-        val eps = currentEps()
-        // 同源其他线路的候选（与 playEpisode 同一口径）
-        val altUrls = ArrayList<String>()
-        state.lines.forEachIndexed { li, line ->
-            if (li != state.lineIdx && line.episodes.size > s.episodeIndex) {
-                altUrls += line.episodes[s.episodeIndex].url
-            }
+        val before = screenFullscreen.active
+        screenFullscreen.enter()
+        if (!before) {
+            // 【探针口径】验收看三样：切形态前后 pos 连续、enginePlaying 不变、
+            // 无 player-adopt-session / startEngine 新增。
+            PlaybackProbe.note(
+                "fullscreen-screen-only",
+                "enter pos=${s.curTime} headers=${s.headers.isNotEmpty()} ep=${s.episodeIndex}",
+            )
         }
-        pendingPlayerRoute = Routes.player(
-            url = s.url,
-            title = s.title,
-            vodId = s.vodId,
-            source = s.source,
-            vodName = s.vodName,
-            vodPic = state.item?.vod_pic ?: curPic,
-            vodUri = s.vodUri,
-            lineFrom = state.lines.getOrNull(state.lineIdx)?.name ?: "",
-            episodeIndex = s.episodeIndex,
-            episodeName = s.episodeName,
-            altUrls = altUrls,
-            epUrls = eps.map { e -> e.url },
-            epNames = eps.map { e -> e.name },
-            // 【必须带起播位置与请求头】真机实测：漏传这两个参数的后果是
-            //   [inline-to-fullscreen] pos=3271638   ← 内嵌位已经播到 54:31
-            //   [engine-seek] target=3271638         ← 用户手动 seek
-            //   [resume-restore] ep=0 pos=114992     ← 全屏页用历史值把它盖掉
-            //   [engine-seek] target=114992          ← 画面跳回 1:55
-            // 起播位置决定 `PlayerViewModel.restorePosition()` 的第一道守卫：
-            // 只有 `startAtMs > 0` 时它才会放弃历史续播点。漏传 = 守卫失效，
-            // 于是「切全屏」和「手动 seek」两条路径都会被历史记录拉回去。
-            startAtMs = s.curTime,
-            headersJson = s.headers,
+    }
+
+    /** 退出全屏形态（返回键或「退出全屏」键）。幂等；未进入时 no-op。 */
+    fun exitScreenFullscreen() {
+        val before = screenFullscreen.active
+        screenFullscreen.exit()
+        if (before) {
+            val s = com.dengying.player.playback.PlaybackSession.currentState()
+            PlaybackProbe.note(
+                "fullscreen-screen-only",
+                "exit pos=${s.curTime} status=${s.status}",
+            )
+        }
+    }
+
+    // ---- FR-711 全屏形态扩展：倍速 + 投屏（2026-11-15 用户反馈补齐）----
+
+    /**
+     * 内嵌/全屏形态共用的当前倍速。只做**回显**：真实速度状态在引擎里
+     * （`PlaybackSession.setSpeed` 直写），这里不镜像引擎事件，避免双状态漂移。
+     * 边界：换集后引擎若重置速度，本值不会自动跟随——与全屏播放页同口径
+     * （`PlayerViewModel.state.speed` 也是写时回填），已知可接受。
+     */
+    var inlineSpeed by mutableStateOf(1f)
+        private set
+
+    /**
+     * 全屏形态倍速面板的选择回调：写会话速度 + 回填回显值。
+     * 【命名】不能叫 `setInlineSpeed`——与 [inlineSpeed] 属性 setter 的 JVM
+     * 签名撞名（Platform declaration clash），取 `apply` 前缀避开。
+     */
+    fun applyInlineSpeed(v: Float) {
+        inlineSpeed = v
+        com.dengying.player.playback.PlaybackSession.setSpeed(v)
+        PlaybackProbe.note("inline-speed", "v=$v")
+    }
+
+    /**
+     * 全屏形态「投屏」键：**升级到播放页**，投屏 UI 全量复用，不复制状态机。
+     *
+     * ## 为什么不把投屏面板搬进详情页
+     *
+     * 设备发现/连接/停止回落的状态机都在 `PlayerViewModel`（castController
+     * 经 `UiDeps` 注入，GMS Cast 通道 + FR-418..423 全套口径）。详情页复制它
+     * 是两份会漂移的同一逻辑；升级到播放页则是走既有交接，零新机制。
+     *
+     * ## 会话连续性（FR-705 口径）
+     *
+     * 用 `playEpisode(realIdx, startAtMs = 会话进度, overrideUrl = 已解析地址,
+     * overrideHeaders = 配套头)`——播放页 init 看到 `hasSession && url 相同`
+     * 走 **adopt**（`player-adopt-session`），不重解析、不暂停；这正是
+     * 2026-11-15 设计保留的「其余写入点不动」中的既有通道。
+     *
+     * 【守卫】会话与当前详情条目不同源（`vodId`/`source` 不匹配）时不升级——
+     * 此时 `playEpisode` 的 realIdx 会映射到错误线路的集列表。该边界下投屏键
+     * no-op，用户退全屏后经正常路径重进即可。与旧 `toFullscreen` 同一校验口径。
+     */
+    fun openPlayerForCast() {
+        val s = com.dengying.player.playback.PlaybackSession.currentState()
+        if (!s.hasSession) return
+        if (s.vodId != curVodId || s.source != curSource) {
+            PlaybackProbe.note(
+                "fullscreen-cast-escalate",
+                "skipped vodId=${s.vodId}/$curVodId source=${s.source}/$curSource",
+            )
+            return
+        }
+        PlaybackProbe.note(
+            "fullscreen-cast-escalate",
+            "pos=${s.curTime} ep=${s.episodeIndex} urlLen=${s.url.length}",
         )
+        playEpisode(
+            realIdx = s.episodeIndex,
+            startAtMs = s.curTime,
+            overrideUrl = s.url,
+            overrideHeaders = s.headers,
+        )
+        // 从播放页返回详情时落回竖屏内嵌形态，避免「返回后横屏铺满 + 详情内容
+        // 挤在旁边」的错版（方向由 NavGraph 的 fullscreen.exit() 兜底收敛）。
+        exitScreenFullscreen()
     }
 
     /**
@@ -1059,7 +1123,12 @@ class DetailViewModel(
     }
 
     /**
-     * 播放指定集并**跳到全屏播放页**（FR-506：UI 点击与「从观看记录直达」共用同一入口）。
+     * 播放指定集并**跳到全屏播放页**（FR-506）。
+     *
+     * 现存调用方只剩投屏升级（[openPlayerForCast]）：播放页的投屏状态机
+     * 是全量实现，升级过去复用，返回后落回竖屏内嵌形态。
+     * 历史直达已改走 [playInline] + [enterScreenFullscreen]（纯屏幕形态，
+     * 2026-11-15）；内嵌全屏键也不经本方法（单会话形态切换）。
      *
      * @param realIdx 真实集序号（非显示序号；倒序显示由调用方先换算）
      * @param startAtMs 起播位置。0 = 从头；内嵌态切全屏时传入当前进度（FR-705）
@@ -1142,7 +1211,12 @@ class DetailViewModel(
         }
         if (d.verdict == ResumeDecide.Verdict.Play) {
             autoPlayed = true
-            playEpisode(d.episodeIndex)
+            // FR-711 修订（用户反馈）：历史直达只进详情页内嵌续播，**不**自动
+            // 进纯屏幕全屏形态。用户要全屏再自己点全屏键；自动 enter 会把
+            // 「想回详情看简介/选集」的路径塞进横屏，体感像被劫持。
+            // 播放仍由会话发起（playInline → PlaybackSession.play），续播位置
+            // 由会话的历史恢复逻辑接管（与手动点集完全同口径，不经 VM 传值）。
+            playInline(d.episodeIndex)
             return
         }
         if (autoPlay) autoPlayed = true
@@ -1150,5 +1224,35 @@ class DetailViewModel(
 
     fun consumeNotice() {
         if (state.resumeNotice.isNotEmpty()) state = state.copy(resumeNotice = "")
+    }
+}
+
+/**
+ * FR-711 纯屏幕形态状态机：只回答「详情页内嵌位是否处于全屏形态」。
+ *
+ * 【为什么独立成类】[DetailViewModel] 构造需要完整数据面（SourceRepository /
+ * Store / UiDeps），JVM 单测拉不起整个 VM；而形态切换的行为约束（进入守卫、
+ * 幂等、默认值、重建后保持）是本次修复的核心，必须可测。状态机自身零依赖，
+ * 守卫经注入的 lambda 判定，VM 持有一个实例并把
+ * [DetailViewModel.screenOnlyFullscreen] 代理给它。
+ *
+ * 【它绝不表示播放状态】会话、引擎、进度一概不读不写；「有没有会话」只作为
+ * 进入守卫——无会话时全屏键本就不可见，这里是双保险。
+ */
+internal class ScreenFullscreenState(private val hasSession: () -> Boolean) {
+
+    var active by mutableStateOf(false)
+        private set
+
+    /** 无会话不进入；已进入时重复进入是幂等 no-op。 */
+    fun enter() {
+        if (active || !hasSession()) return
+        active = true
+    }
+
+    /** 未进入时退出是 no-op；重复退出安全。 */
+    fun exit() {
+        if (!active) return
+        active = false
     }
 }

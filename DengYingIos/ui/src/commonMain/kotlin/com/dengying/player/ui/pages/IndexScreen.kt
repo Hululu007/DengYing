@@ -159,9 +159,11 @@ fun IndexScreen(
     var catIdx by androidx.compose.runtime.saveable.rememberSaveable {
         androidx.compose.runtime.mutableStateOf(1)
     }
-    // 发现窗格：随机片池的种子（下拉刷新 reshuffle）
+    // 发现窗格：随机片池的种子（下拉刷新 reshuffle）。
+    // 首值必须真随机：原先恒 0 → Random(0) 每次冷启同序（用户反馈「不够随机」）。
+    // rememberSaveable 仍跨重建保留，只有首次进入 / 进程重启才换一批。
     var discoSeed by androidx.compose.runtime.saveable.rememberSaveable {
-        androidx.compose.runtime.mutableStateOf(0)
+        androidx.compose.runtime.mutableStateOf(Random.Default.nextLong())
     }
     // 发现窗格的跨页重建状态（滚动位置/解析缓存/断点）。
     // 必须 remember 在**本层**：DiscoverPane 切到首页时会被销毁（pager 只预组合
@@ -202,9 +204,15 @@ fun IndexScreen(
     // 必须在这里 remember：手势只会更新它拿到的那一个 state，换一个实例 overlay 就永远读到 0。
     val homePullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
     var homePullRefreshing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    // 【v5.7 chrome 自动隐藏】用户需求：下滑看内容时收起顶栏（logo/搜索）、
+    // 底部 Dock 和分类页的分类分段控件，上滑呼出。方向判定由各页滚动状态
+    // 经 [ScrollDirWatcher] 汇报；切窗格时强制复位为显示（不能带着隐藏态进新页）。
+    var chromeVisible by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
     // 【Pager → 数据】滑停之后按窗格触发加载：
     // 首页吃推荐槽位(0)，分类/发现各自吃所选分类槽位，我的不拉数据。
     LaunchedEffect(pagerState.settledPage) {
+        // 切窗格复位 chrome：隐藏是"这页正在往下看"的临时态，不跨页携带
+        chromeVisible = true
         when (pagerState.settledPage) {
             0 -> vm.onShown(0)
             1 -> vm.onShown(catIdx)
@@ -293,6 +301,10 @@ fun IndexScreen(
                             savedScroll[0] = it
                         }
                     }
+                    ScrollDirWatcher(
+                        pos = { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset },
+                        onHide = { down -> chromeVisible = !down },
+                    )
                     // 【下拉刷新】转圈不画在这里。内容层在 GlassPage 的采样层里，
                     // 玻璃顶栏是浮在它之上的 overlay，转圈画在内容层会被顶栏整个盖住
                     // （用户实测：下拉时看不见转圈）。手势写入外层那一个 state，转圈画进 overlay。
@@ -335,6 +347,10 @@ fun IndexScreen(
                     onRetry = { vm.loadData(catIdx) },
                     onNearEnd = { vm.loadMore(catIdx) },
                     onRefresh = { vm.refresh(catIdx) },
+                    // v5.7：下滑收起分类分段控件（与顶栏/Dock 同步），上滑呼出
+                    chipsVisible = chromeVisible,
+                    // v5.7.2：网格滚动方向也驱动整组 chrome 显隐
+                    onScrollDir = { down -> chromeVisible = !down },
                 )
                 // ---- 发现：随机推荐 + 内嵌自动播放（v5，抖音式单播） ----
                 2 -> DiscoverPane(
@@ -347,6 +363,8 @@ fun IndexScreen(
                     // targetPage 在滑动开始即变 → 开始滑就停声（主流口径）
                     active = pagerState.targetPage == 2,
                     preparing = !poolReady,
+                    // v5.7：发现页下滑同样收起 chrome（监听在窗格自己的 listState 上）
+                    onScrollDir = { down -> chromeVisible = !down },
                 )
                 // ---- 我的：个人信息聚合（v5；共享顶栏在本页隐藏，自带页头） ----
                 3 -> MineScreen(
@@ -363,8 +381,9 @@ fun IndexScreen(
         overlay = {
         // ---- 悬浮层（玻璃顶栏：品牌 + 长条搜索框）----
         // v5：「我的」页整条隐藏（该页自带页头 + 右上角设置钮）；搜索改长条。
+        // v5.7：再叠加滚动隐藏——任一窗格下滑时收起，上滑或切页复位。
         androidx.compose.animation.AnimatedVisibility(
-            visible = pagerState.targetPage != 3,
+            visible = chromeVisible && pagerState.targetPage != 3,
             enter = fadeIn() + androidx.compose.animation.slideInVertically { -it / 2 },
             exit = fadeOut() + androidx.compose.animation.slideOutVertically { -it / 2 },
         ) {
@@ -443,6 +462,13 @@ fun IndexScreen(
         // 条下的内容从玻璃背后穿过时被 [GlassBackdropState] 采样实时磨砂。
         // v5：选中项绑定 pagerState.targetPage —— 拖动翻页时高光跟着走
         //（spring 动画在 BottomDock 内部平滑追踪），点 Dock 只负责滚动。
+        // v5.7：Dock 跟随滚动隐藏/呼出（与顶栏同一 chromeVisible）。
+        androidx.compose.animation.AnimatedVisibility(
+            visible = chromeVisible,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
         BottomDock(
             items = listOf(
                 DockSpec(key = "home", label = "首页", icon = DyIcons.Lantern),
@@ -456,8 +482,8 @@ fun IndexScreen(
                     pagerState.animateScrollToPage(DOCK_KEYS.indexOf(item.key).coerceAtLeast(0))
                 }
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
+        }
         // 首页下拉刷新的转圈：必须在 overlay 层，否则被玻璃顶栏盖住看不见。
         // 只在首页显示，顶栏正下方居中。
         if (pagerState.targetPage == 0) {
@@ -804,7 +830,17 @@ private fun CategoryPane(
     onRetry: () -> Unit,
     onNearEnd: () -> Unit,
     onRefresh: () -> Unit,
+    // 【v5.7 chrome 自动隐藏】分类分段控件显隐：下滑收起（IndexScreen 的
+    // chromeVisible 驱动），上滑呼出。收起时网格顶边自然上移填补。
+    chipsVisible: Boolean = true,
+    // 【v5.7.2】分类网格滚动方向回调：下滑=收起顶栏/Dock/chips（同一
+    // chromeVisible），上滑呼出。与首页/发现页同口径，缺省不联动。
+    onScrollDir: (Boolean) -> Unit = {},
 ) {
+    ScrollDirWatcher(
+        pos = { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset },
+        onHide = onScrollDir,
+    )
     Column(Modifier.fillMaxSize()) {
         // 同首页：玻璃 indicator 落在分段控件**下方**，不压在胶囊上。
         val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
@@ -827,6 +863,13 @@ private fun CategoryPane(
                 // 分类分段控件（v5.2）：与底部 Dock 同款交互——玻璃胶囊容器 +
                 // 滑动高光（animateDpAsState 弹簧）+ 内容均分（spaceBetween 语义，
                 // 固定 6 分类每项 weight(1f)），不再是滚动 chips 行。
+                // v5.7：包 AnimatedVisibility 参与滚动隐藏；shrinkVertically 让
+                // 网格贴上来，不留空带。
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = chipsVisible,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(),
+                ) {
                 GlassSurface(
                     modifier = Modifier
                         .padding(top = topPadding, start = 12.dp, end = 12.dp)
@@ -883,10 +926,12 @@ private fun CategoryPane(
                         }
                     }
                 }
+                }
                 PageContent(
                     cs = cs,
-                    // 网格已在 chips 之下（Column 布局），只需垫过 chips 底边距
-                    topPadding = 8.dp,
+                    // 网格已在 chips 之下（Column 布局），只需垫过 chips 底边距；
+                    // chips 收起（v5.7）后网格自己垫回完整顶栏高度，避免顶进状态栏
+                    topPadding = if (chipsVisible) 8.dp else topPadding,
                     bottomPadding = bottomPadding,
                     onOpenDetail = onOpenDetail,
                     onRetry = onRetry,
@@ -906,6 +951,48 @@ private fun CategoryPane(
 
 /** 发现页无限流：每批追加的条数（滚近尾部 +1 批） */
 private const val DISCOVER_BATCH = 9
+
+/**
+ * 滚动方向监视（v5.7 chrome 自动隐藏）：把 Lazy 列表/网格的 (首可见项下标, 偏移)
+ * 流转成方向事件——累计下滑超过阈值报 `onHide(true)`，累计上滑报 `onHide(false)`。
+ *
+ * 【为什么是累计而不是立即】手指抖动/回弹会产生反向小位移，立即切换会让
+ * chrome 闪烁；累计量过方向抵消后需要走满阈值才切换。阈值 80px（约 30dp）：
+ * 小于一次典型 fling，响应不至于迟钝。
+ *
+ * 【下标跨项的换算】不同项高度不一，跨项时用 `下标差 * 100000` 当位移量级
+ * （单项偏移远小于该值），保证跨项滑动方向不被项内偏移噪声淹没。
+ *
+ * 【pos 用 lambda 而不是状态参数】列表状态由调用方各自持有（网格/列表两种
+ * 类型），lambda 里读快照态，[androidx.compose.runtime.snapshotFlow] 订阅
+ * 其变化——与 savedScroll 的既有口径一致。
+ */
+@Composable
+private fun ScrollDirWatcher(
+    pos: () -> Pair<Int, Int>,
+    onHide: (Boolean) -> Unit,
+) {
+    val cur by androidx.compose.runtime.rememberUpdatedState(pos)
+    val report by androidx.compose.runtime.rememberUpdatedState(onHide)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        var prev = cur()
+        var accum = 0
+        androidx.compose.runtime.snapshotFlow { cur() }.collect { now ->
+            val d = if (now.first == prev.first) now.second - prev.second
+            else (now.first - prev.first) * 100000
+            prev = now
+            if (d == 0) return@collect
+            accum += d
+            if (accum > 80) {
+                accum = 0
+                report(true)
+            } else if (accum < -80) {
+                accum = 0
+                report(false)
+            }
+        }
+    }
+}
 
 /** 池子前 [n] 个不重复项的数量（首批游标初值：首批同步填充消耗掉的池子长度） */
 private fun countFirstUnique(pool: List<VideoItem>, n: Int): Int {
@@ -955,6 +1042,11 @@ private class DiscoverResume {
     val paused = androidx.compose.runtime.mutableStateMapOf<Int, Long>()
     /** 解析结果缓存：下标 → (直链, headers, 是否试看链)。跨重建复用，免二次解析。 */
     val resolved = androidx.compose.runtime.mutableStateMapOf<Int, Triple<String, String, Boolean>>()
+    /**
+     * 中心卡 VideoSurface 是否已绑上引擎（跨页重建存活）。
+     * 起播必须等 onBind(true)：原先 if(playing) 才组合 surface，首进常「有声无画」。
+     */
+    val surfaceBound = androidx.compose.runtime.mutableStateOf(false)
 }
 
 @Composable
@@ -972,11 +1064,17 @@ private fun DiscoverPane(
     active: Boolean,
     // 【v5.6】六分类预热中（池子未成型）——空池时显示"备片"加载态而非"没内容"。
     preparing: Boolean,
+    // 【v5.7 chrome 自动隐藏】滚动方向回调：true=下滑（收起顶栏/Dock），false=上滑。
+    onScrollDir: (Boolean) -> Unit = {},
 ) {
     // 滚动位置跨页重建：从持有者恢复初值，滚动时回写（切到首页再回来仍在原处）
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
         initialFirstVisibleItemIndex = resume.listIndex.intValue,
         initialFirstVisibleItemScrollOffset = resume.listOffset.intValue,
+    )
+    ScrollDirWatcher(
+        pos = { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset },
+        onHide = onScrollDir,
     )
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
@@ -1116,18 +1214,21 @@ private fun DiscoverPane(
     val pausedPositions = resume.paused
     var startedIdx by resume.startedIdx
 
-    // 【中心项起播】playingIdx / active 变化：先停旧声（切中心/滑走都不许
-    // 旧片继续响），再等该项解析落袋（可见即解析已在跑）→ 起播。
-    // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废；滚回
-    // （或从别的窗格滑回来）→ 协程重启命中缓存立即续播。
-    LaunchedEffect(playingIdx, active) {
+    // 【中心项起播】playingIdx / active / surfaceBound 变化：先停旧声，再等
+    // 该项解析落袋 + 中心卡 VideoSurface 已 onBind(true) → 起播。
+    // 原先 if(playing) 才组合 surface + playSettled/surfaceKick 治标：首进
+    // 常「有声无画」（探针无 setMedia/VIDEO_SIZE——起播 effect 根本没触发，
+    // 或 surface 后于解码）。现在中心卡常驻 surface，起播门改为 surfaceBound。
+    // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废。
+    var surfaceBound by resume.surfaceBound
+    LaunchedEffect(playingIdx, active, surfaceBound) {
         val idx = playingIdx
         // 被切走的片记断点：滑到新中心、或整窗格失焦，都要留位置
         if (startedIdx >= 0 && (startedIdx != idx || !active)) {
             pausedPositions[startedIdx] = engine.currentPosition
         }
         engine.pause()
-        if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
+        if (!active || !surfaceBound || idx < 0 || idx >= items.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
         // 【无缝续播】媒体还是本片的（只是 Dock 切页暂停过）→ play() 直接续：
@@ -1230,12 +1331,14 @@ private fun DiscoverPane(
                 val hit = resolved[idx]
                 DiscoverVideoCard(
                     item = item,
+                    // 中心卡即常驻 VideoSurface（不等解析）——起播门靠 onBind。
+                    isCenter = playingIdx == idx,
                     resolving = playingIdx == idx && hit == null,
-                    playing = playingIdx == idx && hit != null && hit.first.isNotEmpty(),
                     failed = playingIdx == idx && hit != null && hit.first.isEmpty(),
                     preview = playingIdx == idx && hit != null && hit.third,
                     engine = engine,
                     onOpenDetail = onOpenDetail,
+                    onSurfaceBound = { bound -> surfaceBound = bound },
                 )
             }
         }
@@ -1251,12 +1354,14 @@ private fun DiscoverPane(
 @Composable
 private fun DiscoverVideoCard(
     item: VideoItem,
+    /** 是否视口中心卡：中心卡常驻 VideoSurface，起播靠 onBind 门。 */
+    isCenter: Boolean,
     resolving: Boolean,
-    playing: Boolean,
     failed: Boolean,
     preview: Boolean,
     engine: PlayerEngine,
     onOpenDetail: (String) -> Unit,
+    onSurfaceBound: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1287,8 +1392,24 @@ private fun DiscoverVideoCard(
                             )
                         },
                 ) {
-                    if (playing) {
-                        VideoSurface(engine = engine, modifier = Modifier.fillMaxSize())
+                    if (isCenter) {
+                        // 【常驻 surface + onBind 门】中心卡始终组合 VideoSurface，
+                        // 起播 effect 等 onBind(true) 再 setMedia/play——避免
+                        // 「解码先于 surface」的有声黑屏。海报垫在底层作占位。
+                        // 离开中心（本卡 dispose / isCenter 变 false）清 bound。
+                        com.dengying.player.ui.components.Poster(
+                            url = item.vod_pic ?: "",
+                            modifier = Modifier.fillMaxSize(),
+                            cornerRadius = 0,
+                        )
+                        VideoSurface(
+                            engine = engine,
+                            modifier = Modifier.fillMaxSize(),
+                            onBind = onSurfaceBound,
+                        )
+                        androidx.compose.runtime.DisposableEffect(Unit) {
+                            onDispose { onSurfaceBound(false) }
+                        }
                     } else {
                         com.dengying.player.ui.components.Poster(
                             url = item.vod_pic ?: "",

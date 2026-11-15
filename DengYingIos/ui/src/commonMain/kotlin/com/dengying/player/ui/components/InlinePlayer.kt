@@ -25,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,9 +38,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.platform.VideoSurface
+import com.dengying.player.ui.theme.Glass
 import com.dengying.player.domain.playback.GestureRules
 import com.dengying.player.domain.playback.SeekPreview
 import com.dengying.player.player.PlayerEngine
+import com.dengying.player.ui.platform.rememberBrightnessController
+import com.dengying.player.ui.platform.rememberVolumeController
 import com.dengying.player.ui.theme.Palette
 
 /**
@@ -111,10 +115,38 @@ fun InlinePlayer(
     onPrev: () -> Unit = {},
     onNext: () -> Unit = {},
     onEnterFullscreen: () -> Unit,
+    /**
+     * 全屏形态（FR-711 纯屏幕形态）：true = 铺满宿主，全屏键变为「退出全屏」。
+     *
+     * 只影响**布局与按钮语义**，不影响渲染面——`VideoSurface` 两种形态都是
+     * 同一个实例 `fillMaxSize()`，切形态不重建画面、不触碰引擎。
+     */
+    fullscreen: Boolean = false,
+    /** 全屏形态下「退出全屏」键的回调；由调用方与平台方向/系统栏成对处理。 */
+    onExitFullscreen: () -> Unit = {},
+    /**
+     * 当前倍速（FR-711 全屏形态扩展）。只影响全屏形态——内嵌态控制栏保持
+     * 精简口径（设计约束 2：进度条 + 上/下一集 + 暂停 + 全屏，见本文件头）。
+     */
+    speed: Float = 1.0f,
+    /** 倍速选择回调；调用方负责写会话速度并回填状态（`DetailViewModel.setInlineSpeed`）。 */
+    onSpeedChange: (Float) -> Unit = {},
+    /**
+     * 全屏形态右上角「投屏」键回调；null = 不显示。
+     *
+     * 【为什么是回调而不是内嵌投屏面板】投屏的设备发现/连接/回落状态机
+     * 都在 `PlayerViewModel`（castController 经 UiDeps 注入），详情页不复制它。
+     * 当前实现是**升级到播放页**：`DetailViewModel.openPlayerForCast()` 走
+     * FR-705 既有交接（已解析地址 + 当前进度，播放页 adopt 会话），投屏 UI
+     * 全量复用。返回详情页时落回竖屏内嵌形态。
+     */
+    onCast: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var dragValue by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
+    // 全屏形态的倍速面板开关（FR-711 扩展）；内嵌形态无倍速键，恒为 false。
+    var speedSheet by remember { mutableStateOf(false) }
 
     // ---- 画面横向滑动 seek（FR-708 / P-02）----
     //
@@ -127,6 +159,38 @@ fun InlinePlayer(
     var seeking by remember { mutableStateOf(false) }
     var seekStartMs by remember { mutableLongStateOf(0L) }
     var seekTargetMs by remember { mutableLongStateOf(0L) }
+
+    // ---- FR-711 全屏形态手势扩展：左半屏亮度 / 右半屏音量（P-04/P-05 同口径）----
+    // 内嵌态不接管：竖向意图明确时仍按 docs/08 §2 约束 4 作废（见下方手势块）。
+    // 控制器与全屏播放页同一套（`ui/platform`）；拿不到窗口时为 null，
+    // 亮度手势经 `GestureRules.decide` 的 brightnessAvailable 分支自动退化为作废。
+    val brightnessCtl = rememberBrightnessController()
+    val volumeCtl = rememberVolumeController()
+    var viewHeightPx by androidx.compose.runtime.mutableFloatStateOf(1f)
+    // 【必须 rememberUpdatedState】pointerInput(Unit) 不随参数重启，手势块里
+    // 直接读 `fullscreen` 会永远拿到首次组合的值（与 :171 的 seek 同坑）。
+    val liveFullscreen by androidx.compose.runtime.rememberUpdatedState(fullscreen)
+
+    // 调节反馈浮层（口径同全屏播放页：数值随拖动更新，手势结束 800ms 后收起；
+    // 手势进行中即使跨过 800ms 也不收——adjustActive 挡住）。
+    var adjustInfo by remember { mutableStateOf<GestureAdjust?>(null) }
+    var adjustVisible by remember { mutableStateOf(false) }
+    var adjustActive by remember { mutableStateOf(false) }
+    var adjustHideTick by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(adjustHideTick) {
+        if (adjustHideTick > 0) {
+            kotlinx.coroutines.delay(800)
+            if (!adjustActive) adjustVisible = false
+        }
+    }
+
+    // 离开全屏形态（或整个内嵌位销毁）时撤掉窗口亮度覆写——谁设置谁恢复，
+    // 不恢复会让其它页面顶着这个亮度（与 PlayerScreen 的恢复规则一致）。
+    // DisposableEffect(fullscreen) 在形态切换时重启：true→false 的收尾闭包
+    // 捕获的是旧值 true，恰好只在"曾经覆写过"时执行恢复。
+    androidx.compose.runtime.DisposableEffect(fullscreen, brightnessCtl) {
+        onDispose { if (fullscreen) brightnessCtl?.restore() }
+    }
 
     // 已提交、尚未被会话位置确认的目标。0 = 无待生效 seek。
     // 作用同全屏态：提交后播放器要重新缓冲，`curTime` 仍停在旧位置，
@@ -169,11 +233,17 @@ fun InlinePlayer(
 
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            // 16:9 是绝大多数影视内容的宽高比；竖向短剧在此留黑边（FIT 不裁切）
-            .aspectRatio(16f / 9f)
+            // 【FR-711 纯屏幕形态】全屏形态铺满宿主；内嵌形态 16:9
+            // （16:9 是绝大多数影视内容的宽高比；竖向短剧在此留黑边，FIT 不裁切）。
+            .then(
+                if (fullscreen) Modifier.fillMaxSize()
+                else Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            )
             .background(Color.Black)
-            .onSizeChanged { viewWidthPx = it.width.toFloat().coerceAtLeast(1f) }
+            .onSizeChanged {
+                viewWidthPx = it.width.toFloat().coerceAtLeast(1f)
+                viewHeightPx = it.height.toFloat().coerceAtLeast(1f)
+            }
             // 画面手势：**一次手势只做一件事**（与全屏同一套口径）
             //   横滑 → seek 预览，松手提交（FR-708）
             //   未形成拖动 → 单击切控制栏 / 双击播放暂停（P-03）
@@ -183,54 +253,119 @@ fun InlinePlayer(
             .pointerInput(Unit) {
                 var totalX = 0f
                 var totalY = 0f
-                var mode = 0   // 0=未判定 1=seek
+                var startX = 0f
+                // 0=未判定 1=seek 2=亮度 3=音量 -1=竖向但该侧不可调/内嵌态（作废）
+                var mode = 0
+                var brightBase = 0f
+                var volBase = 0f
                 detectDragGestures(
-                    onDragStart = {
+                    onDragStart = { offset ->
                         totalX = 0f
                         totalY = 0f
+                        startX = offset.x
                         mode = 0
                     },
                     onDrag = { change, dragAmount ->
                         totalX += dragAmount.x
                         totalY += dragAmount.y
                         if (mode == 0) {
-                            if (
-                                kotlin.math.abs(totalX) > GestureRules.THRESHOLD_PX &&
-                                kotlin.math.abs(totalX) >= kotlin.math.abs(totalY)
-                            ) {
-                                mode = 1
-                                change.consume()
-                                seekStartMs = liveCurTime
-                                seekTargetMs = liveCurTime
-                                seeking = true
-                            } else if (kotlin.math.abs(totalY) > GestureRules.THRESHOLD_PX) {
-                                // 竖向意图明确但内嵌位不接管亮度/音量：
-                                // 本次手势作废，既不当 seek 也不当点击（`docs/08` §2 约束 4）
-                                mode = -1
+                            // 方向仲裁与全屏播放页同一纯函数（`domain/GestureRules`）：
+                            // 横向主导→seek、竖向主导+起点左半→亮度、右半→音量、
+                            // 该侧不可调→Discard。内嵌态不接管亮度/音量（FR-711 只给
+                            // 全屏形态），竖向仍按 docs/08 §2 约束 4 作废。
+                            when (GestureRules.decide(
+                                totalX = totalX,
+                                totalY = totalY,
+                                startX = startX,
+                                viewWidth = viewWidthPx,
+                                brightnessAvailable = brightnessCtl != null,
+                            )) {
+                                GestureRules.Action.Undecided -> Unit
+                                GestureRules.Action.Seek -> {
+                                    change.consume()
+                                    mode = 1
+                                    seekStartMs = liveCurTime
+                                    seekTargetMs = liveCurTime
+                                    seeking = true
+                                }
+                                GestureRules.Action.Brightness -> {
+                                    if (liveFullscreen && brightnessCtl != null) {
+                                        change.consume()
+                                        mode = 2
+                                        brightBase = brightnessCtl.current()
+                                        adjustInfo = GestureAdjust(2, brightBase)
+                                        adjustVisible = true
+                                        adjustActive = true
+                                    } else {
+                                        mode = -1
+                                    }
+                                }
+                                GestureRules.Action.Volume -> {
+                                    if (liveFullscreen && volumeCtl != null) {
+                                        change.consume()
+                                        mode = 3
+                                        volBase = volumeCtl.currentFraction()
+                                        adjustInfo = GestureAdjust(3, volBase)
+                                        adjustVisible = true
+                                        adjustActive = true
+                                    } else {
+                                        mode = -1
+                                    }
+                                }
+                                GestureRules.Action.Discard -> {
+                                    // 竖向意图已明确但该侧不可调：本次手势作废。
+                                    // 不退回 seek（方向已定），也不当成点击。
+                                    mode = -1
+                                }
                             }
                         }
-                        if (mode == 1) {
-                            change.consume()
-                            seekTargetMs = SeekPreview.targetOf(
-                                fromMs = seekStartMs,
-                                deltaX = totalX,
-                                viewWidth = viewWidthPx,
-                                totalMs = liveTotalTime,
+                        when (mode) {
+                            1 -> {
+                                change.consume()
+                                seekTargetMs = SeekPreview.targetOf(
+                                    fromMs = seekStartMs,
+                                    deltaX = totalX,
+                                    viewWidth = viewWidthPx,
+                                    totalMs = liveTotalTime,
+                                )
+                            }
+                            // 上滑为正：竖向位移取负号（Y 轴向下为正），比例按画面高度
+                            2 -> adjustInfo = GestureAdjust(
+                                2,
+                                brightnessCtl!!.adjust(brightBase, -totalY / viewHeightPx),
+                            )
+                            3 -> adjustInfo = GestureAdjust(
+                                3,
+                                volumeCtl?.adjust(volBase, -totalY / viewHeightPx) ?: volBase,
                             )
                         }
                     },
                     onDragEnd = {
-                        if (mode == 1) {
-                            // 松手才真正 seek：连续 seek 会重建解码管线（FR-708 ③）
-                            pendingSeekMs = seekTargetMs
-                            onSeek(seekTargetMs)
-                            seeking = false
+                        when (mode) {
+                            1 -> {
+                                // 松手才真正 seek：连续 seek 会重建解码管线（FR-708 ③）
+                                pendingSeekMs = seekTargetMs
+                                onSeek(seekTargetMs)
+                                seeking = false
+                            }
+                            // 浮层在手势结束后延时收起（adjustHideTick），松手瞬间不消失
+                            2, 3 -> {
+                                adjustActive = false
+                                adjustHideTick++
+                            }
+                            // 0：位移不足阈值 → 交回下方 detectTapGestures 按点击处理
+                            // -1：作废手势，不切控制层（竖向意图已明确）
                         }
                     },
                     onDragCancel = {
-                        // 取消不提交错误位置
-                        seeking = false
-                        seekTargetMs = seekStartMs
+                        if (mode == 1) {
+                            // 取消不提交错误位置
+                            seeking = false
+                            seekTargetMs = seekStartMs
+                        } else if (mode == 2 || mode == 3) {
+                            adjustActive = false
+                            adjustHideTick++
+                        }
                     },                )
             }
             // 单击 / 双击：只在"未形成拖动"时触发，故不会与 seek 冲突
@@ -351,6 +486,28 @@ fun InlinePlayer(
             modifier = Modifier.align(Alignment.Center),
         )
 
+        // ---- 亮度/音量调节浮层（FR-711 全屏形态；P-04/P-05 同口径）----
+        // 居中玻璃 pill，随拖动实时刷新数值；显隐由 adjustVisible 管，
+        // 与 controlsVisible 无关（控制栏隐藏时手势浮层仍要可见）。
+        if (adjustVisible && adjustInfo != null) {
+            val info = adjustInfo!!
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                GlassSurface(
+                    shape = RoundedCornerShape(24.dp),
+                    fill = Glass.DarkFill,
+                    elevation = 0.dp,
+                ) {
+                    Text(
+                        text = "${if (info.kind == 2) "亮度" else "音量"} " +
+                            "${(info.value * 100).toInt().coerceIn(0, 100)}%",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    )
+                }
+            }
+        }
+
         // ---- 控制栏：**进度条与按钮在同一行**（FR-706 + 真机反馈）----
         //
         // 【真机反馈的三点，逐条对应】
@@ -463,6 +620,19 @@ fun InlinePlayer(
                 )
 
                 Spacer(Modifier.width(4.dp))
+                // FR-711 扩展：全屏形态补倍速键（纯文字，与播放页 :791 同口径——
+                // 「它不是图形，给图标反而看不懂」）。内嵌形态不出现。
+                if (fullscreen) {
+                    Text(
+                        text = if (speed == 1.0f) "倍速" else if (speed == 2.0f) "2x" else "${speed}x",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (speed == 1.0f) Color.White else Palette.Danger,
+                        modifier = Modifier
+                            .clickable { speedSheet = !speedSheet }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 InlineIconButton(
                     icon = DyIcons.SkipPrevious,
                     label = "上一集",
@@ -484,14 +654,136 @@ fun InlinePlayer(
                 )
                 Spacer(Modifier.width(4.dp))
                 InlineIconButton(
-                    icon = DyIcons.Fullscreen,
-                    label = "全屏",
-                    onClick = onEnterFullscreen,
+                    // FR-711：全屏形态下同一颗键变为「退出全屏」
+                    icon = if (fullscreen) DyIcons.FullscreenExit else DyIcons.Fullscreen,
+                    label = if (fullscreen) "退出全屏" else "全屏",
+                    onClick = if (fullscreen) onExitFullscreen else onEnterFullscreen,
+                )
+            }
+        }
+
+        // ---- 全屏形态顶栏（FR-711 扩展：返回 / 投屏）----
+        //
+        // 【为什么内嵌态没有】内嵌态时详情页自己的返回栏就在播放位上方，
+        // 再画一条是重复；全屏态铺满宿主、详情页返回栏不参与布局，必须自带。
+        //   左上「返回」= 退全屏，与系统返回键同语义（只退形态，不退页面）；
+        //   右上「投屏」= 升级到播放页（投屏状态机只在 PlayerViewModel，见 onCast 文档）。
+        if (fullscreen) {
+            FullscreenTopBar(
+                controlsVisible = controlsVisible,
+                onExitFullscreen = onExitFullscreen,
+                onCast = onCast,
+            )
+
+            // ---- 倍速面板（FR-711 扩展）----
+            // 玻璃面板 + 档位列表，与播放页 :669 同一设计语言；档位一致
+            // （0.75/1.0/1.25/1.5/2.0），当前档用 Danger 高亮。
+            // 随控制栏一起隐藏：点画面收起控制栏时面板不能悬空残留。
+            SpeedSheetPanel(
+                visible = speedSheet && controlsVisible,
+                speed = speed,
+                onSpeedChange = onSpeedChange,
+                onDismiss = { speedSheet = false },
+                // BoxScope 对齐留在调用点（抽出后的 Composable 不在 BoxScope 里）。
+                // 【bottom 贴控制行】此前 120dp 把 5 档竖排面板（≈180dp 高）整体顶到
+                // 上半区，用户实测"在右上角很突兀"；收到 64dp 让面板底边贴着
+                // 控制行上沿，从倍速键正上方展开。
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 64.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 全屏形态顶栏：左上「返回」（退形态）+ 右上「投屏」（升级播放页）。
+ *
+ * 【为什么抽成独立 Composable】主 [InlinePlayer] 已是超大 Compose 函数，
+ * 再叠顶栏+面板后 Kotlin/Native 侧（CPF LLVM 19）`clang++ -cc1 -emit-obj`
+ * 稳定 0xC0000005 崩溃（同代码旧版可链，新增后 3/3 复现）。拆出后函数体
+ * 缩小，崩溃消失；顺带让主函数少一层嵌套。改这段时不要合回主函数。
+ */
+@Composable
+private fun FullscreenTopBar(
+    controlsVisible: Boolean,
+    onExitFullscreen: () -> Unit,
+    onCast: (() -> Unit)?,
+) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = controlsVisible,
+        enter = androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.fadeOut(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.35f))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            InlineIconButton(
+                icon = DyIcons.ArrowBack,
+                label = "返回",
+                onClick = onExitFullscreen,
+            )
+            Spacer(Modifier.weight(1f))
+            if (onCast != null) {
+                Text(
+                    text = "投屏",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White,
+                    modifier = Modifier
+                        .clickable(onClick = onCast)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                 )
             }
         }
     }
 }
+
+/** 全屏形态倍速面板（玻璃 + 档位列表，当前档 Danger 高亮）。抽出动机见 [FullscreenTopBar]。 */
+@Composable
+private fun SpeedSheetPanel(
+    visible: Boolean,
+    speed: Float,
+    onSpeedChange: (Float) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!visible) return
+    GlassSurface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        fill = Glass.DarkFill,
+        elevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 6.dp),
+        ) {
+            for (v in SPEED_OPTIONS) {
+                Text(
+                    text = "${if (v == 1.0f) "1.0" else if (v == 2.0f) "2.0" else v.toString()}x",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (speed == v) Palette.Danger else Color.White,
+                    modifier = Modifier
+                        .clickable {
+                            onSpeedChange(v)
+                            onDismiss()
+                        }
+                        .padding(horizontal = 22.dp, vertical = 9.dp),
+                )
+            }
+        }
+    }
+}
+
+/** 倍速档位（FR-711 扩展）：与全屏播放页 `:669` 面板同一组值，两处保持一致。 */
+private val SPEED_OPTIONS = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+
+/** 全屏形态手势反馈浮层数据（kind 2=亮度、3=音量），口径同全屏播放页的同名类。 */
+private data class GestureAdjust(val kind: Int, val value: Float)
 
 /** 毫秒 → `m:ss` 或 `h:mm:ss` */
 private fun fmtTime(ms: Long): String {

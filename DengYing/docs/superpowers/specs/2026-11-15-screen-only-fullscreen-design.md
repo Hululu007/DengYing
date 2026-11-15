@@ -28,16 +28,33 @@
 
 ### 3.1 状态（DetailViewModel）
 
-新增可观察状态，与 `pendingPlayerRoute` 同款写法（`var ... by mutableStateOf`）：
+状态机独立成类（同文件顶层、`internal`），VM 持有实例并代理读：
 
 ```kotlin
-/** 纯屏幕形态：true = 详情页内嵌位铺满全屏。只表示屏幕形态，不表示播放状态。 */
-var screenOnlyFullscreen by mutableStateOf(false)
-    private set
+/** 纯屏幕形态状态机：只回答「详情页内嵌位是否处于全屏形态」。 */
+internal class ScreenFullscreenState(private val hasSession: () -> Boolean) {
+    var active by mutableStateOf(false)
+        private set
+    fun enter() { if (active || !hasSession()) return; active = true }
+    fun exit()  { if (!active) return; active = false }
+}
 
-fun enterScreenFullscreen()   // 守卫 hasSession；置 true；探针 fullscreen-screen-only enter
-fun exitScreenFullscreen()    // 置 false；探针 fullscreen-screen-only exit
+// DetailViewModel 内：
+private val screenFullscreen = ScreenFullscreenState {
+    PlaybackSession.currentState().hasSession
+}
+val screenOnlyFullscreen: Boolean get() = screenFullscreen.active
+
+fun enterScreenFullscreen()   // 守卫 + 置位 + 探针 fullscreen-screen-only enter
+fun exitScreenFullscreen()    // 复位 + 探针 fullscreen-screen-only exit
 ```
+
+> 【实施修订 2026-11-15】初稿写「`var screenOnlyFullscreen by mutableStateOf`，与
+> `pendingPlayerRoute` 同款」。实施时发现 `DetailViewModel` 构造需要完整数据面
+> （SourceRepository / Store / UiDeps），JVM 单测拉不起整个 VM；而形态切换的
+> 行为约束（守卫、幂等、默认值）是本次修复的核心，必须可测——故抽成零依赖的
+> `ScreenFullscreenState`，对外 API（`screenOnlyFullscreen` 只读 + enter/exit
+> 两个方法）不变。
 
 - **状态放 VM 而非 Composable**：Android 转屏会重建 Activity，`remember{}` 丢；VM 天然存活，与 `inlineState` 同生命周期。
 - **VM 只管状态与探针，不碰平台**：`FullscreenState`（方向/系统栏）由 UI 层持有，VM 不引用平台类型——与「VM 不持有导航器」同一分层原则。
@@ -84,6 +101,15 @@ onExitFullscreen: () -> Unit = {},    // 全屏键的退出回调
 ### 3.7 不变式（评审清单）
 
 进入/退出全屏形态的前后，以下调用**一次都不许出现**：`setMedia` / `play()` / `pause()` / `seekTo` / `resolveUrl` / `release` / `PlaybackSession.stop()` / `surfaceActive()` 计数变化 / `Routes.player` 构造。探针上表现为：切形态前后 `pos` 连续、`enginePlaying` 不变、无 `player-adopt-session` / `startEngine` 新增。
+
+> 【实施修订 2026-11-15 · 范围扩展】初稿「不动历史直达路径」已被用户后续两条需求
+> 推翻（批准记录见会话 m01368 / m01420）：
+> 1. 全屏形态顶栏补左上「返回」（= 退形态）与右上「投屏」键、底部补「倍速」面板
+>    （0.75–2.0，`PlaybackSession.setSpeed`，档位口径与播放页一致）；
+> 2. 观看记录直达改为 `playInline + enterScreenFullscreen`（不再先落旧版播放页），
+>    方向请求由 `LaunchedEffect(vm.screenOnlyFullscreen)` 驱动（历史直达没有点击事件）。
+> 投屏键不复制投屏状态机：`DetailViewModel.openPlayerForCast()` 走 FR-705 既有交接
+> 升级到播放页（`player-adopt-session` 不重解析），返回后落回竖屏内嵌形态。
 
 ## 4. 边界与错误处理
 

@@ -30,6 +30,8 @@ hs_err_pid*.log
 **/harmony/entry/oh-package-lock.json5
 **/harmony/oh-package-lock.json5
 **/harmony/.tmp/
+# DengYing/harmony 是历史工程遗留的本机构建缓存；现行壳在 DengYingOhos/harmony。
+DengYing/harmony/
 DengYingOhos/harmony/entry/libs/arm64-v8a/*.so
 DengYingOhos/harmony/entry/libs/x86_64/libdengyui.so
 DengYingOhos/harmony/entry/src/main/cpp/thirdparty/*.so
