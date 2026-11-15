@@ -2,6 +2,7 @@
 
 #include <dlfcn.h>
 #include <hilog/log.h>
+#include <cstdlib>
 #include <memory>
 #include <string>
 
@@ -750,6 +751,52 @@ napi_value ClearHistory(napi_env env, napi_callback_info /*info*/) {
   return result;
 }
 
+// ---- 播放画面：XComponent surfaceId -> Kotlin @CName ----
+// ArkTS 侧拿到的是十进制字符串；Kotlin 侧按 ULong(uint64_t) 接收。
+// 必须用 strtoull + uint64_t 原样传：surfaceId 可能超过 INT64_MAX，
+// strtoll/int64_t 会饱和成错误 id（静默绑定失败）。
+// 符号在 libdengyui.so（shared 的 OhosVideoSurfaceBridge）。
+using VideoSurfaceFn = void (*)(uint64_t);
+
+napi_value SetVideoSurfaceId(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  if (napi_get_cb_info(env, info, &argc, args, nullptr, nullptr) != napi_ok ||
+      argc < 1 || args[0] == nullptr) {
+    BRIDGE_LOG("setVideoSurfaceId: no surfaceId argument");
+    return nullptr;
+  }
+  const std::string text = ReadString(env, args[0]);
+  auto fn = ResolveTop<VideoSurfaceFn>("dengy_set_video_surface");
+  if (fn == nullptr) {
+    BRIDGE_LOG("setVideoSurfaceId: dengy_set_video_surface missing");
+    return nullptr;
+  }
+  fn(static_cast<uint64_t>(strtoull(text.c_str(), nullptr, 10)));
+  BRIDGE_LOG("setVideoSurfaceId: %{public}s", text.c_str());
+  return nullptr;
+}
+
+napi_value ClearVideoSurfaceId(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  if (napi_get_cb_info(env, info, &argc, args, nullptr, nullptr) != napi_ok ||
+      argc < 1 || args[0] == nullptr) {
+    return nullptr;
+  }
+  const std::string text = ReadString(env, args[0]);
+  auto fn = ResolveTop<VideoSurfaceFn>("dengy_clear_video_surface");
+  if (fn == nullptr) {
+    BRIDGE_LOG("clearVideoSurfaceId: dengy_clear_video_surface missing");
+    return nullptr;
+  }
+  fn(static_cast<uint64_t>(strtoull(text.c_str(), nullptr, 10)));
+  BRIDGE_LOG("clearVideoSurfaceId: %{public}s", text.c_str());
+  return nullptr;
+}
+
 napi_value Init(napi_env env, napi_value exports) {
   BRIDGE_LOG("module init v8");
   // 必须早于任何 Compose 调用：社区 utils 在此拿 env/exports 建好 napi 引用表。
@@ -794,6 +841,11 @@ napi_value Init(napi_env env, napi_value exports) {
        napi_default, nullptr},
       {"MainArkUIViewController", nullptr, MainArkUIViewController, nullptr,
        nullptr, nullptr, napi_default, nullptr},
+      // 播放画面：ComposePage.ets 的 XComponent 把 surfaceId 交给 native AVPlayer。
+      {"setVideoSurfaceId", nullptr, SetVideoSurfaceId, nullptr, nullptr,
+       nullptr, napi_default, nullptr},
+      {"clearVideoSurfaceId", nullptr, ClearVideoSurfaceId, nullptr, nullptr,
+       nullptr, napi_default, nullptr},
       // fusion-renderer 的 6 个 NAPI：compose.har 的 Compose 组件 aboutToAppear
       // 具名 import，缺一个就 ES SyntaxError -> onAbilityDied。实现在 libdengyui.so。
       {"nativeCreateRootNode", nullptr, NativeCreateRootNode, nullptr, nullptr,

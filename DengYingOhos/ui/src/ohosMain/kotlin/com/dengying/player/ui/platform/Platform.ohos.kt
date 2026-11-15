@@ -4,8 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.dengying.player.player.OhosPlayerEngineHost
+import com.dengying.player.player.OhosVideoSurfaceBridge
 import com.dengying.player.player.PlayerEngine
 
 /**
@@ -16,14 +24,56 @@ import com.dengying.player.player.PlayerEngine
  * parity 清单逐项补（§16.40 未验证清单）。
  */
 
-/** 画面承载待接 ArkUI XComponent 互操作（ui-ohos klib 的 insertInteropView 路径）：先黑底占位。 */
+/**
+ * 画面承载：ArkTS 壳在 Compose 下方铺了一层全屏 XComponent（ComposePage.ets），
+ * surfaceId 经 NAPI → [OhosVideoSurfaceBridge] → `OH_AVPlayer_SetVideoSurface`。
+ *
+ * 本 actual 不再自己建视图，只负责：
+ * - 组合进入/退出时驱动 `OhosPlayerEngineHost.surfaceActive/Inactive`
+ *   （计数归零只暂停，不释放）；
+ * - 订阅 surface 就绪状态，未就绪时画黑底、就绪后透明，让下层的 XComponent
+ *   画面透出来；
+ * - 通过 `onBind` 上报绑定状态。
+ *
+ * 【打洞分工（2026-11-14）】CMP 的 Compose 渲染面（CanvasNode/RenderNode 或
+ * TEXTURE XComponent）与视频层同树合成，透明区域可以透出下层视频——所以
+ * 本 actual 在 bound 后透明即可打洞；根 Box 的黑底让位逻辑在 PlayerScreen.kt
+ * （`shouldRevealVideoSurface(..., surfaceBound, prepared, buffering, hasError)`
+ * 为真才透明），两处配合视频才可见。该让位由 `videoSurfaceIsBelowCompose`
+ * 限定在 ohos：Android/JVM 的根 Box 恒为不透明黑底。
+ * 内嵌小窗（InlinePlayer 的 16:9 Box）仍是黑底：全屏 XComponent 与小窗的
+ * 坐标对齐需要 Compose↔ArkUI interop，尚未做。
+ *
+ * 已知限制（WIP）：XComponent 是全屏的，视频会铺满窗口而不是 Compose 布局里
+ * 的播放器框。要精确对齐需要在 Compose 里插入 interop 视图（CMP ui-ohos 的
+ * insertInteropView 路径），当前播放页/内嵌位复用时位置会不一致。
+ */
 @Composable
 actual fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier,
     onBind: (bound: Boolean) -> Unit,
 ) {
-    Box(modifier.fillMaxSize().background(Color.Black))
+    var surfaceReady by remember { mutableStateOf(OhosVideoSurfaceBridge.isReady()) }
+
+    DisposableEffect(engine) {
+        if (engine != null) OhosPlayerEngineHost.surfaceActive()
+        val listener: (Boolean) -> Unit = { surfaceReady = it }
+        OhosVideoSurfaceBridge.addReadyListener(listener)
+        onDispose {
+            OhosVideoSurfaceBridge.removeReadyListener(listener)
+            if (engine != null) OhosPlayerEngineHost.surfaceInactive()
+        }
+    }
+
+    val bound = engine != null && surfaceReady
+    LaunchedEffect(bound) { onBind(bound) }
+
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(if (bound) Color.Transparent else Color.Black)
+    )
 }
 
 /** 窗口方向/系统栏控制待接 ohos window API：先空实现（enter/exit 幂等、不抛，符合契约 3）。 */

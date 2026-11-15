@@ -4,7 +4,7 @@ import com.dengying.player.app.OhosApp
 import com.dengying.player.data.cache.PageCache
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.data.store.Store
-import com.dengying.player.player.PlayerEngine
+import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Log
 import com.dengying.player.ui.UiDeps
@@ -35,27 +35,16 @@ object OhosUiDeps : UiDeps {
     /**
      * 播放引擎宿主。
      *
-     * 鸿蒙侧还没有 AVPlayer 绑定，故给一个**明确的空实现**：
-     * `peek()` 恒 null 让详情页内嵌位显示空态（而不是崩），
-     * `engine()` 显式抛错——一旦有人真去起播，错误信息能直接指出「缺什么」，
-     * 而不是一个难以定位的 NPE。
+     * 实现见 `:shared/ohosMain` 的 [OhosPlayerEngineHost] / `OhosPlayerEngine`
+     * （cinterop 直接调 MediaKit 的 `OH_AVPlayer`）。单例、归零只暂停不释放，
+     * 语义与 Android `PlaybackEngineHolder` 对齐。
+     *
+     * 画面已接入 ArkUI XComponent surfaceId（见 `OhosVideoSurfaceBridge`）；
+     * 播放页根背景按绑定/出画状态让位，让下层视频透出。内嵌小窗仍为黑底占位，
+     * 详见 `docs/ohos-player-notes.md`。自定义请求头本 SDK 版本无 native 入口，
+     * 暂不生效。
      */
-    override val engineHost: PlayerEngineHost = object : PlayerEngineHost {
-        override fun engine(): PlayerEngine = error(
-            "鸿蒙侧尚未接入播放引擎：需在 :shared/ohosMain 用 OH_AVPlayer 实现 PlayerEngine，" +
-                "再由本文件替换 engineHost",
-        )
-
-        override fun peek(): PlayerEngine? = null
-
-        override fun surfaceActive() = Unit
-
-        override fun surfaceInactive() = Unit
-
-        override fun forceRelease() = Unit
-
-        override fun surfaceCount(): Int = 0
-    }
+    override val engineHost: PlayerEngineHost = OhosPlayerEngineHost
 
     /** 当前只有 debug 产物（HAP 由 hvigor debug 构建），真接签名包时改由 ArkTS 传入 */
     override val isDebug: Boolean = true

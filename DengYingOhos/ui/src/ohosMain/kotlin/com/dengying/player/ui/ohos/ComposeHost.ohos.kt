@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 package com.dengying.player.ui.ohos
 import androidx.compose.ui.window.ComposeArkUIViewController
+import com.dengying.player.playback.PlaybackSession
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.theme.DengYingTheme
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -30,6 +31,9 @@ import kotlin.experimental.ExperimentalNativeApi
 fun mainArkUIViewController(env: napi_env): napi_value {
     initMainHandler(env)
     installOhosUiDeps()
+    // 对齐 Android DengYingApp.onCreate：播放会话必须在任何页面发起播放前拿到引擎宿主。
+    // 幂等，重复进入 controller 不会重置会话。
+    PlaybackSession.init(OhosUiDeps.engineHost)
     return ComposeArkUIViewController(env) {
         DengYingTheme { DengYingNavHost() }
     }

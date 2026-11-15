@@ -52,6 +52,11 @@ kotlin {
         }
     }
 
+    // OH_AVPlayer **不需要自建 cinterop**：CPF 发行版已随 ohos target 提供
+    // platform klib `org.jetbrains.kotlin.native.platform.AVPlayer`
+    // （package platform.MediaKit.AVPlayer，manifest 自带 linkerOpts=-lavplayer）。
+    // 自建 cinterop 反而会因 CPF 的 klib 布局报
+    // "Could not find org.jetbrains.kotlin.native.platform.ohos"（实测）。
     ohosArm64()
     ohosX64()
 

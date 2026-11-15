@@ -32,6 +32,10 @@ declare const dengying: {
   clearHistory(): number;
   /** CMP 渲染层（libdengyui.so）的控制器，交给 compose 的 Compose({controller}) */
   MainArkUIViewController(): DengYingViewController;
+  /** XComponent 的 surfaceId（十进制字符串）交给 native AVPlayer 显示画面。 */
+  setVideoSurfaceId(surfaceId: string): void;
+  /** XComponent 销毁时清理对应 surface（旧 id 不会拆掉新 surface）。 */
+  clearVideoSurfaceId(surfaceId: string): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----
   // compose.har 的 modules.abc 按这 6 个裸名从 libentry.so 取 native 函数；

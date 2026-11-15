@@ -77,6 +77,19 @@ kotlin {
                 // dengy_* 动态符号），napi_init.cpp 的 dlsym 全部返回 null。
                 // 本工程把 :shared 合成 :ui 的 project 依赖后，必须显式 export 它。
                 export(project(":shared"))
+
+                // OH_AVPlayer：:shared 的 cinterop 只产 klib，最终 libdengyui.so
+                // 仍需链系统库 libavplayer.so。sysroot 路径运行时探测（同
+                // shared/build.gradle.kts 的 cinterop 配置）。
+                val ohosLibRoot = File(System.getProperty("user.home"), ".konan/dependencies")
+                    .listFiles { f -> f.isDirectory && f.name.startsWith("sysroot-ohos-aarch64-") }
+                    ?.maxByOrNull { it.name }
+                    ?.resolve("usr/lib")
+                if (ohosLibRoot != null) {
+                    val archDir =
+                        if (target.name.contains("Arm64")) "aarch64-linux-ohos" else "x86_64-linux-ohos"
+                    linkerOpts("-L${ohosLibRoot.path}/$archDir", "-lavplayer")
+                }
             }
         }
     }
