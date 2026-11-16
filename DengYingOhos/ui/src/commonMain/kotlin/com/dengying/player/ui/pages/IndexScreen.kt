@@ -1042,11 +1042,6 @@ private class DiscoverResume {
     val paused = androidx.compose.runtime.mutableStateMapOf<Int, Long>()
     /** 解析结果缓存：下标 → (直链, headers, 是否试看链)。跨重建复用，免二次解析。 */
     val resolved = androidx.compose.runtime.mutableStateMapOf<Int, Triple<String, String, Boolean>>()
-    /**
-     * 中心卡 VideoSurface 是否已绑上引擎（跨页重建存活）。
-     * 起播必须等 onBind(true)：原先 if(playing) 才组合 surface，首进常「有声无画」。
-     */
-    val surfaceBound = androidx.compose.runtime.mutableStateOf(false)
 }
 
 @Composable
@@ -1214,34 +1209,30 @@ private fun DiscoverPane(
     val pausedPositions = resume.paused
     var startedIdx by resume.startedIdx
 
-    // 【中心项起播】playingIdx / active / surfaceBound 变化：先停旧声，再等
-    // 该项解析落袋 + 中心卡 VideoSurface 已 onBind(true) → 起播。
-    // 原先 if(playing) 才组合 surface + playSettled/surfaceKick 治标：首进
-    // 常「有声无画」（探针无 setMedia/VIDEO_SIZE——起播 effect 根本没触发，
-    // 或 surface 后于解码）。现在中心卡常驻 surface，起播门改为 surfaceBound。
+    // 【中心项起播】playingIdx / active 变化：先停旧声，再等该项解析落袋 → 起播。
+    // 不等 surface 绑定：换了片先 setMedia（mediaReady 据此挂回 PlayerView），
+    // play() 紧跟着调；等绑定会让换卡首帧既无画也无音，只能靠用户再滑一下触发。
     // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废。
-    var surfaceBound by resume.surfaceBound
-    LaunchedEffect(playingIdx, active, surfaceBound) {
+    LaunchedEffect(playingIdx, active) {
         val idx = playingIdx
         // 被切走的片记断点：滑到新中心、或整窗格失焦，都要留位置
         if (startedIdx >= 0 && (startedIdx != idx || !active)) {
             pausedPositions[startedIdx] = engine.currentPosition
         }
         engine.pause()
-        if (!active || !surfaceBound || idx < 0 || idx >= items.size) return@LaunchedEffect
+        if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
-        // 【无缝续播】媒体还是本片的（只是 Dock 切页暂停过）→ play() 直接续：
-        // 不重载、不缓冲、不闪黑，如同全屏播放器里暂停再继续。只有媒体被
-        // 借走（进过详情/播放页，engine.currentUrl 已变）或换到别的片，
+        // 【无缝续播】媒体还是本片的（只是 Dock 切页暂停过）→ play() 直接续。
+        // 只有媒体被借走（进过详情/播放页，engine.currentUrl 已变）或换到别的片，
         // 才 setMedia(断点) 重载。
-        if (startedIdx == idx && engine.currentUrl == hit.first) {
-            engine.play()
-            return@LaunchedEffect
+        val resumeSame = startedIdx == idx && engine.currentUrl == hit.first
+        if (!resumeSame) {
+            // 先落媒体再起播：mediaReady 据此把 PlayerView 绑回真引擎出画。
+            engine.setMedia(hit.first, hit.second, pausedPositions[idx] ?: 0L)
+            startedIdx = idx
         }
-        engine.setMedia(hit.first, hit.second, pausedPositions[idx] ?: 0L)
         engine.play()
-        startedIdx = idx
     }
 
     // 【中心判定（主流口径：B 站/微博内嵌视频流）】滚动**停止**后才动作：
@@ -1331,14 +1322,15 @@ private fun DiscoverPane(
                 val hit = resolved[idx]
                 DiscoverVideoCard(
                     item = item,
-                    // 中心卡即常驻 VideoSurface（不等解析）——起播门靠 onBind。
                     isCenter = playingIdx == idx,
                     resolving = playingIdx == idx && hit == null,
                     failed = playingIdx == idx && hit != null && hit.first.isEmpty(),
                     preview = playingIdx == idx && hit != null && hit.third,
                     engine = engine,
                     onOpenDetail = onOpenDetail,
-                    onSurfaceBound = { bound -> surfaceBound = bound },
+                    // 残帧门：本片还没装进引擎（解析中/失败/卡住）时不挂 PlayerView，
+                    // 旧视图销毁 → 上一集最后一帧不残留，只显示海报。
+                    mediaReady = playingIdx == idx && startedIdx == idx && hit != null && hit.first.isNotEmpty(),
                 )
             }
         }
@@ -1354,14 +1346,15 @@ private fun DiscoverPane(
 @Composable
 private fun DiscoverVideoCard(
     item: VideoItem,
-    /** 是否视口中心卡：中心卡常驻 VideoSurface，起播靠 onBind 门。 */
+    /** 是否视口中心卡：只有中心卡会挂 VideoSurface。 */
     isCenter: Boolean,
     resolving: Boolean,
     failed: Boolean,
     preview: Boolean,
     engine: PlayerEngine,
     onOpenDetail: (String) -> Unit,
-    onSurfaceBound: (Boolean) -> Unit = {},
+    /** 本卡媒体已装进引擎。false = 还在解析/卡住，此时不挂视图，避免上一集残帧。 */
+    mediaReady: Boolean = false,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1393,22 +1386,21 @@ private fun DiscoverVideoCard(
                         },
                 ) {
                     if (isCenter) {
-                        // 【常驻 surface + onBind 门】中心卡始终组合 VideoSurface，
-                        // 起播 effect 等 onBind(true) 再 setMedia/play——避免
-                        // 「解码先于 surface」的有声黑屏。海报垫在底层作占位。
-                        // 离开中心（本卡 dispose / isCenter 变 false）清 bound。
+                        // 【换片残帧】发现页所有中心卡共用同一 PlayerEngine/PlayerView。
+                        // pause() 不清 TextureView，下一片还没 setMedia（解析中/卡住）时
+                        // 快门不重开，上一片最后一帧会一直盖在新卡上。
+                        // 所以 mediaReady=false 时干脆不挂 VideoSurface：旧视图连播放器一起
+                        // 销毁，残帧随之消失，只留海报底图；本片 setMedia 成功后再挂新视图出画。
                         com.dengying.player.ui.components.Poster(
                             url = item.vod_pic ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
                         )
-                        VideoSurface(
-                            engine = engine,
-                            modifier = Modifier.fillMaxSize(),
-                            onBind = onSurfaceBound,
-                        )
-                        androidx.compose.runtime.DisposableEffect(Unit) {
-                            onDispose { onSurfaceBound(false) }
+                        if (mediaReady) {
+                            VideoSurface(
+                                engine = engine,
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
                     } else {
                         com.dengying.player.ui.components.Poster(

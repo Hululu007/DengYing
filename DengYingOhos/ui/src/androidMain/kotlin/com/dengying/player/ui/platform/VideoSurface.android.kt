@@ -42,7 +42,9 @@ actual fun VideoSurface(
                         // 三种宽高比差异大：FIT 保证不裁切（黑边好过切掉字幕）
                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-                        setShutterBackgroundColor(android.graphics.Color.BLACK)
+                        // 透明快门：解绑（player=null）时露出底下的海报，而不是一块纯黑。
+                        // 换片残帧靠「引擎置 null → 解绑」清掉，不靠快门涂黑。
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                         // factory 阶段直接绑：key 保证重建发生在引擎就绪后
                         player = engine?.viewHandle() as? androidx.media3.common.Player
                     }
@@ -61,6 +63,12 @@ actual fun VideoSurface(
                 }
             },
             modifier = modifier,
+            onRelease = { container ->
+                // 离开组合时摘掉 player：否则旧 PlayerView 仍占着引擎，
+                // 新中心卡的 PlayerView 绑不上，或两者抢画面。
+                val pv = container.getChildAt(0) as? PlayerView
+                pv?.player = null
+            },
         )
     }
 }
