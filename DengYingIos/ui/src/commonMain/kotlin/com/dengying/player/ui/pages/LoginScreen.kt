@@ -20,8 +20,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +71,13 @@ fun LoginScreen(
     var busy by rememberSaveable { mutableStateOf(false) }
     var feedback by rememberSaveable { mutableStateOf("") }
     var success by rememberSaveable { mutableStateOf(false) }
+    // 令牌设置：签名令牌（app_auth_token，300 秒内有效）与会话令牌（refresh_token，不需签名）
+    var showTokenSheet by rememberSaveable { mutableStateOf(false) }
+    var tokenDraft by rememberSaveable { mutableStateOf("") }
+    var sessionDraft by rememberSaveable { mutableStateOf("") }
+    // 【令牌状态镜像】提示文案要随保存动作刷新。直接读 AhAuth.savedAppAuthToken() 不是 State，
+    // 保存后本页不会重组，会出现「已保存却仍提示未取得」的错位。
+    var hasSavedToken by rememberSaveable { mutableStateOf(AhAuth.savedAppAuthToken().isNotEmpty()) }
 
     Column(
         modifier = Modifier
@@ -266,7 +275,7 @@ fun LoginScreen(
                     }
                 }
                 Text(
-                    text = "QQ 授权（appid 101983842）换取登录令牌的后端路径待实测",
+                    text = "QQ 登录直接提交 /auth/login（is_third_party=true，appid 101983842）；缺的是 QQ SDK 授权取 32 位标识这一步",
                     style = MaterialTheme.typography.labelSmall,
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(top = 8.dp),
@@ -276,10 +285,101 @@ fun LoginScreen(
 
         Spacer(Modifier.height(14.dp))
         Text(
-            text = "登录服务签名令牌（app_auth_token）尚未取得；当前请求会如实返回服务端校验结果",
+            text = if (!hasSavedToken) {
+                "登录服务要求签名令牌（app_auth_token），未取得时无法登录或注册；已登录设备可用会话令牌（refresh_token）直接恢复"
+            } else {
+                "已保存签名令牌（只在 300 秒内有效，过期需重新获取）"
+            },
             style = MaterialTheme.typography.labelSmall,
             color = Palette.TextSecondary,
             modifier = Modifier.padding(horizontal = 24.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        GlassChip(
+            text = "令牌设置",
+            quiet = true,
+            onClick = {
+                tokenDraft = AhAuth.savedAppAuthToken()
+                sessionDraft = ""
+                showTokenSheet = true
+            },
+        )
+    }
+
+    if (showTokenSheet) {
+        AlertDialog(
+            onDismissRequest = { showTokenSheet = false },
+            containerColor = Palette.CardBg,
+            title = {
+                Text("登录服务令牌", style = MaterialTheme.typography.titleSmall)
+            },
+            text = {
+                Column {
+                    Text(
+                        "签名令牌 app_auth_token（与 ts 绑定，300 秒内有效）",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextSecondary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    GlassTextField(
+                        value = tokenDraft,
+                        onValueChange = { tokenDraft = it },
+                        placeholder = "粘贴 app_auth_token（可留空）",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "会话令牌 refresh_token（不需要签名，换新访问令牌）",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextSecondary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    GlassTextField(
+                        value = sessionDraft,
+                        onValueChange = { sessionDraft = it },
+                        placeholder = "粘贴 refresh_token（可留空）",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (tokenDraft.isNotBlank()) AhAuth.submitAppAuthToken(tokenDraft)
+                        hasSavedToken = AhAuth.savedAppAuthToken().isNotEmpty()
+                        if (sessionDraft.isNotBlank()) {
+                            scope.launch {
+                                busy = true
+                                feedback = "登录中.."
+                                success = false
+                                when (val outcome = AhAuth.submitRefreshToken(sessionDraft)) {
+                                    is AhAuth.Outcome.Ok -> {
+                                        feedback = outcome.message
+                                        success = true
+                                    }
+                                    is AhAuth.Outcome.Error -> feedback = outcome.message
+                                }
+                                busy = false
+                            }
+                        } else {
+                            feedback = if (tokenDraft.isNotBlank()) {
+                                "已保存签名令牌，请立即点「登 录」（300 秒内有效）"
+                            } else {
+                                "未填写任何令牌"
+                            }
+                            success = false
+                        }
+                        showTokenSheet = false
+                    },
+                ) {
+                    Text(if (sessionDraft.isNotBlank()) "保存并登录" else "保存", color = Palette.Brand)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTokenSheet = false }) {
+                    Text("取消", color = Palette.TextSecondary)
+                }
+            },
         )
     }
 }
