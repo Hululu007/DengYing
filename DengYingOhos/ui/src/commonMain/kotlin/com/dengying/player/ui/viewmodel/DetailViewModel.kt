@@ -326,23 +326,37 @@ class DetailViewModel(
         }
 
         state = state.copy(altLoading = true)
+        val expectedTitle = title
         try {
             val t0 = Clock.nowMs()
-            val alts = repo.findAltSources(repo.allSources(), curSource, title)
-            val mapped = ArrayList<AltItem>(alts.size)
-            for (a in alts) {
-                val s = CmsSources.byKey(a.sourceKey) ?: continue
-                mapped += AltItem(a.sourceKey, s.name, a.vodId, a.vodName)
+            // 分批上屏：先到的源立即给用户可点的换线选项，不再等齐 12+ 源。
+            // 每次回调都做标题守卫，避免切片/换源后旧片候选落到新详情页。
+            fun onBatch(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>) {
+                if (state.item?.vod_name != expectedTitle && curName != expectedTitle) return
+                val mapped = ArrayList<AltItem>(alts.size)
+                for (a in alts) {
+                    val s = CmsSources.byKey(a.sourceKey) ?: continue
+                    mapped += AltItem(a.sourceKey, s.name, a.vodId, a.vodName)
+                }
+                if (mapped.isEmpty()) return
+                state = state.copy(altSources = mapped, altLoading = false)
             }
+            val alts = repo.findAltSources(repo.allSources(), curSource, title, onBatch = ::onBatch)
+            onBatch(alts)
             com.dengying.player.player.PlaybackProbe.note(
                 "alt-sources-loaded",
-                "title=$title n=${mapped.size} elapsed=${Clock.nowMs() - t0}",
+                "title=$title n=${alts.size} elapsed=${Clock.nowMs() - t0}",
             )
             // 只缓存非空结果：空结果可能是抖动，缓存了会让用户永远看不到候选
-            if (mapped.isNotEmpty()) {
-                altCache.put(title, mapped)
+            if (alts.isNotEmpty()) {
+                altCache.put(
+                    title,
+                    alts.mapNotNull { a ->
+                        val s = CmsSources.byKey(a.sourceKey) ?: return@mapNotNull null
+                        AltItem(a.sourceKey, s.name, a.vodId, a.vodName)
+                    },
+                )
             }
-            state = state.copy(altSources = mapped)
         } catch (e: Exception) {
             // 候选失败不影响主详情
         }

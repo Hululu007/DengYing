@@ -234,6 +234,30 @@ class BttwoGoldenTest {
         assertEquals("https://cdn/a.m3u8", WebParser.playFromTokenResponse(rule, body)?.url)
     }
 
+    @Test
+    fun play_response_skips_locked_placeholder_quality() {
+        // 真实站点观测（仙逆剧场版 弑仙之战 ch4mlqyvp）：quality_urls[0] 是
+        // 4K locked:true、url 只是占位符 "1"；盲取 [0] 会把 "1" 交给引擎 → "请求失败"。
+        val body = """{"code":200,"data":{"quality_urls":[
+            {"mtype":"m3u8","bitrate":2160,"title":"4K","locked":true,"isvip":true,"url":"1"},
+            {"mtype":"m3u8","bitrate":1080,"title":"1080p","locked":false,"isvip":false,"url":"https://zijieapi.douyinbyte.com/m3u8/real.m3u8"}]}}"""
+        assertEquals(
+            "https://zijieapi.douyinbyte.com/m3u8/real.m3u8",
+            WebParser.playFromTokenResponse(rule, body)?.url,
+            "locked 档位的占位地址不得交给引擎",
+        )
+    }
+
+    @Test
+    fun play_response_all_locked_is_null() {
+        // 全档位 locked → 没有可播地址，返回 null 让上层走换源兜底，
+        // 而不是把某个占位符当成媒体地址。
+        val body = """{"code":200,"data":{"quality_urls":[
+            {"bitrate":2160,"locked":true,"url":"1"},
+            {"bitrate":1080,"locked":true,"url":"1"}]}}"""
+        assertNull(WebParser.playFromTokenResponse(rule, body))
+    }
+
     // ---------------- id 提取方式 ----------------
 
     @Test

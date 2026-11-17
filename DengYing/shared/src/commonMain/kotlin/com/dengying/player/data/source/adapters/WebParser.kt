@@ -396,10 +396,18 @@ object WebParser {
         val code = JsonX.int(o, rule.codeKey, -1)
         if (code != rule.okCode) return null
         val list = JsonX.optArray(JsonX.optObject(o, "data"), rule.listKey) ?: return null
-        val first = JsonX.optObjectAt(list, 0) ?: return null
-        val url = JsonX.str(first, rule.urlKey, "").trim()
-        if (url.isEmpty()) return null
-        // 媒体地址直连，不带自定义请求头（实测带不带 Referer 都返回同一份 m3u8）
-        return PlayResolveResult(url = url, headers = "")
+        // 2026-11 真实站点（仙逆剧场版 弑仙之战 ch4mlqyvp）：quality_urls[0] 是
+        // 4K locked:true、url 仅占位符 "1"。盲取 [0] 会把 "1" 当媒体地址交引擎 → "请求失败"。
+        // 跳过 locked 档位与空/无协议占位地址，取第一条真正可播的档位；
+        // 全部不可用 → null，让上层走换源兜底而不是构造非法地址。
+        for (i in 0 until list.size) {
+            val quality = JsonX.optObjectAt(list, i) ?: continue
+            if (JsonX.bool(quality, "locked", false)) continue
+            val url = JsonX.str(quality, rule.urlKey, "").trim()
+            if (url.isEmpty() || !url.contains("://")) continue
+            // 媒体地址直连，不带自定义请求头（实测带不带 Referer 都返回同一份 m3u8）
+            return PlayResolveResult(url = url, headers = "")
+        }
+        return null
     }
 }

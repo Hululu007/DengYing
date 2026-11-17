@@ -20,6 +20,7 @@ import com.dengying.player.core.RequestOutcome
 import com.dengying.player.domain.source.SourceHealthRules
 import com.dengying.player.domain.source.SourceOverrideRules
 import com.dengying.player.domain.search.TitleKey
+import com.dengying.player.domain.search.SearchRelevance
 import com.dengying.player.core.isSourceHealthy
 import com.dengying.player.core.shouldFailover
 import com.dengying.player.core.toHealthSignal
@@ -70,6 +71,11 @@ import com.dengying.player.core.SourceProtocol
  *  - 搜索序号**跨调用递增**（用于丢弃过期结果）
  */
 class SourceRepository {
+
+    /** 跨源候选每凑够 N 个新结果就回调一次，让详情页提前上屏、不用等最慢源 */
+    private companion object {
+        const val ALT_BATCH_NOTIFY_SIZE = 2
+    }
 
     /**
      * 仓库自有作用域：**只用于"不挡路"的后台补齐**。
@@ -184,7 +190,7 @@ class SourceRepository {
     }
 
     /** 单源：搜索（按协议分派；命中即用，死源快速出局） */
-    suspend fun search(source: CmsSource, keyword: String): FetchResult {
+    suspend fun search(source: CmsSource, keyword: String, quick: Boolean = false): FetchResult {
         if (!source.caps.search) return unsupported(source, "搜索")
         return when (source.protocol) {
             SourceProtocol.Api2233 -> CmsAdapter.api2233Search(source, keyword)
@@ -196,7 +202,8 @@ class SourceRepository {
             SourceProtocol.Juzhi -> JuzhiAdapter.search(source, keyword)
             SourceProtocol.Guapi -> GuapiAdapter.search(source, keyword)
             SourceProtocol.Shanzha -> ShanzhaAdapter.search(source, keyword)
-            SourceProtocol.Cms -> CmsAdapter.search(source, keyword)
+            // 跨源候选：CMS 源只发 detail 端点，省一半出网槽位；其他协议保持原样
+            SourceProtocol.Cms -> if (quick) CmsAdapter.searchQuick(source, keyword) else CmsAdapter.search(source, keyword)
             // 2026-11-08 起走 keywordSearchCtyun（programsearch.keyword 实测无效，
             // 已弃用）；comeFrom=NEW_CPMS 只搜自营可播库
             SourceProtocol.Tv189 -> Tv189Adapter.search(source, keyword)
@@ -255,7 +262,7 @@ class SourceRepository {
      *  - 每源返回即经 `onPartial` 回调上屏（tier 靠前源 ~1s 出结果，体感秒搜）
      *  - 总预算 [PageBudget.PAGE_BUDGET_MS] 兜底：到点用已有结果返回
      *
-     * @param onPartial 部分结果回调（已折叠去重、按到达顺序累积）
+     * @param onPartial 部分结果回调（已折叠去重、按相关度重排；同分保持到达顺序）
      */
     suspend fun searchAll(
         sources: List<CmsSource>,
@@ -301,7 +308,7 @@ class SourceRepository {
                         added++
                     }
                 }
-                if (added > 0) onPartial?.invoke(merged.toList())
+                if (added > 0) onPartial?.invoke(SearchRelevance.rank(merged, keyword))
             }
         }
 
@@ -314,7 +321,8 @@ class SourceRepository {
             all.onAwait { }
             timeout.onAwait { }
         }
-        merged
+        // 最终结果同样按相关度重排。merged 仍保持到达顺序——那是稳定排序的同分次级键。
+        SearchRelevance.rank(merged, keyword)
     }
 
     /**
@@ -890,6 +898,7 @@ class SourceRepository {
         sources: List<CmsSource>,
         currentSourceKey: String,
         title: String,
+        onBatch: ((List<AltCandidate>) -> Unit)? = null,
     ): List<AltCandidate> {
         val norm = title.replace(Regex("[（(].*?[)）]"), "").trim()
         if (norm.isEmpty()) return emptyList()
@@ -897,7 +906,10 @@ class SourceRepository {
         // 每次都是 12+ 源并发搜索（2-5 秒）。tv189 免登录片全部走"跨源找全片"
         // 路径（v1.2.0 FR-610），播放链每次命中缓存才能把跨源代价压到只剩
         // "试候选"一段。搜索结果短时稳定，进程内存缓存即可（不落盘）。
-        altSearchLock.withLock { altSearchCache[norm] }?.let { return it }
+        altSearchLock.withLock { altSearchCache[norm] }?.let { cached ->
+            if (cached.isNotEmpty()) onBatch?.invoke(cached)
+            return cached
+        }
         // 【在途合并】详情页预取与播放链兜底几乎同时调用（用户点正片时预取
         // 往往还在搜）——两路并行各搜 12+ 源白费 2-5 秒还互相挤带宽。后到者
         // 直接 await 首搜结果。
@@ -906,7 +918,9 @@ class SourceRepository {
         // 它跑在 altScope 上），CancellationException 必须吞在这层，不能让它
         // 冒出去把调用方（播放链/预取）一起取消。
         altSearchLock.withLock { inflightAlt[norm] }?.let { shared ->
-            return runCatching { shared.await() }.getOrDefault(emptyList())
+            val result = runCatching { shared.await() }.getOrDefault(emptyList())
+            if (result.isNotEmpty()) onBatch?.invoke(result)
+            return result
         }
         return coroutineScope {
             val task = altScope.async {
@@ -930,6 +944,23 @@ class SourceRepository {
             suspend fun searchRound(q: String): ArrayList<AltCandidate> {
                 val out = ArrayList<AltCandidate>()
                 val seenSrc = HashSet<String>()
+                // 【并发写保护】tasks 跑在 Dispatchers.Default（多线程）上往 out 里
+                // 追加，而分批上屏会让 out 的快照被并发读取——无锁时 `out.toList()`
+                // 可能读到扩容中的数组（含 null 项，映射到 UI 会 NPE），并发 add
+                // 也可能丢候选。读写都过同一把锁，回调放锁外。
+                val outLock = PlatformLock()
+                var lastNotified = 0
+                fun publish(force: Boolean = false) {
+                    val snap = outLock.withLock {
+                        if (out.isEmpty() || (!force && out.size - lastNotified < ALT_BATCH_NOTIFY_SIZE)) {
+                            null
+                        } else {
+                            lastNotified = out.size
+                            out.toList()
+                        }
+                    }
+                    if (snap != null) onBatch?.invoke(snap)
+                }
                 val enabled = sources
                     .filter {
                         isSourceEnabled(it) && it.key != currentSourceKey &&
@@ -942,7 +973,7 @@ class SourceRepository {
                     // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
                     async(NetPriority.Background) {
                         val r = try {
-                            search(s, q)
+                            search(s, q, quick = true)
                         } catch (e: Exception) {
                             return@async
                         }
@@ -964,9 +995,14 @@ class SourceRepository {
                                 )
                             ) best = it
                         }
-                        if (best != null && !seenSrc.contains(s.key)) {
-                            seenSrc.add(s.key)
-                            out += AltCandidate(s.key, best.vod_id, best.vod_name)
+                        if (best != null) {
+                            val added = outLock.withLock {
+                                if (!seenSrc.add(s.key)) false else {
+                                    out += AltCandidate(s.key, best.vod_id, best.vod_name)
+                                    true
+                                }
+                            }
+                            if (added) publish()
                         }
                     }
                 }
@@ -979,7 +1015,10 @@ class SourceRepository {
                 // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
                 // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
                 withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
-                return out
+                publish(force = true)
+                // 返回副本：到点超时后仍在跑的源还会往 out 里追加，不能让调用方
+                // 拿着一个继续被后台线程改的列表去遍历。
+                return outLock.withLock { ArrayList(out) }
             }
 
             // 首轮用原名，零候选才花时间降级（热门片不会进降级轮）

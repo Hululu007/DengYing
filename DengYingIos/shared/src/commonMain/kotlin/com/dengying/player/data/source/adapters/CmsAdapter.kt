@@ -44,10 +44,11 @@ object CmsAdapter {
     }
 
     /**
-     * 搜索：双端点**并行**发出、命中即用，短超时让死源快速出局。
+     * 搜索：普通搜索双端点**并行**发出、命中即用，短超时让死源快速出局。
      *
-     * 语义与「无结果才回落」不同——两端点同时覆盖，回落的效果达成且更快。
      * 先看 `ac=detail&wd`（带完整详情），空则看 `ac=videolist&wd`。
+     * `searchQuick` 是跨源候选专用：只发 detail 端点，避免每个候选源都占两条
+     * 出网槽位、把详情页「其他资源站」的首批结果拖到 10+ 秒。
      */
     suspend fun search(source: CmsSource, keyword: String): FetchResult {
         val kw = enc(keyword)
@@ -61,13 +62,39 @@ object CmsAdapter {
             listUrl to { HttpClient.getText(listUrl, SEARCH_CONNECT_MS, SEARCH_READ_MS) },
         )
 
+        return pickSearchResult(pair[0], pair[1], source)
+    }
+
+    /** 跨源候选搜索：只发 detail 端点，endpoint 没数据时才回落 videolist */
+    suspend fun searchQuick(source: CmsSource, keyword: String): FetchResult {
+        val kw = enc(keyword)
+        val detailUrl = "${source.api}?ac=detail&wd=$kw"
+        val r1 = CmsParser.fill(
+            HttpClient.getText(detailUrl, SEARCH_CONNECT_MS, SEARCH_READ_MS), source, 1,
+        )
+        if (r1.hasData) return r1
+        val listUrl = "${source.api}?ac=videolist&wd=$kw"
+        return pickSearchResult(
+            detailText = "",
+            listText = HttpClient.getText(listUrl, SEARCH_CONNECT_MS, SEARCH_READ_MS),
+            source = source,
+            detailFallback = r1,
+        )
+    }
+
+    /** 两端点响应的择优：detail 有数据即用；否则看 list；两者都没数据取更可诊断的一态 */
+    private fun pickSearchResult(
+        detailText: String,
+        listText: String,
+        source: CmsSource,
+        detailFallback: FetchResult? = null,
+    ): FetchResult {
         // 响应不是 JSON 时 CmsParser 返回 ParseFailed（hasData=false），
         // 与「解析成功但列表为空」一样都跳到第二个端点，等价于原来的 `safeJson ?: 跳过`。
-        val r1 = CmsParser.fill(pair[0], source, 1)
+        val r1 = detailFallback ?: CmsParser.fill(detailText, source, 1)
         if (r1.hasData) return r1
-        val r2 = CmsParser.fill(pair[1], source, 1)
+        val r2 = CmsParser.fill(listText, source, 1)
         if (r2.outcome != RequestOutcome.ParseFailed) return r2
-
         return CmsParser.failed(source, 1, "搜索无响应")
     }
 
