@@ -1,7 +1,7 @@
 package com.dengying.player.ui.update
 
 /**
- * GitHub Releases 中的一条更新信息。
+ * Releases 中的一条更新信息。
  *
  * [tag] 保留原始 release tag（通常带 `v` 前缀），用于「忽略此版本」的持久化键；
  * [version] 是去掉前缀后的三段数字，用于展示与比较。两者不混用：tag 变了但

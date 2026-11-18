@@ -14,16 +14,26 @@ import kotlinx.serialization.json.JsonObject
  * 更新 SDK，也不接受用户填写的检查地址：源固定为编译期常量，避免把任意 URL
  * 变成第二套下载/更新通道。
  *
+ * Gitee 是境内主检查源；Gitee 不可用时回退到 GitHub。两者都只能指向本仓库的
+ * Releases 页面，避免 API 返回值把用户带到任意站点。
+ *
  * 解析与比较拆成纯函数，JVM 测试不需要打真实 GitHub。
  */
 object UpdateChecker {
 
-    const val RELEASES_LATEST_URL =
+    const val GITHUB_RELEASES_LATEST_URL =
         "https://api.github.com/repos/xiao-hans/DengYing/releases/latest"
+
+    const val GITEE_RELEASES_LATEST_URL =
+        "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/latest"
 
     private const val ACCEPT = "Accept"
     private const val GITHUB_ACCEPT = "application/vnd.github+json"
+    private const val JSON_ACCEPT = "application/json"
     private const val GITHUB_RELEASES_PREFIX = "https://github.com/xiao-hans/DengYing/releases"
+    private const val GITEE_RELEASES_PREFIX =
+        "https://gitee.com/han-xiaos-whisper/DengYing/releases"
+    private val RELEASE_TAG_RE = Regex("""[A-Za-z0-9][A-Za-z0-9._-]{0,63}""")
     private val VERSION_RE = Regex("""(\d+)\.(\d+)\.(\d+)""")
     private val HTML_TAG_RE = Regex("<[^>]*>")
 
@@ -63,12 +73,12 @@ object UpdateChecker {
     internal fun parseCheckableVersion(raw: String): SemVer? =
         parseVersion(raw)?.takeIf { it.major != 0 || it.minor != 0 || it.patch != 0 }
 
-    /** 只接受本仓库 Releases 的 HTTPS 页面，避免 `html_url` 被指向任意站点。 */
+    /** 只接受本仓库 GitHub / Gitee Releases 的 HTTPS 页面。 */
     internal fun isAllowedReleaseUrl(url: String): Boolean {
-        if (!url.startsWith(GITHUB_RELEASES_PREFIX)) return false
         if (url.any { it.isWhitespace() || it.code < 0x20 }) return false
-        return url == GITHUB_RELEASES_PREFIX || url.startsWith("$GITHUB_RELEASES_PREFIX/") ||
-            url.startsWith("$GITHUB_RELEASES_PREFIX?")
+        return listOf(GITHUB_RELEASES_PREFIX, GITEE_RELEASES_PREFIX).any { prefix ->
+            url == prefix || url.startsWith("$prefix/") || url.startsWith("$prefix?")
+        }
     }
 
     /**
@@ -116,30 +126,64 @@ object UpdateChecker {
     internal fun parseLatest(text: String, currentVersion: String): UpdateCheckResult {
         val current = parseCheckableVersion(currentVersion) ?: return UpdateCheckResult.Disabled
         val json = HttpClient.safeJson(text) ?: return UpdateCheckResult.Failed
-        return parseRelease(json, current)
+        return parseGithubRelease(json, current)
     }
 
-    internal fun parseRelease(json: JsonObject, current: SemVer): UpdateCheckResult {
+    /** 解析 Gitee JSON；字段名与 GitHub 略有差异，释放源仍固定。 */
+    internal fun parseGiteeLatest(text: String, currentVersion: String): UpdateCheckResult {
+        val current = parseCheckableVersion(currentVersion) ?: return UpdateCheckResult.Disabled
+        val json = HttpClient.safeJson(text) ?: return UpdateCheckResult.Failed
+        return parseGiteeRelease(json, current)
+    }
+
+    internal fun parseGithubRelease(json: JsonObject, current: SemVer): UpdateCheckResult {
         val tag = JsonX.str(json, "tag_name").trim()
+        val url = JsonX.str(json, "html_url").trim()
+        return releaseResult(
+            tag = tag,
+            publishedAt = JsonX.str(json, "published_at"),
+            body = JsonX.str(json, "body"),
+            url = url,
+            current = current,
+        )
+    }
+
+    internal fun parseGiteeRelease(json: JsonObject, current: SemVer): UpdateCheckResult {
+        val tag = JsonX.str(json, "tag_name").trim()
+        if (!RELEASE_TAG_RE.matches(tag)) return UpdateCheckResult.Failed
+        return releaseResult(
+            tag = tag,
+            publishedAt = JsonX.str(json, "created_at"),
+            body = JsonX.str(json, "body"),
+            url = "$GITEE_RELEASES_PREFIX/tag/$tag",
+            current = current,
+        )
+    }
+
+    private fun releaseResult(
+        tag: String,
+        publishedAt: String,
+        body: String,
+        url: String,
+        current: SemVer,
+    ): UpdateCheckResult {
         val latest = parseVersion(tag) ?: return UpdateCheckResult.Failed
         if (latest <= current) return UpdateCheckResult.UpToDate
-
-        val url = JsonX.str(json, "html_url").trim()
         if (!isAllowedReleaseUrl(url)) return UpdateCheckResult.Failed
 
         return UpdateCheckResult.Available(
             UpdateInfo(
                 tag = tag,
                 version = latest.toString(),
-                publishedDate = publishedDate(JsonX.str(json, "published_at")),
-                notes = formatNotes(JsonX.str(json, "body")),
+                publishedDate = publishedDate(publishedAt),
+                notes = formatNotes(body),
                 url = url,
             ),
         )
     }
 
     /**
-     * 请求 GitHub 并解析。
+     * 请求 Gitee，失败时回退 GitHub。
      *
      * 网络异常/非 200 都收敛成 [UpdateCheckResult.Failed]，由调用方决定是否
      * 记录检查时间；这里不抛出，避免一次更新检查影响启动流程。
@@ -148,20 +192,32 @@ object UpdateChecker {
         if (parseCheckableVersion(currentVersion) == null) return UpdateCheckResult.Disabled
         return try {
             withContext(ioDispatcher) {
-                val result = HttpClient.get(
-                    RELEASES_LATEST_URL,
-                    headers = mapOf(ACCEPT to GITHUB_ACCEPT),
-                )
-                if (result.status != 200) {
-                    UpdateCheckResult.Failed
-                } else {
-                    parseLatest(result.body, currentVersion)
-                }
+                val gitee = fetchGitee(currentVersion)
+                if (gitee == UpdateCheckResult.Failed) fetchGithub(currentVersion) else gitee
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             UpdateCheckResult.Failed
         }
+    }
+
+    private suspend fun fetchGitee(currentVersion: String): UpdateCheckResult = fetch(
+        url = GITEE_RELEASES_LATEST_URL,
+        accept = JSON_ACCEPT,
+    ) { body -> parseGiteeLatest(body, currentVersion) }
+
+    private suspend fun fetchGithub(currentVersion: String): UpdateCheckResult = fetch(
+        url = GITHUB_RELEASES_LATEST_URL,
+        accept = GITHUB_ACCEPT,
+    ) { body -> parseLatest(body, currentVersion) }
+
+    private suspend fun fetch(
+        url: String,
+        accept: String,
+        parse: (String) -> UpdateCheckResult,
+    ): UpdateCheckResult {
+        val result = HttpClient.get(url, headers = mapOf(ACCEPT to accept))
+        return if (result.status != 200) UpdateCheckResult.Failed else parse(result.body)
     }
 }

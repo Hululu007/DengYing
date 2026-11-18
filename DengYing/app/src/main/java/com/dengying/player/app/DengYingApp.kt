@@ -169,20 +169,27 @@ class DengYingApp : Application(), UiDeps {
     }
 
     /**
-     * 只允许打开本仓库的 GitHub Releases 页面。
+     * 只允许打开本仓库的 GitHub / Gitee Releases 页面。
      *
-     * 更新检查本身已经校验了 `html_url`，这里再做一次 host/path 校验，防止
+     * 更新检查本身已经校验了下载页地址，这里再做一次 host/path 校验，防止
      * 将来调用方把任意 URL 传进来时被 `ACTION_VIEW` 直接打开。
      */
     override fun openExternalUrl(url: String): Boolean {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
-        if (uri.scheme != "https" || uri.host != "github.com") return false
+        if (uri.scheme != "https") return false
         val path = uri.path ?: return false
-        if (path != "/xiao-hans/DengYing/releases" &&
-            !path.startsWith("/xiao-hans/DengYing/releases/")
-        ) {
-            return false
+        val allowed = when (uri.host) {
+            "github.com" -> {
+                path == "/xiao-hans/DengYing/releases" ||
+                    path.startsWith("/xiao-hans/DengYing/releases/")
+            }
+            "gitee.com" -> {
+                path == "/han-xiaos-whisper/DengYing/releases" ||
+                    path.startsWith("/han-xiaos-whisper/DengYing/releases/")
+            }
+            else -> false
         }
+        if (!allowed) return false
         return runCatching {
             startActivity(
                 Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

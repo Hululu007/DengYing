@@ -1,4 +1,4 @@
-# 设计：应用内更新提示（GitHub Releases）
+# 设计：应用内更新提示（Gitee Releases 为主、GitHub 备用）
 
 日期：2026-11-18 ｜ 来源需求（用户原话）：「开辟一个新的分支，做一个应用内更新提示，并推送新版本的功能」
 范围：`DengYing` Android 工程；不改动 `DengYingIos` / `DengYingOhos` 的未提交工作。
@@ -7,10 +7,10 @@
 
 | 问题 | 决策 |
 |---|---|
-| 更新源 | `https://api.github.com/repos/xiao-hans/DengYing/releases/latest` |
+| 更新源 | Gitee `https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/latest`；失败回退 GitHub `https://api.github.com/repos/xiao-hans/DengYing/releases/latest` |
 | 检查时机 | 启动后检查，24 小时最多一次；`我的`页手动检查不受间隔限制 |
-| 镜像 | 不做自动镜像；提供「复制下载链接」给无梯子用户自行处理 |
-| 弹窗 | 非强制：稍后 / 忽略此版本 / 复制下载链接 / 去 GitHub 下载 |
+| 镜像 | 不做自动镜像；境内用户走 Gitee Releases，仍提供「复制下载链接」 |
+| 弹窗 | 非强制：稍后 / 忽略此版本 / 复制下载链接 / 去 Gitee（或 GitHub）下载 |
 | 网络 | 复用 `HttpClient`，仅 HTTPS 固定 URL，不引入第三方 SDK |
 | 版本比较 | 解析 release `tag_name` 的数字版本，与当前 `versionName` 比较 |
 
@@ -19,14 +19,14 @@
 **目标**
 
 1. 有新版时启动后在应用内提示，用户能查看版本、日期与更新说明。
-2. 用户可关闭提示、忽略当前版本、复制 GitHub 下载页链接、打开 GitHub 下载页。
+2. 用户可关闭提示、忽略当前版本、复制下载页链接、打开 Gitee 或 GitHub 下载页。
 3. 自动检查受 24 小时间隔约束；手动检查在 `我的`页可随时触发。
 4. 失败静默，不影响启动、播放、搜索或其他既有功能。
 
 **非目标**
 
 - 不内置下载器、不替换网络栈、不引入第三方 SDK。
-- 不内置或自动切换第三方 GitHub 代理镜像。
+- 不内置或自动切换第三方 GitHub 代理镜像；Gitee 是固定的一手发布源，不代理 GitHub。
 - 不新增账号、埋点、推荐、内容库或在线源市场。
 - 不在 Windows 声称 iOS / 鸿蒙 / 投屏真机已验证。
 
@@ -34,9 +34,12 @@
 
 ### 3.1 固定请求
 
-使用 `HttpClient.get`：
+使用 `HttpClient.get`，先请求 Gitee，只有 Gitee 返回 `Failed` 时才回退 GitHub：
 
 ```text
+GET https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/latest
+Accept: application/json
+
 GET https://api.github.com/repos/xiao-hans/DengYing/releases/latest
 Accept: application/vnd.github+json
 ```
@@ -47,12 +50,14 @@ Accept: application/vnd.github+json
 
 `HttpClient.safeJson` 解析后只取：
 
-| 字段 | 用途 | 约束 |
-|---|---|---|
-| `tag_name` | 版本号与忽略键 | 必须能解析出 `x.y.z`；否则跳过提示 |
-| `published_at` | 显示发布日期 | 仅取日期部分展示，异常时留空 |
-| `body` | 更新说明 | 纯文本，最多显示 3 行，超出省略 |
-| `html_url` | 下载页与复制链接 | 必须是 `https://github.com/...`；其他一律拒绝 |
+| 字段 | 来源 | 用途 | 约束 |
+|---|---|---|---|
+| `tag_name` | Gitee / GitHub | 版本号与忽略键 | 必须能解析出 `x.y.z`；Gitee tag 还必须是 1–64 位字母开头的安全路径段 |
+| `created_at` / `published_at` | Gitee / GitHub | 显示发布日期 | 仅取日期部分展示，异常时留空 |
+| `body` | Gitee / GitHub | 更新说明 | 纯文本，最多显示 3 行，超出省略 |
+| `html_url` | GitHub | 下载页与复制链接 | 必须是 `https://github.com/xiao-hans/DengYing/releases...`；其他一律拒绝 |
+
+Gitee 响应没有 `html_url`，下载页由 `https://gitee.com/han-xiaos-whisper/DengYing/releases/tag/<tag>` 构造；tag 先过安全正则，避免路径穿越。
 
 不信任 release body 中的富文本、HTML 或链接；只显示为纯文本。
 
@@ -115,7 +120,7 @@ fun copyText(text: String): Boolean = false
 │ └──────────────────────────┘ │
 │ [ ] 忽略此版本                │  14sp
 │ 稍后      复制下载链接        │  次要按钮，48dp
-│ [    去 GitHub 下载    ]      │  主按钮，48dp
+│ [    去 Gitee 下载     ]      │  主按钮，48dp
 └──────────────────────────────┘
 ```
 
@@ -142,7 +147,7 @@ fun copyText(text: String): Boolean = false
 |---|---|
 | 网络失败 / 非 200 / JSON 解析失败 | 静默；手动检查显示「检查失败，请稍后重试」 |
 | `tag_name` 无法解析版本 | 不提示，写检查时间，避免反复请求 |
-| `html_url` 非 HTTPS GitHub | 不构造可点击动作，不提示 |
+| 下载页不是本仓库 Gitee / GitHub Releases HTTPS 地址 | 不构造可点击动作，不提示 |
 | 已是最新 / 本地版本更高 | 不提示；手动检查显示「已是最新版本」 |
 | 剪贴板失败 | 弹窗内提示「复制失败，请长按链接手动复制」 |
 | 打开链接失败 | 弹窗内提示「无法打开浏览器，请复制链接后在浏览器访问」 |
@@ -174,8 +179,8 @@ fun copyText(text: String): Boolean = false
 
 ## 9. 测试与验收
 
-1. JVM 单测：版本比较、发布日期截取、说明截断、非 GitHub `html_url` 拒绝、24 小时判断、忽略 tag、手动检查绕过忽略。
-2. 编译：`rtk gradlew :ui:jvmTest :ui:compileDebugKotlinAndroid :app:assembleDebug --console=plain`。
+1. JVM 单测：GitHub/Gitee 版本比较、发布日期截取、说明截断、非本仓下载页拒绝、Gitee tag 路径穿越拒绝、24 小时判断、忽略 tag、手动检查绕过忽略。
+2. 编译：`rtk gradlew :ui:jvmTest --console=plain` 与 `rtk gradlew :app:assembleRelease --console=plain`。
 3. 差异检查：`rtk git diff --check`。
 4. 真机（若设备可用）：启动提示、稍后、忽略、复制链接、打开下载页、手动检查；无设备则标「未验证」。
 
@@ -184,5 +189,6 @@ fun copyText(text: String): Boolean = false
 - 分支：`feat/in-app-update`。
 - 现有 v1.3.13 工作已提交为 `aae7352`，本设计只提交更新提示相关文件与 Android 版本 bump。
 - `DengYingIos` / `DengYingOhos` 的未提交改动不纳入本次提交；三端版本同步与对应壳实现需另开任务。
-- GitHub API 有未认证限流；24 小时检查一次足以控制频率。
-- 无梯子用户不能自动下载；本设计只提供可复制的 GitHub 下载页链接。
+- Gitee 与 GitHub API 都有未认证限流；24 小时检查一次足以控制频率。
+- Gitee 作为主源时，若 Gitee 发布滞后但返回「已是最新」，不会再用 GitHub 交叉比对；发布时需保证两边同步。
+- 无梯子用户走 Gitee；若 Gitee 也不可用，只能复制链接后自行处理。

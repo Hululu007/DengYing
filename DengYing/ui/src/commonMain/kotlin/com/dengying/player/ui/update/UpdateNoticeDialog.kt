@@ -64,6 +64,7 @@ fun UpdateNoticeDialog(
     onCopy: () -> Boolean,
     onOpen: () -> Boolean,
 ) {
+    val downloadProvider = if (info.url.startsWith("https://gitee.com/")) "Gitee" else "GitHub"
     var copied by remember(info.tag) { mutableStateOf(false) }
     var copyFailed by remember(info.tag) { mutableStateOf(false) }
     var openFailed by remember(info.tag) { mutableStateOf(false) }
@@ -237,7 +238,7 @@ fun UpdateNoticeDialog(
                 }
 
                 GlassActionButton(
-                    text = "去 GitHub 下载",
+                    text = "去 $downloadProvider 下载",
                     onClick = {
                         val ok = onOpen()
                         openFailed = !ok
