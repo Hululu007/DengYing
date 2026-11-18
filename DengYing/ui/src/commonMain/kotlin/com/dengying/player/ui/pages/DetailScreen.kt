@@ -31,12 +31,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
+import com.dengying.player.core.CmsSources
 import com.dengying.player.core.Episode
 import com.dengying.player.core.VideoItem
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassBackButton
+import com.dengying.player.ui.components.GlassChip
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
@@ -279,6 +281,8 @@ fun DetailScreen(
                     onSeek = { pos -> vm.seekInline(pos) },
                     onPrev = { vm.inlineSwitchEpisode(-1) },
                     onNext = { vm.inlineSwitchEpisode(1) },
+                    onBoostStart = { vm.beginInlineBoost() },
+                    onBoostEnd = { vm.endInlineBoost() },
                     // FR-711：进入纯屏幕形态。VM 只记形态状态；平台方向/系统栏
                     // 由本层请求——两步必须成对（见 rememberFullscreenState 处注释）。
                     onEnterFullscreen = {
@@ -295,7 +299,12 @@ fun DetailScreen(
                 ) {
                     InfoBlock(s.item!!)
                     if (s.altLoading || s.altSources.isNotEmpty()) {
-                        AltSourceBlock(s.altSources, s.altLoading) { vm.switchToSource(it) }
+                        AltSourceBlock(
+                            alts = s.altSources,
+                            loading = s.altLoading,
+                            currentSourceKey = s.sourceKey,
+                            onSwitch = { vm.switchToSource(it) },
+                        )
                     }
                     EpisodeBlock(
                         s = s,
@@ -495,6 +504,7 @@ private fun InfoBlock(item: VideoItem) {
 private fun AltSourceBlock(
     alts: List<AltItem>,
     loading: Boolean,
+    currentSourceKey: String,
     onSwitch: (AltItem) -> Unit,
 ) {
     GlassSurface(
@@ -518,12 +528,12 @@ private fun AltSourceBlock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "其他资源站",
+                text = "播放源",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Palette.TextPrimary,
             )
             Text(
-                text = if (loading) "查找中…" else "${alts.size} 个",
+                text = if (loading) "查找中…" else "另有 ${alts.size} 个",
                 style = MaterialTheme.typography.labelMedium,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(start = 8.dp),
@@ -533,21 +543,18 @@ private fun AltSourceBlock(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            val currentName = CmsSources.byKey(currentSourceKey)?.name ?: currentSourceKey
+            if (currentName.isNotEmpty()) {
+                GlassChip(
+                    text = "$currentName · 当前",
+                    selected = true,
+                )
+            }
             for (a in alts) {
-                Box(
-                    modifier = Modifier
-                        .height(32.dp)
-                        .background(Palette.AppBg, RoundedCornerShape(16.dp))
-                        .clickable { onSwitch(a) }
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = a.sourceName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Palette.TextPrimary,
-                    )
-                }
+                GlassChip(
+                    text = a.sourceName,
+                    onClick = { onSwitch(a) },
+                )
             }
         }
     }
@@ -781,6 +788,8 @@ private fun DetailFullscreenView(
         onSeek = { pos -> vm.seekInline(pos) },
         onPrev = { vm.inlineSwitchEpisode(-1) },
         onNext = { vm.inlineSwitchEpisode(1) },
+        onBoostStart = { vm.beginInlineBoost() },
+        onBoostEnd = { vm.endInlineBoost() },
         fullscreen = true,
         // 全屏形态下控制栏的进全屏键已切换为「退出全屏」，本回调不会触发
         onEnterFullscreen = {},

@@ -117,6 +117,8 @@ class DengYingApp : Application(), UiDeps {
         com.dengying.player.ui.account.AhAuth.init(kv)
         // 主题风格偏好（我的页可切，见 ThemePrefs）同样走这份 kv
         com.dengying.player.ui.theme.ThemePrefs.init(kv)
+        // 播放偏好（长按倍速、媒体缓存开关）必须早于首个播放器数据源构建
+        com.dengying.player.ui.prefs.PlaybackPrefs.init(kv)
         sources = SourceRepository()
         // 分页缓存与用户资产**共用同一个 preferences 文件**但独立键：
         // 这样"清空用户资产"不会误删缓存，反之亦然

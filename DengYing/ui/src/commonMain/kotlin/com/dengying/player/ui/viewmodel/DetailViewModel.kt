@@ -28,6 +28,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.navigation.Routes
+import com.dengying.player.ui.prefs.PlaybackPrefs
 
 /**
  * 一条跨源候选（FR-417 换源）。
@@ -71,6 +72,8 @@ class DetailViewModel(
 ) : ViewModel() {
 
     data class UiState(
+        /** 当前详情所指向的源 key；换源后同步更新，供“播放源”选中态回显。 */
+        val sourceKey: String = "",
         val item: VideoItem? = null,
         val lines: List<PlayLine> = emptyList(),
         val lineIdx: Int = 0,
@@ -95,7 +98,7 @@ class DetailViewModel(
         val playingEp: Int = -1,
     )
 
-    var state by mutableStateOf(UiState())
+    var state by mutableStateOf(UiState(sourceKey = source))
         private set
 
     /** FR-506：本次进入是否需要在线路就绪后自动起播 */
@@ -370,7 +373,7 @@ class DetailViewModel(
         curName = target.vodName
         curVodUri = ""
         resumeEp = -1
-        state = UiState(loading = true)
+        state = UiState(loading = true, sourceKey = target.sourceKey)
         loadDetail()
     }
 
@@ -943,6 +946,25 @@ class DetailViewModel(
         inlineSpeed = v
         com.dengying.player.playback.PlaybackSession.setSpeed(v)
         PlaybackProbe.note("inline-speed", "v=$v")
+    }
+
+    /** 长按内嵌画面右侧前的倍速；null = 当前没有进行中的加速。 */
+    private var boostPrevSpeed: Float? = null
+
+    fun beginInlineBoost() {
+        if (boostPrevSpeed != null) return
+        val from = inlineSpeed
+        val target = PlaybackPrefs.boostSpeed
+        boostPrevSpeed = from
+        applyInlineSpeed(target)
+        PlaybackProbe.note("inline-boost-start", "from=$from to=$target")
+    }
+
+    fun endInlineBoost() {
+        val from = boostPrevSpeed ?: return
+        boostPrevSpeed = null
+        applyInlineSpeed(from)
+        PlaybackProbe.note("inline-boost-end", "to=$from")
     }
 
     /**

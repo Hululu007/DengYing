@@ -6,7 +6,7 @@ import kotlinx.coroutines.withContext
 /**
  * 媒体数据磁盘缓存（FR-704、NFR-704）—— 跨平台决策层
  *
- * ## 当前状态：**默认关闭**（`MEDIA_CACHE_ENABLED = false`）
+ * ## 当前状态：**用户可开关，首次启动默认关闭**
  *
  * 这不是"还没做完"，而是一次**实测后的暂停启用决定**，证据如下。
  *
@@ -52,13 +52,20 @@ object MediaCache {
     const val LIMIT_MB = 500L
 
     /**
-     * 媒体缓存总开关（FR-704）。
+     * 用户偏好（FR-704）。默认关闭以保留已实测稳定的纯网络路径。
      *
-     * **当前 = false（默认关闭）**，理由与重启用条件见类注释。
-     * 关闭时 `wrap()` 原样返回上游工厂，播放走纯网络直连——
-     * 已实测稳定（21 次缓冲属于 HLS 正常范围）。
+     * 只表示"用户想不想用"；真正是否生效还要看平台实现，见 [isEnabled]。
      */
-    const val MEDIA_CACHE_ENABLED = false
+    private var enabled = false
+
+    /** 当前是否真正启用缓存：用户已开启且平台实现了缓存。 */
+    val isEnabled: Boolean
+        get() = enabled && MediaCacheHost.supported
+
+    /** 由设置层写入用户偏好；平台不支持时 [isEnabled] 仍为 false。 */
+    fun setEnabled(on: Boolean) {
+        enabled = on
+    }
 
     /**
      * 预热缓存：在 IO 线程提前建好平台缓存实例。
@@ -75,17 +82,22 @@ object MediaCache {
      * 开关关闭时直接返回：不做任何平台调用，iOS 侧同样安全。
      */
     suspend fun warmUp() {
-        if (!MEDIA_CACHE_ENABLED) return
+        if (!isEnabled) return
         if (MediaCacheHost.isReady() || MediaCacheHost.hasFailed()) return
         withContext(ioDispatcher) { MediaCacheHost.getOrCreate() }
     }
 
-    /** 清空缓存（设置项用）。开关关闭时无操作。 */
+    /**
+     * 清空缓存（设置项用）。
+     *
+     * 即使当前开关关闭也允许清理历史缓存；平台不支持时无操作。
+     */
     fun clear() {
-        if (!MEDIA_CACHE_ENABLED) return
+        if (!MediaCacheHost.supported) return
         MediaCacheHost.clear()
     }
 
-    /** 当前缓存占用字节数（供设置页显示）。开关关闭时恒为 0。 */
-    fun sizeBytes(): Long = if (!MEDIA_CACHE_ENABLED) 0L else MediaCacheHost.sizeBytes()
+    /** 当前缓存占用字节数（供设置页显示）。平台不支持时恒为 0。 */
+    fun sizeBytes(): Long =
+        if (!MediaCacheHost.supported) 0L else MediaCacheHost.sizeBytes()
 }

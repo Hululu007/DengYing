@@ -32,6 +32,7 @@ import com.dengying.player.playback.cast.CastEvent
 import com.dengying.player.playback.cast.CastMedia
 import com.dengying.player.playback.cast.DisconnectCause
 import com.dengying.player.playback.cast.NoopCastController
+import com.dengying.player.ui.prefs.PlaybackPrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1261,6 +1262,32 @@ class PlayerViewModel(
             dragValue = seekStartMs,
             seekTarget = seekStartMs,
         )
+    }
+
+    /** 长按加速前的倍速；null = 当前没有进行中的长按加速。 */
+    private var boostPrevSpeed: Float? = null
+
+    /**
+     * 长按画面右侧：临时切到设置里的长按倍速。
+     *
+     * 重复调用幂等；松手由 [endBoost] 恢复进入前的速度。
+     */
+    fun beginBoost() {
+        if (boostPrevSpeed != null) return
+        val from = state.speed
+        val target = PlaybackPrefs.boostSpeed
+        boostPrevSpeed = from
+        state = state.copy(speed = target, showSpeedSheet = false)
+        engine?.setSpeed(target)
+        cancelHide()
+        PlaybackProbe.note("gesture-boost-start", "from=$from to=$target")
+    }
+
+    fun endBoost() {
+        val from = boostPrevSpeed ?: return
+        boostPrevSpeed = null
+        setSpeed(from)
+        PlaybackProbe.note("gesture-boost-end", "to=$from")
     }
 
     /** FR-416：会话级倍速（不跨集持久） */
