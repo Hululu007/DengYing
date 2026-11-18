@@ -20,7 +20,7 @@ class UpdateCheckerTest {
     private val giteeReleaseJson = """
         {
           "tag_name": "v1.3.14",
-          "created_at": "2026-11-18T10:20:30+08:00",
+          "created_at": "2026/11/18 22:31:23",
           "body": "## 修复\n- 修复播放进度\n- 优化搜索\n- 新增更新提示\n- 第四条不会显示"
         }
     """.trimIndent()

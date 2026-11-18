@@ -111,10 +111,11 @@ object UpdateChecker {
         return shown.joinToString("\n")
     }
 
-    /** 把 `published_at`（ISO-8601）压成 `yyyy-MM-dd`；无效值返回空串。 */
+    /** 把 `published_at` / `created_at` 压成 `yyyy-MM-dd`；无效值返回空串。 */
     internal fun publishedDate(raw: String): String {
-        val match = Regex("""(\d{4})-(\d{2})-(\d{2})""").find(raw.trim()) ?: return ""
-        return match.value
+        val match = Regex("""(\d{4})[-/](\d{2})[-/](\d{2})""").find(raw.trim()) ?: return ""
+        val (year, month, day) = match.destructured
+        return "$year-$month-$day"
     }
 
     /**

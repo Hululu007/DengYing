@@ -53,7 +53,7 @@ Accept: application/vnd.github+json
 | 字段 | 来源 | 用途 | 约束 |
 |---|---|---|---|
 | `tag_name` | Gitee / GitHub | 版本号与忽略键 | 必须能解析出 `x.y.z`；Gitee tag 还必须是 1–64 位字母开头的安全路径段 |
-| `created_at` / `published_at` | Gitee / GitHub | 显示发布日期 | 仅取日期部分展示，异常时留空 |
+| `created_at` / `published_at` | Gitee / GitHub | 显示发布日期 | Gitee 为 `yyyy/MM/dd HH:mm:ss`，GitHub 为 ISO-8601；统一显示 `yyyy-MM-dd`，异常时留空 |
 | `body` | Gitee / GitHub | 更新说明 | 纯文本，最多显示 3 行，超出省略 |
 | `html_url` | GitHub | 下载页与复制链接 | 必须是 `https://github.com/xiao-hans/DengYing/releases...`；其他一律拒绝 |
 
@@ -179,7 +179,7 @@ fun copyText(text: String): Boolean = false
 
 ## 9. 测试与验收
 
-1. JVM 单测：GitHub/Gitee 版本比较、发布日期截取、说明截断、非本仓下载页拒绝、Gitee tag 路径穿越拒绝、24 小时判断、忽略 tag、手动检查绕过忽略。
+1. JVM 单测：GitHub/Gitee 版本比较、发布日期截取（Gitee 斜杠格式 / GitHub ISO-8601）、说明截断、非本仓下载页拒绝、Gitee tag 路径穿越拒绝、24 小时判断、忽略 tag、手动检查绕过忽略。
 2. 编译：`rtk gradlew :ui:jvmTest --console=plain` 与 `rtk gradlew :app:assembleRelease --console=plain`。
 3. 差异检查：`rtk git diff --check`。
 4. 真机（若设备可用）：启动提示、稍后、忽略、复制链接、打开下载页、手动检查；无设备则标「未验证」。
