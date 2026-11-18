@@ -2,6 +2,7 @@ package com.dengying.player.data.source
 
 import com.dengying.player.data.net.HlsUtil
 import com.dengying.player.data.net.NetPriority
+import com.dengying.player.data.source.adapters.AhHomeAdapter
 import com.dengying.player.data.source.adapters.CmsAdapter
 import com.dengying.player.data.source.adapters.DubokuAdapter
 import com.dengying.player.data.source.adapters.GuapiAdapter
@@ -515,7 +516,7 @@ class SourceRepository {
             }
             if (cached != null) return cached
         }
-        val tabs = Tv189Adapter.homeTabs(source)
+        val tabs = homeTabsOf(source)
         homeLock.withLock {
             if (tabs.isNotEmpty()) homeCache[key] = HomeCacheEntry(tabs, emptyList(), Clock.nowMs())
             else homeFailAt[key] = Clock.nowMs()
@@ -541,13 +542,31 @@ class SourceRepository {
             }
             if (recentlyFailed) return emptyList()
         }
-        val sections = Tv189Adapter.homeSections(source, path)
+        val sections = homeSectionsOf(source, path)
         homeLock.withLock {
             if (sections.isNotEmpty()) homeCache[key] = HomeCacheEntry(emptyList(), sections, Clock.nowMs())
             else homeFailAt[key] = Clock.nowMs()
         }
         return sections
     }
+
+    /**
+     * 首页适配器分派（方案路线 B 的唯一硬分派点）。
+     *
+     * Api2233：AH 首页无服务端编排接口，由 [AhHomeAdapter] 现场按分类合成；
+     * 其余协议（当前只有 tv189）继续走 jsondata。
+     * 新增 home 源时在这里加分支，不要在调用方按源 key 判断。
+     */
+    private suspend fun homeTabsOf(source: CmsSource): List<HomeTab> = when (source.protocol) {
+        SourceProtocol.Api2233 -> AhHomeAdapter.homeTabs()
+        else -> Tv189Adapter.homeTabs(source)
+    }
+
+    private suspend fun homeSectionsOf(source: CmsSource, path: String): List<HomeSection> =
+        when (source.protocol) {
+            SourceProtocol.Api2233 -> AhHomeAdapter.homeSections(source, path)
+            else -> Tv189Adapter.homeSections(source, path)
+        }
 
     /**
      * 单源分类名 → type_id 解析（精确 → 别名 → 双向包含）。
