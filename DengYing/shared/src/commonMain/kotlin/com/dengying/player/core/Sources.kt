@@ -390,7 +390,8 @@ object CmsSources {
             api = AP2233_BASE,
             speed = 23, direct = true, enabled = true, tier = 3,
             protocol = SourceProtocol.Api2233,
-            caps = CAPS_CMS,
+            // 首页由 AhHomeAdapter 按分类现场合成（无服务端编排接口），见 docs/02 FR-630
+            caps = CAPS_CMS.copy(home = true),
             searchUrl = AP2233_SEARCH,
             playGap = "播放链未闭环：该源只下发加密 token（BBA 形态 ETH-+hex / NBY 形态 NBY-XMYAES+hex|hex），且站点自己的 /static/player/NBY.js 与 BBA.js 是 0 字节空文件，二层密文在客户端不可解",
             note = "2026-10-04 复核：ac=list / ac=videolist / ac=detail / search-index 四端点全部 200 可用（total=7874、pagecount=394），此前记录的「ac=list/ac=detail 返回 closed」已失效；但 vod_play_url 里没有明文媒体地址，每集是加密 token（BBA 长 420、NBY 长 139，全样本 0 段含 http/m3u8），nby.php / bba.php 只回 base64 密文 → 浏览 / 搜索 / 详情可用，播放不可用；2026-10-27 补测：站点前端 /static/player/NBY.js 与 BBA.js 均为 HTTP 200 但 Content-Length: 0 的空文件（同目录 dplayer.js 297 B、iva.js 1859 B 等均正常），故二层密文在客户端不可解，已停止猜解密法；新增 Ap2233PlayPageParser 解析 macCMS 播放页 player_aaaa（见 docs/04 §15.5）",
