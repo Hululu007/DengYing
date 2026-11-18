@@ -29,6 +29,9 @@ import com.dengying.player.ui.pages.RegisterScreen
 import com.dengying.player.ui.pages.SearchScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
 import com.dengying.player.ui.platform.rememberFullscreenState
+import com.dengying.player.ui.UiDepsHolder
+import com.dengying.player.ui.update.UpdateNoticeController
+import com.dengying.player.ui.update.UpdateNoticeDialog
 import com.dengying.player.ui.viewmodel.PlayerViewModel
 
 /**
@@ -90,6 +93,11 @@ fun DengYingNavHost(
     // 这里只负责把 state 挂进 CompositionLocal 供 GlassSurface 读取。
     val glassBackdrop = remember { GlassBackdropState() }
     CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+    val deps = remember { UiDepsHolder.get() }
+    // 自动检查不阻塞首帧：请求在 IO 上发出，失败只更新「我的」页状态。
+    LaunchedEffect(Unit) {
+        UpdateNoticeController.autoCheck(deps)
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Routes.INDEX) {
 
@@ -275,6 +283,25 @@ fun DengYingNavHost(
         composable(Routes.REGISTER) {
             RegisterScreen(onBack = { nav.popBackStack() })
         }
+        }
+
+        UpdateNoticeController.dialogInfo?.let { info ->
+            UpdateNoticeDialog(
+                info = info,
+                ignored = UpdateNoticeController.isIgnored(info),
+                onIgnoreChange = { ignored ->
+                    UpdateNoticeController.setIgnored(deps, info, ignored)
+                },
+                onDismiss = { UpdateNoticeController.dismissDialog() },
+                onCopy = {
+                    deps.copyText(info.url)
+                },
+                onOpen = {
+                    val opened = deps.openExternalUrl(info.url)
+                    if (opened) UpdateNoticeController.dismissDialog()
+                    opened
+                },
+            )
         }
     }
     }

@@ -52,6 +52,8 @@ import com.dengying.player.ui.prefs.PlaybackPrefs
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.theme.ThemeMode
 import com.dengying.player.ui.theme.ThemePrefs
+import com.dengying.player.ui.update.UpdateCheckState
+import com.dengying.player.ui.update.UpdateNoticeController
 import kotlinx.coroutines.launch
 
 /**
@@ -77,6 +79,7 @@ fun MineScreen(
     bottomPadding: Dp,
 ) {
     val scope = rememberCoroutineScope()
+    val deps = remember { UiDepsHolder.get() }
     var loggedIn by remember { mutableStateOf(AhAuth.isLoggedIn()) }
     var userName by remember { mutableStateOf(AhAuth.nickname()) }
     var avatarUrl by remember { mutableStateOf(AhAuth.avatarUrl()) }
@@ -96,6 +99,7 @@ fun MineScreen(
         }
     }
     LaunchedEffect(Unit) { refreshCounts() }
+    LaunchedEffect(Unit) { UpdateNoticeController.refresh(deps) }
     LaunchedEffect(PlaybackPrefs.cacheEnabled) {
         cacheBytes = MediaCache.sizeBytes()
     }
@@ -395,6 +399,59 @@ fun MineScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // ---- 检查更新 ----
+        val updateChecking = UpdateNoticeController.state == UpdateCheckState.Checking
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateChecking) {
+                        scope.launch { UpdateNoticeController.manualCheck(deps) }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Refresh,
+                        tint = Palette.Brand,
+                        size = 18.dp,
+                        contentDescription = "检查更新",
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "检查更新",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = UpdateNoticeController.statusText(deps),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
             }
         }
 
