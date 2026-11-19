@@ -6,6 +6,8 @@ import com.dengying.player.core.CmsSources
 import com.dengying.player.core.VideoItem
 import com.dengying.player.core.capsOf
 import com.dengying.player.data.cache.PageCache
+import com.dengying.player.data.download.DownloadCenter
+import com.dengying.player.data.download.DownloadStorage
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.data.source.adapters.BttwoAuth
 import com.dengying.player.data.source.discover.DiscoverAdapter
@@ -94,6 +96,8 @@ object OhosApp {
             }
             kvRef = kvStore
             store = Store(kvStore)
+            DownloadStorage.init("$dataDir/downloads")
+            DownloadCenter.init(kvStore)
             // 两个BT 登录态与用户资产共用同一 kv（独立键，见 BttwoAuth）。
             // 对齐 Android DengYingApp.onCreate:99：必须先于首次组合与任何聚合。
             BttwoAuth.init(kvStore)

@@ -7,7 +7,7 @@ package com.dengying.player.data.cache
  *
  * 【为什么是桩而不是真实现】Android 侧的缓存是 Media3 的 `SimpleCache`（`androidx.media3.datasource.cache`），
  * iOS 没有对应物。可选的落地方案（AVPlayer 的 `AVURLAsset` 缓存 / 自建 LRU 磁盘缓存 + 自定义
- * `AVAssetResourceLoaderDelegate`）都还没定，且 [MediaCache.MEDIA_CACHE_ENABLED] 目前是 `false`
+ * `AVAssetResourceLoaderDelegate`）都还没定，且 运行时开关 `MediaCache.isEnabled` 默认是 `false`
  * ——先在 Android 上验证「缓存开启会让 `STATE_BUFFERING` 从 21 次涨到 1743 次」的结论（见
  * [MediaCache] Kdoc 的真机实测表），iOS 侧的实现等该结论在 iOS 上复现后再做。
  *
@@ -17,6 +17,8 @@ package com.dengying.player.data.cache
  * TODO(Mac)：iOS 缓存方案定型后替换本桩，并在 docs/04 §16.7 更新桩清单。
  */
 actual object MediaCacheHost {
+    actual val supported: Boolean = false
+
 
     actual fun getOrCreate(): Any? = null
 

@@ -175,6 +175,22 @@ object HttpClient {
         return (r as? HttpResult) ?: HttpResult(0, "", 0)
     }
 
+    /**
+     * GET 原始字节。
+     *
+     * 用途：离线下载 HLS 分片与 MP4。仍走统一闸门与平台传输，不新增出网通道。
+     * 下载分片可能较大，默认读超时放宽到 30s；调用方按需覆盖。
+     */
+    suspend fun getBinary(
+        url: String,
+        headers: Map<String, String>? = null,
+        connectMs: Int = 8000,
+        readMs: Int = 30000,
+    ): HttpBinaryResult {
+        val r = send("GET", url, null, mergeHeaders(headers), connectMs, readMs, true)
+        return (r as? HttpBinaryResult) ?: HttpBinaryResult(0, ByteArray(0), 0)
+    }
+
     /** POST（body 为字符串；调用方自行序列化） */
     suspend fun post(
         url: String,

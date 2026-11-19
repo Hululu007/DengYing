@@ -14,7 +14,6 @@ import com.dengying.player.core.VideoItem
 import com.dengying.player.core.capsOf
 import com.dengying.player.data.source.discover.DiscoverAdapter
 import com.dengying.player.domain.page.ConcurrencyGate
-import com.dengying.player.domain.page.PageBudget
 import com.dengying.player.domain.search.SearchNotice
 import com.dengying.player.domain.search.DiscoverRules
 import com.dengying.player.domain.search.SearchSession
@@ -154,13 +153,9 @@ class SearchViewModel(
 
                 state = state.copy(
                     results = r.items,
-                    tip = when {
-                        r.items.isEmpty() -> SearchNotice.doneText(0, kw, count)
-                        // 有结果但不完整：说明只显示了先返回的部分，而不是"就这么多"
-                        r.outcome == PageBudget.Outcome.Expired ->
-                            PageBudget.outcomeNotice(r.outcome)
-                        else -> ""
-                    },
+                    // 结果列表本身就是事实：慢源没等到时只显示已返回的内容即可，
+                    // 不再加「部分结果…」提示条（用户明确要求去掉这一块）。
+                    tip = if (r.items.isEmpty()) SearchNotice.doneText(0, kw, count) else "",
                 )
             } catch (e: Exception) {
                 if (!session.shouldAdopt(token, kw)) return@launch

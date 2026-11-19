@@ -50,6 +50,7 @@ import com.dengying.player.ui.platform.VideoSurface
 import com.dengying.player.ui.platform.rememberBrightnessController
 import com.dengying.player.ui.platform.rememberIsLandscape
 import com.dengying.player.ui.platform.rememberVolumeController
+import com.dengying.player.ui.prefs.PlaybackPrefs
 import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.PlayerViewModel
@@ -140,6 +141,7 @@ fun PlayerScreen(
     var adjustHideTick by remember { mutableStateOf(0) }
     // 双击动作闪现：true 表示本次动作是"暂停"（显示 ⏸），false 表示"播放"。
     var playFlash by remember { mutableStateOf<Boolean?>(null) }
+    var boosting by remember { mutableStateOf(false) }
 
     LaunchedEffect(playFlash) {
         if (playFlash != null) {
@@ -153,6 +155,10 @@ fun PlayerScreen(
     // 应用其它页面顶着这个亮度且找不到原因。
     DisposableEffect(brightnessCtl) {
         onDispose { brightnessCtl?.restore() }
+    }
+
+    DisposableEffect(vm) {
+        onDispose { vm.endBoost() }
     }
 
     // 手势浮层的收起时机：**手势结束时开始计时**。
@@ -308,6 +314,19 @@ fun PlayerScreen(
                         playFlash = wasPlaying
                         PlaybackProbe.note("gesture-double-tap", "wasPlaying=$wasPlaying")
                     },
+                    onLongPress = { offset ->
+                        if (!boosting && offset.x >= size.width / 2f) {
+                            boosting = true
+                            vm.beginBoost()
+                        }
+                    },
+                    onPress = {
+                        tryAwaitRelease()
+                        if (boosting) {
+                            boosting = false
+                            vm.endBoost()
+                        }
+                    },
                 )
             },
     ) {
@@ -393,6 +412,19 @@ fun PlayerScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 24.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            )
+        }
+
+        if (boosting) {
+            Text(
+                text = "${PlaybackPrefs.labelOf(PlaybackPrefs.boostSpeed)} 加速中",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 64.dp)
                     .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
                     .padding(horizontal = 12.dp, vertical = 7.dp),
             )

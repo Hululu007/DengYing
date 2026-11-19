@@ -4,6 +4,7 @@ import com.dengying.player.core.VideoItem
 import com.dengying.player.data.cache.PageCache
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.data.store.Store
+import com.dengying.player.platform.KeyValueStore
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.playback.cast.CastController
 import com.dengying.player.ui.viewmodel.AltItem
@@ -76,6 +77,41 @@ interface UiDeps {
      * 故与其余装配事实一起走本接口注入。
      */
     val isDebug: Boolean
+
+    /**
+     * 当前应用版本号（如 `1.3.14`），由平台壳从构建产物注入。
+     *
+     * `:ui` 关闭了 BuildConfig，无法直接读取平台壳的版本字段；更新提示必须
+     * 和真正安装的包使用同一个版本值，否则会出现「应用内显示 1.3.14、安装包
+     * 却是 1.3.13」的错位。默认空串表示当前平台没有提供版本信息，更新检查
+     * 会直接跳过。
+     */
+    val appVersionName: String
+        get() = ""
+
+    /** 当前应用 versionCode；与 [appVersionName] 同一来源，保留给后续版本策略使用。 */
+    val appVersionCode: Long
+        get() = 0L
+
+    /**
+     * 更新提示的状态存储。
+     *
+     * 不直接复用 [Store]：`Store` 的 `KeyValueStore` 是私有构造参数，且更新检查
+     * 不需要走收藏/历史的事务闸门。这里只暴露同一个 KV 实例，供 `ui/update`
+     * 记住上次检查时间与已忽略版本。默认 null 时只在本次进程内生效。
+     */
+    val keyValueStore: KeyValueStore?
+        get() = null
+
+    /**
+     * 打开外部 HTTPS 链接。返回 false 表示当前平台不支持或系统没有可用浏览器。
+     *
+     * 默认实现不打开任何东西；Android 壳会校验 host 后再交给系统浏览器。
+     */
+    fun openExternalUrl(url: String): Boolean = false
+
+    /** 复制纯文本到系统剪贴板；返回是否成功。默认不支持的平台返回 false。 */
+    fun copyText(text: String): Boolean = false
 
     /**
      * 跨源候选缓存（FR-417），**进程级**。

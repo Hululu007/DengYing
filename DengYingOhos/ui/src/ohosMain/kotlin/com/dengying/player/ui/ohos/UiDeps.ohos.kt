@@ -73,5 +73,6 @@ fun installOhosUiDeps() {
     } else {
         AhAuth.init(kv)
         ThemePrefs.init(kv)
+        com.dengying.player.ui.prefs.PlaybackPrefs.init(kv)
     }
 }

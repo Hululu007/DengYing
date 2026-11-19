@@ -2,6 +2,8 @@ package com.dengying.player.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,18 +27,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
+import com.dengying.player.core.CmsSources
 import com.dengying.player.core.Episode
 import com.dengying.player.core.VideoItem
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassBackButton
+import com.dengying.player.ui.components.GlassChip
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
@@ -49,6 +59,7 @@ import com.dengying.player.ui.platform.rememberFullscreenState
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.AltItem
 import com.dengying.player.ui.viewmodel.DetailViewModel
+import com.dengying.player.data.download.DownloadCenter
 
 @Composable
 fun DetailScreen(
@@ -279,6 +290,8 @@ fun DetailScreen(
                     onSeek = { pos -> vm.seekInline(pos) },
                     onPrev = { vm.inlineSwitchEpisode(-1) },
                     onNext = { vm.inlineSwitchEpisode(1) },
+                    onBoostStart = { vm.beginInlineBoost() },
+                    onBoostEnd = { vm.endInlineBoost() },
                     // FR-711：进入纯屏幕形态。VM 只记形态状态；平台方向/系统栏
                     // 由本层请求——两步必须成对（见 rememberFullscreenState 处注释）。
                     onEnterFullscreen = {
@@ -295,7 +308,12 @@ fun DetailScreen(
                 ) {
                     InfoBlock(s.item!!)
                     if (s.altLoading || s.altSources.isNotEmpty()) {
-                        AltSourceBlock(s.altSources, s.altLoading) { vm.switchToSource(it) }
+                        AltSourceBlock(
+                            alts = s.altSources,
+                            loading = s.altLoading,
+                            currentSourceKey = s.sourceKey,
+                            onSwitch = { vm.switchToSource(it) },
+                        )
                     }
                     EpisodeBlock(
                         s = s,
@@ -308,6 +326,8 @@ fun DetailScreen(
                         // FR-705：点剧集**就地播放**（内嵌），不再跳页。
                         // 跳全屏播放页的入口改为内嵌位的全屏键（见上）。
                         onPlayEpisode = { vm.playInline(it) },
+                        downloadOf = { s.downloads[it] },
+                        onDownloadEpisode = { vm.downloadEpisode(it) },
                     )
 
                     // 底部留白：让最底部的剧集按钮脱离屏幕边缘与系统手势区。
@@ -495,6 +515,7 @@ private fun InfoBlock(item: VideoItem) {
 private fun AltSourceBlock(
     alts: List<AltItem>,
     loading: Boolean,
+    currentSourceKey: String,
     onSwitch: (AltItem) -> Unit,
 ) {
     GlassSurface(
@@ -518,12 +539,12 @@ private fun AltSourceBlock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "其他资源站",
+                text = "播放源",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Palette.TextPrimary,
             )
             Text(
-                text = if (loading) "查找中…" else "${alts.size} 个",
+                text = if (loading) "查找中…" else "另有 ${alts.size} 个",
                 style = MaterialTheme.typography.labelMedium,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(start = 8.dp),
@@ -533,27 +554,36 @@ private fun AltSourceBlock(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            for (a in alts) {
+            val currentName = CmsSources.byKey(currentSourceKey)?.name ?: currentSourceKey
+            if (currentName.isNotEmpty()) {
                 Box(
                     modifier = Modifier
                         .height(32.dp)
-                        .background(Palette.AppBg, RoundedCornerShape(16.dp))
-                        .clickable { onSwitch(a) }
-                        .padding(horizontal = 14.dp),
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.Black)
+                        .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = a.sourceName,
+                        text = "$currentName · 当前",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Palette.TextPrimary,
                     )
                 }
+            }
+            for (a in alts) {
+                GlassChip(
+                    text = a.sourceName,
+                    onClick = { onSwitch(a) },
+                )
             }
         }
     }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeBlock(
     s: DetailViewModel.UiState,
@@ -565,7 +595,12 @@ private fun EpisodeBlock(
     /** 会话正在播的真实集序号（-1 = 无）。优先于历史续播点显示选中态。 */
     playingEp: Int,
     onPlayEpisode: (Int) -> Unit,
+    downloadOf: (Int) -> DownloadCenter.Item?,
+    onDownloadEpisode: (Int) -> Unit,
 ) {
+    // 下载模式：先点「下载」进入，再点任一剧集即离线保存。
+    // 原先只有长按隐藏手势，用户不知道能下载；长按仍保留作为快捷方式。
+    var downloadMode by remember { mutableStateOf(false) }
     GlassSurface(
         modifier = Modifier
             .fillMaxWidth()
@@ -591,6 +626,14 @@ private fun EpisodeBlock(
         // 源播放链缺口：显式提示不可播，避免点进去才静默失败
         if (s.playGap.isNotEmpty()) {
             InlineNotice("⚠ ${s.playGap}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
+        }
+        if (s.downloadMsg.isNotEmpty()) {
+            Text(
+                text = s.downloadMsg,
+                style = MaterialTheme.typography.labelSmall,
+                color = Palette.Brand,
+                modifier = Modifier.padding(bottom = 10.dp),
+            )
         }
 
         // 线路选择（单条时不显示）
@@ -629,12 +672,42 @@ private fun EpisodeBlock(
                     .padding(bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "选集（共 ${displayEps.size} 集）",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Palette.TextPrimary,
-                    modifier = Modifier.weight(1f),
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "选集（共 ${displayEps.size} 集）",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = if (downloadMode) "点击剧集下载到本机" else "点「下载」后选集即可离线保存",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (downloadMode) Palette.Brand else Palette.TextSecondary,
+                    )
+                }
+                // 下载模式开关：比长按手势可见，也让「点了就下载」有明确的进入/退出
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .background(
+                            if (downloadMode) Palette.Brand else Palette.SearchBg,
+                            RoundedCornerShape(18.dp),
+                        )
+                        .clickable {
+                            downloadMode = !downloadMode
+                            PlaybackProbe.note(
+                                "ui-download-mode", "on=$downloadMode",
+                            )
+                        }
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (downloadMode) "完成" else "下载",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (downloadMode) Color.White else Palette.TextSecondary,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
                 if (displayEps.size > 1) {
                     Box(
                         modifier = Modifier
@@ -691,6 +764,7 @@ private fun EpisodeBlock(
                             val current = playingEp == real
                             val resume = !current && isResumeEp(real)
                             val selected = current || resume
+                            val download = downloadOf(real)
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -701,13 +775,28 @@ private fun EpisodeBlock(
                                         if (selected) Palette.Brand else Palette.SearchBg,
                                         RoundedCornerShape(6.dp),
                                     )
-                                    .clickable {
-                                        // 【UI 层探针】区分两类失败：
-                                        //  a) 本探针出现、无 inline-click-enter → VM 调用链断
-                                        //  b) 本探针也不出现 → Compose 手势层没触发
-                                        PlaybackProbe.note("ui-episode-click", "displayIdx=$displayIdx real=$real")
-                                        onPlayEpisode(real)
-                                    },
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (downloadMode) {
+                                                // 下载模式：单击即下载，不再起播
+                                                PlaybackProbe.note(
+                                                    "ui-episode-download",
+                                                    "displayIdx=$displayIdx real=$real mode=tap",
+                                                )
+                                                onDownloadEpisode(real)
+                                            } else {
+                                                // 【UI 层探针】区分两类失败：
+                                                //  a) 本探针出现、无 inline-click-enter → VM 调用链断
+                                                //  b) 本探针也不出现 → Compose 手势层没触发
+                                                PlaybackProbe.note("ui-episode-click", "displayIdx=$displayIdx real=$real")
+                                                onPlayEpisode(real)
+                                            }
+                                        },
+                                        onLongClick = {
+                                            PlaybackProbe.note("ui-episode-download", "displayIdx=$displayIdx real=$real mode=long")
+                                            onDownloadEpisode(real)
+                                        },
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -734,6 +823,23 @@ private fun EpisodeBlock(
                                             modifier = Modifier.padding(horizontal = 3.dp),
                                         )
                                     }
+                                }
+                                if (download != null) {
+                                    val mark = when (download.status) {
+                                        DownloadCenter.Status.DONE -> "已下"
+                                        DownloadCenter.Status.RUNNING ->
+                                            "${(download.progress * 100).toInt()}%"
+                                        DownloadCenter.Status.QUEUED -> "等待"
+                                        DownloadCenter.Status.FAILED -> "重试"
+                                    }
+                                    Text(
+                                        text = mark,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (selected) Color.White else Palette.Brand,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(horizontal = 3.dp),
+                                    )
                                 }
                             }
                         }
@@ -781,6 +887,8 @@ private fun DetailFullscreenView(
         onSeek = { pos -> vm.seekInline(pos) },
         onPrev = { vm.inlineSwitchEpisode(-1) },
         onNext = { vm.inlineSwitchEpisode(1) },
+        onBoostStart = { vm.beginInlineBoost() },
+        onBoostEnd = { vm.endInlineBoost() },
         fullscreen = true,
         // 全屏形态下控制栏的进全屏键已切换为「退出全屏」，本回调不会触发
         onEnterFullscreen = {},

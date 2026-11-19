@@ -32,6 +32,7 @@ import com.dengying.player.playback.cast.CastEvent
 import com.dengying.player.playback.cast.CastMedia
 import com.dengying.player.playback.cast.DisconnectCause
 import com.dengying.player.playback.cast.NoopCastController
+import com.dengying.player.ui.prefs.PlaybackPrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -129,6 +130,13 @@ class PlayerViewModel(
          * 解析链整段跳过——这正是"点全屏不再触发一次解析"的关键。
          */
         val headersJson: String = "",
+        /**
+         * 本地离线文件：地址由下载中心产出的 `file://` URL。
+         *
+         * 本地文件不走 UrlGuard（只允许 http/https）、分享页解析、token 换链、
+         * 码率变体抓取和自动换线；直接交给引擎。
+         */
+        val localFile: Boolean = false,
     )
 
     data class UiState(
@@ -445,6 +453,18 @@ class PlayerViewModel(
     fun resolveUrl() {
         viewModelScope.launch {
             val raw = currentUrl
+            if (params.localFile && raw.startsWith("file://", ignoreCase = true)) {
+                PlaybackProbe.note("local-file-play", "len=${raw.length}")
+                resolvedUrl = raw
+                resolvedHeaders = ""
+                startedUrl = ""
+                startedHeaders = ""
+                urlReady = true
+                state = state.copy(status = "正在准备…", errMsg = "")
+                refreshCastability()
+                startEngine()
+                return@launch
+            }
             // 换集：当前地址来自 epUrls（源站令牌/分享页），路由带来的 headersJson
             // 属于上一集，不能再当作「已解析」的依据
             val switching = currentUrl != params.url
@@ -1261,6 +1281,32 @@ class PlayerViewModel(
             dragValue = seekStartMs,
             seekTarget = seekStartMs,
         )
+    }
+
+    /** 长按加速前的倍速；null = 当前没有进行中的长按加速。 */
+    private var boostPrevSpeed: Float? = null
+
+    /**
+     * 长按画面右侧：临时切到设置里的长按倍速。
+     *
+     * 重复调用幂等；松手由 [endBoost] 恢复进入前的速度。
+     */
+    fun beginBoost() {
+        if (boostPrevSpeed != null) return
+        val from = state.speed
+        val target = PlaybackPrefs.boostSpeed
+        boostPrevSpeed = from
+        state = state.copy(speed = target, showSpeedSheet = false)
+        engine?.setSpeed(target)
+        cancelHide()
+        PlaybackProbe.note("gesture-boost-start", "from=$from to=$target")
+    }
+
+    fun endBoost() {
+        val from = boostPrevSpeed ?: return
+        boostPrevSpeed = null
+        setSpeed(from)
+        PlaybackProbe.note("gesture-boost-end", "to=$from")
     }
 
     /** FR-416：会话级倍速（不跨集持久） */

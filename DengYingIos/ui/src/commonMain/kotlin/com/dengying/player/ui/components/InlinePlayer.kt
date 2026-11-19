@@ -44,6 +44,7 @@ import com.dengying.player.domain.playback.SeekPreview
 import com.dengying.player.player.PlayerEngine
 import com.dengying.player.ui.platform.rememberBrightnessController
 import com.dengying.player.ui.platform.rememberVolumeController
+import com.dengying.player.ui.prefs.PlaybackPrefs
 import com.dengying.player.ui.theme.Palette
 
 /**
@@ -131,6 +132,10 @@ fun InlinePlayer(
     speed: Float = 1.0f,
     /** 倍速选择回调；调用方负责写会话速度并回填状态（`DetailViewModel.setInlineSpeed`）。 */
     onSpeedChange: (Float) -> Unit = {},
+    /** 长按画面右半屏开始临时加速；由调用方保存原倍速。 */
+    onBoostStart: () -> Unit = {},
+    /** 松手 / 手势取消 / 离开页面时恢复原倍速。 */
+    onBoostEnd: () -> Unit = {},
     /**
      * 全屏形态右上角「投屏」键回调；null = 不显示。
      *
@@ -147,6 +152,7 @@ fun InlinePlayer(
     var dragging by remember { mutableStateOf(false) }
     // 全屏形态的倍速面板开关（FR-711 扩展）；内嵌形态无倍速键，恒为 false。
     var speedSheet by remember { mutableStateOf(false) }
+    var boosting by remember { mutableStateOf(false) }
 
     // ---- 画面横向滑动 seek（FR-708 / P-02）----
     //
@@ -182,6 +188,10 @@ fun InlinePlayer(
             kotlinx.coroutines.delay(800)
             if (!adjustActive) adjustVisible = false
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { if (boosting) onBoostEnd() }
     }
 
     // 离开全屏形态（或整个内嵌位销毁）时撤掉窗口亮度覆写——谁设置谁恢复，
@@ -377,6 +387,19 @@ fun InlinePlayer(
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
                     onDoubleTap = { onTogglePlay() },
+                    onLongPress = { offset ->
+                        if (!boosting && offset.x >= size.width / 2f) {
+                            boosting = true
+                            onBoostStart()
+                        }
+                    },
+                    onPress = {
+                        tryAwaitRelease()
+                        if (boosting) {
+                            boosting = false
+                            onBoostEnd()
+                        }
+                    },
                 )
             },
     ) {
@@ -485,6 +508,19 @@ fun InlinePlayer(
             targetMs = seekTargetMs,
             modifier = Modifier.align(Alignment.Center),
         )
+
+        if (boosting) {
+            Text(
+                text = "${PlaybackPrefs.labelOf(PlaybackPrefs.boostSpeed)} 加速中",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            )
+        }
 
         // ---- 亮度/音量调节浮层（FR-711 全屏形态；P-04/P-05 同口径）----
         // 居中玻璃 pill，随拖动实时刷新数值；显隐由 adjustVisible 管，

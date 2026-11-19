@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.account.AhAuth
+import com.dengying.player.data.download.DownloadCenter
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassChip
@@ -44,9 +45,12 @@ import com.dengying.player.ui.components.GlassCircleButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.PosterDecoder
 import com.dengying.player.ui.components.PosterFetch
+import com.dengying.player.ui.components.formatBytesText
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.theme.ThemeMode
 import com.dengying.player.ui.theme.ThemePrefs
+import com.dengying.player.ui.update.UpdateCheckState
+import com.dengying.player.ui.update.UpdateNoticeController
 import kotlinx.coroutines.launch
 
 /**
@@ -64,19 +68,25 @@ import kotlinx.coroutines.launch
 fun MineScreen(
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
-    /** 右上角设置钮：目前直达源状态页（源的启用/探测） */
+    onOpenDownloads: () -> Unit,
+    /** 右上角设置钮：播放设置、下载存储等应用级选项 */
     onOpenSettings: () -> Unit,
+    /** 源状态：源的启用与探测，独立于设置页 */
+    onOpenSourceStatus: () -> Unit,
     /** 个人信息卡 / 登录胶囊：跳独立登录页 */
     onOpenLogin: () -> Unit,
     topPadding: Dp,
     bottomPadding: Dp,
 ) {
     val scope = rememberCoroutineScope()
+    val deps = remember { UiDepsHolder.get() }
     var loggedIn by remember { mutableStateOf(AhAuth.isLoggedIn()) }
     var userName by remember { mutableStateOf(AhAuth.nickname()) }
     var avatarUrl by remember { mutableStateOf(AhAuth.avatarUrl()) }
     var favCount by remember { mutableStateOf(0) }
     var histCount by remember { mutableStateOf(0) }
+    var downloadCount by remember { mutableStateOf(0) }
+    var downloadBytes by remember { mutableStateOf(0L) }
     // 登录页/注册页在独立 destination；其 NavBackStackEntry 回到 RESUMED 时才刷新。
     // 「我的」是 Pager 窗格，不随路由切换重组，不能靠 LaunchedEffect(Unit) 兜底。
     val backStackEntry = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
@@ -89,7 +99,16 @@ fun MineScreen(
             histCount = deps.store.getHistory().size
         }
     }
-    LaunchedEffect(Unit) { refreshCounts() }
+    fun refreshDownloads() {
+        val list = DownloadCenter.snapshot()
+        downloadCount = list.size
+        downloadBytes = list.sumOf { it.bytes }
+    }
+    LaunchedEffect(Unit) {
+        refreshCounts()
+        refreshDownloads()
+    }
+    LaunchedEffect(Unit) { UpdateNoticeController.refresh(deps) }
     androidx.compose.runtime.DisposableEffect(backStackEntry) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -97,6 +116,7 @@ fun MineScreen(
                 userName = AhAuth.nickname()
                 avatarUrl = AhAuth.avatarUrl()
                 refreshCounts()
+                refreshDownloads()
                 if (AhAuth.needsProfile()) {
                     scope.launch {
                         if (AhAuth.refreshProfile()) {
@@ -264,6 +284,60 @@ fun MineScreen(
             }
         }
 
+        // ---- 我的下载 ----
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenDownloads() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Download,
+                        tint = Palette.Brand,
+                        size = 18.dp,
+                        contentDescription = "我的下载",
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "我的下载",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = if (downloadCount == 0) {
+                            "离线保存的剧集会出现在这里"
+                        } else {
+                            "$downloadCount 个任务 · ${formatBytesText(downloadBytes)}"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
+            }
+        }
+
         // ---- 主题风格（v5：跟随系统 / 浅色 / 深色，即时生效并落盘） ----
         GlassSurface(
             modifier = Modifier
@@ -293,6 +367,59 @@ fun MineScreen(
             }
         }
 
+        // ---- 检查更新 ----
+        val updateChecking = UpdateNoticeController.state == UpdateCheckState.Checking
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateChecking) {
+                        scope.launch { UpdateNoticeController.manualCheck(deps) }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Refresh,
+                        tint = Palette.Brand,
+                        size = 18.dp,
+                        contentDescription = "检查更新",
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "检查更新",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = UpdateNoticeController.statusText(deps),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
+            }
+        }
+
         // ---- 源状态入口 ----
         GlassSurface(
             modifier = Modifier
@@ -304,7 +431,7 @@ fun MineScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenSettings() }
+                    .clickable { onOpenSourceStatus() }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

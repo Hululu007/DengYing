@@ -321,6 +321,18 @@ object DyIcons {
         }
     }
 
+    /** 下载：向下箭头 + 底部托盘 */
+    val Download: DyIcon = icon { p ->
+        p.stroke(
+            Path().apply {
+                moveTo(12f, 3.2f); lineTo(12f, 15.2f)
+                moveTo(7.2f, 10.6f); lineTo(12f, 15.4f); lineTo(16.8f, 10.6f)
+                moveTo(4.4f, 20f); lineTo(19.6f, 20f)
+            },
+            2.1f,
+        )
+    }
+
     /** 出错（替代原来的 😕 emoji —— emoji 在部分 ROM/字体下渲染成方框） */
     val ErrorFace: DyIcon = icon { p ->
         p.ring(12f, 12f, 8.6f, 2f)

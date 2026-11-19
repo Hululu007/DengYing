@@ -141,6 +141,8 @@ fun IndexScreen(
     onOpenSearch: (String) -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSettings: () -> Unit,
     onOpenSourceStatus: () -> Unit,
     /** 「我的」页点登录：进独立登录页，而不是就地展开表单 */
     onOpenLogin: () -> Unit,
@@ -370,7 +372,9 @@ fun IndexScreen(
                 3 -> MineScreen(
                     onOpenFavorites = onOpenFavorites,
                     onOpenHistory = onOpenHistory,
-                    onOpenSettings = onOpenSourceStatus,
+                    onOpenDownloads = onOpenDownloads,
+                    onOpenSettings = onOpenSettings,
+                    onOpenSourceStatus = onOpenSourceStatus,
                     onOpenLogin = onOpenLogin,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,
@@ -504,10 +508,11 @@ fun IndexScreen(
 private val DOCK_KEYS = listOf("home", "category", "discover", "mine")
 
 /**
- * 「推荐」页：天翼 tv189 首页版块流（FR-612）。
+ * 「推荐」页：首页版块流（FR-612）。
  *
- * 【形态】纵向一条条「版块」，每条 = 版块标题 + 横滑海报条——即主流
- * 影视首页的版块流形态。顶部一条玻璃 tab（天翼侧 8 个频道 tab）。
+ * 【形态】对齐 AH 首页：Banner 轮播 → 热播双列宫格 → 分类横滑 rail。
+ * 数据由 AhHomeAdapter 从 ah_ap2233 现场合成，失败时回落到 tv189 jsondata。
+ * 结构见 [HomeFeedView]；v5 起首页不放频道 chips（用户明确要求）。
  *
  * 【与聚合分类页互不干扰】此页吃 [IndexViewModel.CatState.sections]（结构化
  * 版块），聚合页吃 `items`（平铺网格），同一个 VM 槽位里两个子状态。
@@ -522,8 +527,8 @@ private fun RecommendPage(
     state: androidx.compose.foundation.lazy.LazyListState,
 ) {
     when {
-        // 首拉中：占位避免闪空
-        cs.loading && cs.sections.isEmpty() -> LoadingView()
+        // 首拉中：骨架与真实版块同尺寸，避免加载完成时跳动
+        cs.loading && cs.sections.isEmpty() -> HomeFeedSkeleton(topPadding, bottomPadding)
         // 真失败（网络/源异常）：可重试。
         // 【v5 修复】原判断是 `cs.errMsg != null`——errMsg 是**非空 String**，
         // 该条件恒为 true，于是「版块为空但没有错误」时也走 ErrorView，且 message
@@ -539,126 +544,29 @@ private fun RecommendPage(
         ) {
             Text("首页版块暂时没有内容", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
             Text(
-                "可在「我的-源状态」里启用天翼源后下拉重试",
+                "可在「我的-源状态」里启用「蓝光4k」或「天翼视讯」后下拉重试",
                 style = MaterialTheme.typography.labelSmall,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
-        else -> Box(Modifier.fillMaxSize()) {
-            androidx.compose.foundation.lazy.LazyColumn(
-                state = state,
-                modifier = Modifier.fillMaxSize(),
-                // 顶部垫出悬浮层的空间，底部垫出 Dock 的空间：内容从这里开始露出，
-                // 滚动时穿过玻璃背后（Liquid Glass 采样源）
-                contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                // 【v5】首页不再放频道 tab 行（用户反馈：首页里不要 chips）——
-                // cs.homeTabs 数据仍在（VM 缓存），只是不再渲染。
-                items(cs.sections.size, key = { "sec-$it" }) { i ->
-                    val sec = cs.sections[i]
-                    SectionRail(
-                        title = sec.title,
-                        items = sec.items,
-                        onOpenDetail = onOpenDetail,
+        else -> HomeFeedView(
+            sections = cs.sections,
+            topPadding = topPadding,
+            bottomPadding = bottomPadding,
+            state = state,
+            onOpen = { v ->
+                onOpenDetail(
+                    Routes.detail(
+                        vodId = v.vod_id,
+                        source = v._source ?: "",
+                        name = v.vod_name,
+                        pic = v.vod_pic,
+                        vodUri = v.vod_uri ?: "",
                     )
-                }
-            }
-        }
-    }
-}
-
-/** 一条版块：标题 + 横滑海报条（玻璃卡片）。 */
-@Composable
-private fun SectionRail(
-    title: String,
-    items: List<VideoItem>,
-    onOpenDetail: (String) -> Unit,
-) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 版块名左侧一根品牌色短竖条，材料 3 的小节头形态
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(14.dp)
-                    .background(Palette.Brand, RoundedCornerShape(2.dp)),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = Palette.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        androidx.compose.foundation.lazy.LazyRow(
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            // 【无限横滑 v5.6】版块条数是运营给的固定值（首播影院 151、少儿 26…），
-            // 用户反馈"向右滑是有限的，我要无限"——取模循环展示（同发现页观感），
-            // key 用绝对下标保证唯一且稳定，取数 items[i % size] 环形取。
-            items(count = Int.MAX_VALUE, key = { i -> "loop-$i" }) { i ->
-                val v = items[i % items.size]
-                RailCard(v = v, onClick = {
-                    onOpenDetail(
-                        Routes.detail(
-                            vodId = v.vod_id,
-                            source = v._source ?: "",
-                            name = v.vod_name ?: "",
-                            pic = v.vod_pic ?: "",
-                            vodUri = v.vod_uri ?: "",
-                        )
-                    )
-                })
-            }
-        }
-    }
-}
-
-/** 版块里的横滑小卡：玻璃底 + 竖版海报 + 单行标题。 */
-@Composable
-private fun RailCard(v: VideoItem, onClick: () -> Unit) {
-    GlassSurface(
-        modifier = Modifier
-            .width(116.dp)
-            .padding(vertical = 2.dp),
-        shape = RoundedCornerShape(14.dp),
-        elevation = 6.dp,
-        // 内容卡不做液态采样：成本∝面积，全屏几十张卡采样会拖帧（见 GlassBackdrop 注释）
-        liquid = false,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick),
-        ) {
-            Poster(
-                url = v.vod_pic,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                cornerRadius = 14,
-            )
-            Text(
-                text = v.vod_name,
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-            )
-        }
+                )
+            },
+        )
     }
 }
 
