@@ -33,6 +33,7 @@ import com.dengying.player.ui.pages.SettingsScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
 import com.dengying.player.ui.platform.rememberFullscreenState
 import com.dengying.player.ui.UiDepsHolder
+import com.dengying.player.ui.update.UpdateChecker
 import com.dengying.player.ui.update.UpdateNoticeController
 import com.dengying.player.ui.update.UpdateNoticeDialog
 import com.dengying.player.ui.viewmodel.PlayerViewModel
@@ -342,6 +343,14 @@ fun DengYingNavHost(
                 },
                 onOpen = {
                     val opened = deps.openExternalUrl(info.url)
+                    if (opened) UpdateNoticeController.dismissDialog()
+                    opened
+                },
+                onOpenApk = {
+                    // Gitee 的附件 MIME 是 application/zip，浏览器会把 APK 存成 .zip；
+                    // 主按钮改走 GitHub 的 APK 直链，拿到的文件才是 .apk。
+                    val apkUrl = UpdateChecker.githubApkUrl(info.version)
+                    val opened = apkUrl != null && deps.openExternalUrl(apkUrl)
                     if (opened) UpdateNoticeController.dismissDialog()
                     opened
                 },

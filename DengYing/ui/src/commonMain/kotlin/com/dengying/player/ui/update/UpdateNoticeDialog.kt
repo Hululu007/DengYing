@@ -62,6 +62,7 @@ fun UpdateNoticeDialog(
     onDismiss: () -> Unit,
     onCopy: () -> Boolean,
     onOpen: () -> Boolean,
+    onOpenApk: () -> Boolean,
 ) {
     val downloadProvider = if (info.url.startsWith("https://gitee.com/")) "Gitee" else "GitHub"
     var copied by remember(info.tag) { mutableStateOf(false) }
@@ -239,14 +240,45 @@ fun UpdateNoticeDialog(
                 }
 
                 GlassActionButton(
-                    text = "去 $downloadProvider 下载",
+                    text = if (downloadProvider == "Gitee") "下载 APK（GitHub）" else "去 $downloadProvider 下载",
                     onClick = {
-                        val ok = onOpen()
+                        val ok = if (downloadProvider == "Gitee") onOpenApk() else onOpen()
                         openFailed = !ok
                         if (ok) copyFailed = false
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                if (downloadProvider == "Gitee") {
+                    // Gitee 服务端把 .apk 标成 application/zip，手机浏览器会存成
+                    // app-release.apk.zip；这里把能直接得到 .apk 的入口放主按钮，
+                    // Gitee 页面留作镜像，并明确告诉用户改后缀的办法。
+                    Text(
+                        text = "Gitee 附件会被浏览器存成 .zip，下载后把后缀改回 .apk 即可安装。",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                        ),
+                        color = Palette.TextSecondary,
+                    )
+                    Text(
+                        text = "改用 Gitee 页面下载",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = Palette.TextSecondary,
+                        modifier = Modifier
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                role = Role.Button,
+                                onClick = {
+                                    val ok = onOpen()
+                                    openFailed = !ok
+                                    if (ok) copyFailed = false
+                                },
+                            )
+                            .padding(vertical = 4.dp),
+                    )
+                }
             }
         }
     }

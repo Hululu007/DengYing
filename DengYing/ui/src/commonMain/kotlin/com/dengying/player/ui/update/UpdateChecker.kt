@@ -37,6 +37,20 @@ object UpdateChecker {
     private val VERSION_RE = Regex("""(\d+)\.(\d+)\.(\d+)""")
     private val HTML_TAG_RE = Regex("<[^>]*>")
 
+    /**
+     * GitHub Release 的 APK 直链。
+     *
+     * 【为什么 Gitee 版本要绕到 GitHub 下文件】Gitee 对 `.apk` 附件返回
+     * `Content-Type: application/zip`，手机浏览器据此把文件存成
+     * `app-release.apk.zip`；GitHub 返回 `application/vnd.android.package-archive`，
+     * 浏览器会保留 `.apk` 后缀。Gitee 的 MIME 映射在服务端，客户端改不了，
+     * 所以下载入口默认走 GitHub 直链，Gitee 页面只作为镜像/备用说明。
+     */
+    internal fun githubApkUrl(version: String): String? {
+        if (!VERSION_RE.matches(version)) return null
+        return "$GITHUB_RELEASES_PREFIX/download/v$version/app-release.apk"
+    }
+
     internal data class SemVer(
         val major: Int,
         val minor: Int,
