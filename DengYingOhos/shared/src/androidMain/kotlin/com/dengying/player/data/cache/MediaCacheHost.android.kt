@@ -45,6 +45,8 @@ actual object MediaCacheHost {
 
     private const val TAG = "DY/MediaCache"
 
+    actual val supported: Boolean = true
+
     /** 缓存子目录名（独立于其他文件，见约束 3） */
     private const val DIR_NAME = "media_cache"
 

@@ -42,7 +42,7 @@ object MediaCacheDataSource {
      *   保证"缓存坏了播放也照常"
      */
     fun wrap(upstream: DataSource.Factory): DataSource.Factory {
-        if (!MediaCache.MEDIA_CACHE_ENABLED) return upstream
+        if (!MediaCache.isEnabled) return upstream
         val cache = MediaCacheHost.getOrCreate() as? SimpleCache ?: return upstream
         return CacheDataSource.Factory()
             .setCache(cache)

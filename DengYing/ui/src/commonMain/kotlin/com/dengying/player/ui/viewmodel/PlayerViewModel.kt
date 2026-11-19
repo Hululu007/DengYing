@@ -130,6 +130,13 @@ class PlayerViewModel(
          * 解析链整段跳过——这正是"点全屏不再触发一次解析"的关键。
          */
         val headersJson: String = "",
+        /**
+         * 本地离线文件：地址由下载中心产出的 `file://` URL。
+         *
+         * 本地文件不走 UrlGuard（只允许 http/https）、分享页解析、token 换链、
+         * 码率变体抓取和自动换线；直接交给引擎。
+         */
+        val localFile: Boolean = false,
     )
 
     data class UiState(
@@ -446,6 +453,18 @@ class PlayerViewModel(
     fun resolveUrl() {
         viewModelScope.launch {
             val raw = currentUrl
+            if (params.localFile && raw.startsWith("file://", ignoreCase = true)) {
+                PlaybackProbe.note("local-file-play", "len=${raw.length}")
+                resolvedUrl = raw
+                resolvedHeaders = ""
+                startedUrl = ""
+                startedHeaders = ""
+                urlReady = true
+                state = state.copy(status = "正在准备…", errMsg = "")
+                refreshCastability()
+                startEngine()
+                return@launch
+            }
             // 换集：当前地址来自 epUrls（源站令牌/分享页），路由带来的 headersJson
             // 属于上一集，不能再当作「已解析」的依据
             val switching = currentUrl != params.url

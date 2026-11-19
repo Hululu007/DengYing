@@ -36,7 +36,6 @@ import com.dengying.player.core.CmsSources
 import com.dengying.player.core.DiscoverItem
 import com.dengying.player.core.VideoItem
 import com.dengying.player.core.capsOf
-import com.dengying.player.domain.search.SearchNotice
 import com.dengying.player.domain.ui.ConfirmSpec
 import com.dengying.player.ui.components.ConfirmDialog
 import com.dengying.player.ui.components.DyIcon
@@ -163,21 +162,6 @@ fun SearchScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    // FR-208：流式文案同样由启用集合计算
-                    item(key = "count") {
-                        Text(
-                            text = if (s.searching) {
-                                SearchNotice.partialText(s.results.size, vm.searchSourceCount())
-                            } else {
-                                "共 ${s.results.size} 个结果"
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Palette.TextSecondary,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
-                        )
-                    }
                     items(s.results, key = { "${it._source}_${it.vod_id}_${it.vod_name}" }) { item ->
                         ResultRow(item) {
                             onOpenDetail(

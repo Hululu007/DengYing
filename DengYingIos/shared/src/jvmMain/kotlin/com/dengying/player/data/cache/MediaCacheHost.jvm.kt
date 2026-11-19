@@ -16,6 +16,8 @@ package com.dengying.player.data.cache
  * 却避免了把「本平台不支持」伪装成「曾经失败过」。
  */
 actual object MediaCacheHost {
+    actual val supported: Boolean = false
+
 
     actual fun getOrCreate(): Any? = null
 

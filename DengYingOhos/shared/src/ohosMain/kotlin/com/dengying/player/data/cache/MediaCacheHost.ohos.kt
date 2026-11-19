@@ -17,6 +17,8 @@ package com.dengying.player.data.cache
  * 「不可用但未失败」。
  */
 actual object MediaCacheHost {
+    actual val supported: Boolean = false
+
 
     actual fun getOrCreate(): Any? = null
 

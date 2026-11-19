@@ -141,6 +141,8 @@ fun IndexScreen(
     onOpenSearch: (String) -> Unit,
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenDownloads: () -> Unit,
+    onOpenSettings: () -> Unit,
     onOpenSourceStatus: () -> Unit,
     /** 「我的」页点登录：进独立登录页，而不是就地展开表单 */
     onOpenLogin: () -> Unit,
@@ -370,7 +372,9 @@ fun IndexScreen(
                 3 -> MineScreen(
                     onOpenFavorites = onOpenFavorites,
                     onOpenHistory = onOpenHistory,
-                    onOpenSettings = onOpenSourceStatus,
+                    onOpenDownloads = onOpenDownloads,
+                    onOpenSettings = onOpenSettings,
+                    onOpenSourceStatus = onOpenSourceStatus,
                     onOpenLogin = onOpenLogin,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,

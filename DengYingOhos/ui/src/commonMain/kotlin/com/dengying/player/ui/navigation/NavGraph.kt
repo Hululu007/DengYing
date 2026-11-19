@@ -20,6 +20,7 @@ import com.dengying.player.ui.components.GlassBackdropState
 import com.dengying.player.ui.components.LocalGlassBackdrop
 import com.dengying.player.ui.components.glassBackdrop
 import com.dengying.player.ui.pages.DetailScreen
+import com.dengying.player.ui.pages.DownloadsScreen
 import com.dengying.player.ui.pages.FavoritesScreen
 import com.dengying.player.ui.pages.HistoryScreen
 import com.dengying.player.ui.pages.IndexScreen
@@ -27,6 +28,7 @@ import com.dengying.player.ui.pages.LoginScreen
 import com.dengying.player.ui.pages.PlayerScreen
 import com.dengying.player.ui.pages.RegisterScreen
 import com.dengying.player.ui.pages.SearchScreen
+import com.dengying.player.ui.pages.SettingsScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
 import com.dengying.player.ui.platform.rememberFullscreenState
 import com.dengying.player.ui.viewmodel.PlayerViewModel
@@ -98,6 +100,8 @@ fun DengYingNavHost(
                 onOpenSearch = { kw -> nav.navigate(Routes.search(kw)) },
                 onOpenFavorites = { nav.navigate(Routes.FAVORITES) },
                 onOpenHistory = { nav.navigate(Routes.HISTORY) },
+                onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                 onOpenSourceStatus = { nav.navigate(Routes.SOURCE_STATUS) },
                 onOpenLogin = { nav.navigate(Routes.LOGIN) },
                 onOpenDetail = { route -> nav.navigate(route) },
@@ -156,7 +160,7 @@ fun DengYingNavHost(
                 "&vodName={vodName}&vodPic={vodPic}&vodUri={vodUri}&lineFrom={lineFrom}" +
                 "&episodeIndex={episodeIndex}&episodeName={episodeName}" +
                 "&altUrls={altUrls}&epUrls={epUrls}&epNames={epNames}&startAtMs={startAtMs}" +
-                "&headersJson={headersJson}",
+                "&headersJson={headersJson}&localFile={localFile}",
             // 【退场用滑动而非淡出】播放画面底层是 SurfaceView——它**不参与**
             // View 层 alpha 动画（打洞渲染）：fade-out 的几百毫秒里视频画面
             // 原样滞留在屏上叠着渐隐的页面框架，转场结束才突然消失——这是
@@ -191,6 +195,7 @@ fun DengYingNavHost(
                 navArgument("startAtMs") { type = NavType.LongType; defaultValue = 0L },
                 // FR-705：适配器换链产出的请求头（避免播放页重新换链）
                 navArgument("headersJson") { type = NavType.StringType; defaultValue = "" },
+                navArgument("localFile") { type = NavType.BoolType; defaultValue = false },
             ),
         ) { entry ->
             val a = entry.arguments
@@ -212,6 +217,7 @@ fun DengYingNavHost(
                 startAtMs = a?.longArg("startAtMs") ?: 0L,
                 // FR-705：适配器换链产出的请求头
                 headersJson = dec(a?.stringArg("headersJson")),
+                localFile = a?.boolArg("localFile") ?: false,
             )
             PlayerScreen(
                 params = params,
@@ -265,6 +271,39 @@ fun DengYingNavHost(
             SourceStatusScreen(onBack = { nav.popBackStack() })
         }
 
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable(Routes.DOWNLOADS) {
+            DownloadsScreen(
+                onBack = { nav.popBackStack() },
+                onOpenPlayer = { item ->
+                    val localUrl = com.dengying.player.data.download.DownloadCenter.localPlayUrl(item)
+                    if (localUrl.isNotEmpty()) {
+                        nav.navigate(
+                            Routes.player(
+                                url = localUrl,
+                                title = "${item.vodName} ${item.episodeName}".trim(),
+                                vodId = item.vodId,
+                                source = item.source,
+                                vodName = item.vodName,
+                                vodPic = item.vodPic,
+                                vodUri = "",
+                                lineFrom = "离线下载",
+                                episodeIndex = item.episodeIndex,
+                                episodeName = item.episodeName,
+                                altUrls = emptyList(),
+                                epUrls = emptyList(),
+                                epNames = emptyList(),
+                                localFile = true,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+
         composable(Routes.LOGIN) {
             LoginScreen(
                 onBack = { nav.popBackStack() },
@@ -276,6 +315,7 @@ fun DengYingNavHost(
             RegisterScreen(onBack = { nav.popBackStack() })
         }
         }
+
     }
     }
 }

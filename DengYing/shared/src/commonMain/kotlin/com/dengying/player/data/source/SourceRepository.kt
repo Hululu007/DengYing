@@ -960,7 +960,7 @@ class SourceRepository {
             fun cleanForMatch(s: String) =
                 s.replace(Regex("[·・!！:：、,，\\s]"), "")
 
-            suspend fun searchRound(q: String): ArrayList<AltCandidate> {
+            suspend fun searchRound(q: String): Pair<ArrayList<AltCandidate>, Boolean> {
                 val out = ArrayList<AltCandidate>()
                 val seenSrc = HashSet<String>()
                 // 【并发写保护】tasks 跑在 Dispatchers.Default（多线程）上往 out 里
@@ -990,7 +990,10 @@ class SourceRepository {
                 val tasks = enabled.map { s ->
                     // 后台档：候选源搜索是「多给几个线选项」，晚到几十毫秒无感，
                     // 不该跟用户正等着的详情/搜索抢空位（实测能抢走整整 3 秒，见 docs/04 §16.34）
-                    async(NetPriority.Background) {
+                    // 挂在 altScope 而不是本轮 coroutineScope 上：下面 6s 到点只
+                    // 返回快照，慢源继续在后台跑完并补发批次；若挂在 coroutineScope
+                    // 上，超时会把它们全部取消，候选数就永远停在「快的那几个」。
+                    altScope.async(NetPriority.Background) {
                         val r = try {
                             search(s, q, quick = true)
                         } catch (e: Exception) {
@@ -1031,22 +1034,43 @@ class SourceRepository {
                 // `alt-sources-loaded elapsed=14824 / 14961 / 14310 / 21741 / 19363`，
                 // 而候选数只有 n=4~15 —— 早在第一两轮就已够用，后面十几秒全在等慢源。
                 //
-                // 超时取消后 `out` 里已经收集到的候选照常返回：这条路径是"多给几个
-                // 换线选项"，少几个候选远好过让用户对着转圈等 20 秒。
-                withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) { tasks.awaitAll() }
+                // 到点只返回快照；慢源继续在 altScope 上跑（见上面的 async 说明），
+                // 跑完后补发最后一批并刷新缓存。之前直接取消慢源，导致「其他资源站」
+                // 只剩前 6 秒响应的那几个源，而且这份残缺列表还被写进缓存。
+                val completed = withTimeoutOrNull(PageBudget.ALT_SOURCES_BUDGET_MS) {
+                    tasks.awaitAll()
+                } != null
                 publish(force = true)
                 // 返回副本：到点超时后仍在跑的源还会往 out 里追加，不能让调用方
                 // 拿着一个继续被后台线程改的列表去遍历。
-                return outLock.withLock { ArrayList(out) }
+                val snapshot = outLock.withLock { ArrayList(out) }
+                if (!completed) {
+                    altScope.launch {
+                        runCatching { tasks.awaitAll() }
+                        publish(force = true)
+                        val full = outLock.withLock { ArrayList(out) }
+                        if (full.isNotEmpty()) {
+                            altSearchLock.withLock { altSearchCache[norm] = full }
+                        }
+                    }
+                }
+                return snapshot to completed
             }
 
             // 首轮用原名，零候选才花时间降级（热门片不会进降级轮）
             var out = ArrayList<AltCandidate>()
+            var complete = false
             for (q in variants) {
-                out = searchRound(q)
-                if (out.isNotEmpty()) break
+                val (round, done) = searchRound(q)
+                out = round
+                complete = done
+                // 到点但已经有候选就先用它；到点还空则等后台那一轮，别在降级词上
+                // 再耗一个 6 秒预算。
+                if (out.isNotEmpty() || !done) break
             }
-            if (out.isNotEmpty()) {
+            // 只有跑完全部源才写缓存：残缺快照一旦落缓存，用户之后再进同一部片
+            // 也只会看到那几个快源（用户反馈「播放源少了很多」的直接原因）。
+            if (complete && out.isNotEmpty()) {
                 altSearchLock.withLock { altSearchCache[norm] = out.toList() }
             }
             out

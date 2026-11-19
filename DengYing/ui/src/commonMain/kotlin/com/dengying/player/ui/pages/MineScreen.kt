@@ -19,8 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,8 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.account.AhAuth
-import com.dengying.player.data.cache.MediaCache
-import com.dengying.player.data.cache.MediaCacheHost
+import com.dengying.player.data.download.DownloadCenter
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassChip
@@ -48,7 +45,7 @@ import com.dengying.player.ui.components.GlassCircleButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.PosterDecoder
 import com.dengying.player.ui.components.PosterFetch
-import com.dengying.player.ui.prefs.PlaybackPrefs
+import com.dengying.player.ui.components.formatBytesText
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.theme.ThemeMode
 import com.dengying.player.ui.theme.ThemePrefs
@@ -71,8 +68,11 @@ import kotlinx.coroutines.launch
 fun MineScreen(
     onOpenFavorites: () -> Unit,
     onOpenHistory: () -> Unit,
-    /** 右上角设置钮：目前直达源状态页（源的启用/探测） */
+    onOpenDownloads: () -> Unit,
+    /** 右上角设置钮：播放设置、下载存储等应用级选项 */
     onOpenSettings: () -> Unit,
+    /** 源状态：源的启用与探测，独立于设置页 */
+    onOpenSourceStatus: () -> Unit,
     /** 个人信息卡 / 登录胶囊：跳独立登录页 */
     onOpenLogin: () -> Unit,
     topPadding: Dp,
@@ -85,7 +85,8 @@ fun MineScreen(
     var avatarUrl by remember { mutableStateOf(AhAuth.avatarUrl()) }
     var favCount by remember { mutableStateOf(0) }
     var histCount by remember { mutableStateOf(0) }
-    var cacheBytes by remember { mutableStateOf(0L) }
+    var downloadCount by remember { mutableStateOf(0) }
+    var downloadBytes by remember { mutableStateOf(0L) }
     // 登录页/注册页在独立 destination；其 NavBackStackEntry 回到 RESUMED 时才刷新。
     // 「我的」是 Pager 窗格，不随路由切换重组，不能靠 LaunchedEffect(Unit) 兜底。
     val backStackEntry = androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current
@@ -98,11 +99,16 @@ fun MineScreen(
             histCount = deps.store.getHistory().size
         }
     }
-    LaunchedEffect(Unit) { refreshCounts() }
-    LaunchedEffect(Unit) { UpdateNoticeController.refresh(deps) }
-    LaunchedEffect(PlaybackPrefs.cacheEnabled) {
-        cacheBytes = MediaCache.sizeBytes()
+    fun refreshDownloads() {
+        val list = DownloadCenter.snapshot()
+        downloadCount = list.size
+        downloadBytes = list.sumOf { it.bytes }
     }
+    LaunchedEffect(Unit) {
+        refreshCounts()
+        refreshDownloads()
+    }
+    LaunchedEffect(Unit) { UpdateNoticeController.refresh(deps) }
     androidx.compose.runtime.DisposableEffect(backStackEntry) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -110,6 +116,7 @@ fun MineScreen(
                 userName = AhAuth.nickname()
                 avatarUrl = AhAuth.avatarUrl()
                 refreshCounts()
+                refreshDownloads()
                 if (AhAuth.needsProfile()) {
                     scope.launch {
                         if (AhAuth.refreshProfile()) {
@@ -277,6 +284,60 @@ fun MineScreen(
             }
         }
 
+        // ---- 我的下载 ----
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenDownloads() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Download,
+                        tint = Palette.Brand,
+                        size = 18.dp,
+                        contentDescription = "我的下载",
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "我的下载",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = if (downloadCount == 0) {
+                            "离线保存的剧集会出现在这里"
+                        } else {
+                            "$downloadCount 个任务 · ${formatBytesText(downloadBytes)}"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
+            }
+        }
+
         // ---- 主题风格（v5：跟随系统 / 浅色 / 深色，即时生效并落盘） ----
         GlassSurface(
             modifier = Modifier
@@ -300,102 +361,6 @@ fun MineScreen(
                             text = m.label,
                             selected = ThemePrefs.mode == m,
                             onClick = { ThemePrefs.set(m) },
-                        )
-                    }
-                }
-            }
-        }
-
-        // ---- 播放设置：长按加速档位 + 媒体缓存开关 ----
-        GlassSurface(
-            modifier = Modifier
-                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            liquid = false,
-        ) {
-            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                Text(
-                    text = "播放设置",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Palette.TextPrimary,
-                )
-                Text(
-                    text = "长按画面右侧临时加速，松手恢复",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    PlaybackPrefs.boostSpeeds.forEach { speed ->
-                        GlassChip(
-                            text = PlaybackPrefs.labelOf(speed),
-                            selected = PlaybackPrefs.boostSpeed == speed,
-                            compact = true,
-                            onClick = { PlaybackPrefs.selectBoostSpeed(speed) },
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "媒体缓存",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Palette.TextPrimary,
-                        )
-                        Text(
-                            text = if (MediaCacheHost.supported) {
-                                "缓存看过的内容，上限 500MB"
-                            } else {
-                                "当前平台暂不支持媒体缓存"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Palette.TextSecondary,
-                        )
-                    }
-                    Switch(
-                        checked = PlaybackPrefs.cacheEnabled,
-                        onCheckedChange = { PlaybackPrefs.setMediaCache(it) },
-                        enabled = MediaCacheHost.supported,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Palette.Brand,
-                            checkedTrackColor = Palette.Brand.copy(alpha = 0.35f),
-                            uncheckedThumbColor = Palette.TextSecondary,
-                            uncheckedTrackColor = Palette.SearchBg,
-                        ),
-                    )
-                }
-
-                if (MediaCacheHost.supported) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "已用 ${cacheBytes / (1024L * 1024L)} MB",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Palette.TextSecondary,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        GlassChip(
-                            text = "清空缓存",
-                            quiet = true,
-                            compact = true,
-                            onClick = {
-                                MediaCache.clear()
-                                cacheBytes = MediaCache.sizeBytes()
-                            },
                         )
                     }
                 }
@@ -466,7 +431,7 @@ fun MineScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onOpenSettings() }
+                    .clickable { onOpenSourceStatus() }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

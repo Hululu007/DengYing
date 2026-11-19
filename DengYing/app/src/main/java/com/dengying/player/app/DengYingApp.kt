@@ -102,6 +102,10 @@ class DengYingApp : Application(), UiDeps {
         // 播放链路探针：写应用私有目录。**不依赖日志**——实测 vivo 会全量过滤
         // 本应用日志，排查时读不到任何自打日志。
         com.dengying.player.player.PlaybackProbe.init(filesDir.absolutePath)
+        // 离线下载文件区：与播放缓存分开，清缓存不会误删已下载剧集。
+        com.dengying.player.data.download.DownloadStorage.init(
+            java.io.File(filesDir, "downloads").absolutePath,
+        )
 
         // 播放引擎宿主注入 Application 上下文：`PlayerEngineHost.engine()` 的
         // 跨平台契约不带 `Context`，Android 侧的构造上下文由平台壳在这里补上。
@@ -140,6 +144,7 @@ class DengYingApp : Application(), UiDeps {
         com.dengying.player.ui.theme.ThemePrefs.init(kv)
         // 播放偏好（长按倍速、媒体缓存开关）必须早于首个播放器数据源构建
         com.dengying.player.ui.prefs.PlaybackPrefs.init(kv)
+        com.dengying.player.data.download.DownloadCenter.init(kv)
         sources = SourceRepository()
         // 分页缓存与用户资产**共用同一个 preferences 文件**但独立键：
         // 这样"清空用户资产"不会误删缓存，反之亦然

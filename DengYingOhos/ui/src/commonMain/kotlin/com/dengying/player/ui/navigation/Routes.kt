@@ -36,6 +36,8 @@ object Routes {
     const val FAVORITES = "favorites"
     const val HISTORY = "history"
     const val SOURCE_STATUS = "source_status"
+    const val SETTINGS = "settings"
+    const val DOWNLOADS = "downloads"
     /** AH 账号体系：独立登录 / 注册页，无参数（从「我的」页进入） */
     const val LOGIN = "login"
     const val REGISTER = "register"
@@ -85,6 +87,7 @@ object Routes {
          * 否则播放页要重新换链才能拿到头，等于白解析一次。
          */
         headersJson: String = "",
+        localFile: Boolean = false,
     ): String {
         val sb = StringBuilder("$PLAYER?url=${enc(url)}&title=${enc(title)}&vodId=$vodId")
         sb.append("&source=").append(enc(source))
@@ -99,6 +102,7 @@ object Routes {
         sb.append("&epNames=").append(enc(epNames.joinToString(SEP)))
         sb.append("&startAtMs=").append(startAtMs)
         sb.append("&headersJson=").append(enc(headersJson))
+        sb.append("&localFile=").append(localFile)
         return sb.toString()
     }
 

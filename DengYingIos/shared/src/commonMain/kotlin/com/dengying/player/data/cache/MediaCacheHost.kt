@@ -30,6 +30,15 @@ package com.dengying.player.data.cache
 expect object MediaCacheHost {
 
     /**
+     * 当前平台是否实现了媒体缓存。
+     *
+     * Android 使用 Media3 `SimpleCache`；JVM/iOS/OHOS 目前没有等价实现。
+     * UI 据此禁用开关并显示说明，[MediaCache.isEnabled] 也会与它相与，
+     * 避免"偏好已开但实际不走缓存"的静默假象。
+     */
+    val supported: Boolean
+
+    /**
      * 取（必要时创建）平台缓存实例。
      *
      * 必须在 IO 线程调用。失败返回 null 并记下失败标记，后续调用不再重试。
