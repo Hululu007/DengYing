@@ -19,8 +19,8 @@ android {
         applicationId = "com.dengying.player"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1000314
-        versionName = "1.3.14"
+        versionCode = 1000315
+        versionName = "1.3.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

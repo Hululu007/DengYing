@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +65,14 @@ fun SearchScreen(
 ) {
     val s = vm.state
     val focusRequester = androidx.compose.runtime.remember { FocusRequester() }
+    val listState = rememberLazyListState()
+
+    // 【新一次搜索必须回到列表顶部】LazyColumn 会保留上一次的滚动位置，
+    // 上一次搜完往下翻过之后，再搜新词就停在中部，看起来像"页面自己跳走了"。
+    // 用 searching 的上升沿复位，输入过程中不打断。
+    androidx.compose.runtime.LaunchedEffect(s.searching) {
+        if (s.searching) listState.scrollToItem(0)
+    }
 
     // 进页面就聚焦输入框，手机键盘随即弹出----用户是来打字的，
     // 不该再点一下才出键盘。只在首次进入时请求。
@@ -152,6 +161,7 @@ fun SearchScreen(
             s.results.isNotEmpty() -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = listState,
                     // 顶部让出搜索栏（overlay 层）的高度：条目从 y=0 开始排，
                     // 上滑时穿过玻璃搜索栏背后，玻璃里透出真实封面与片名。
                     contentPadding = PaddingValues(
