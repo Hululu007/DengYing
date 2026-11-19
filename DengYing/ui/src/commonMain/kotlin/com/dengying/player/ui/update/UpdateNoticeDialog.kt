@@ -44,7 +44,6 @@ import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.GlassActionButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.platform.PlatformBackHandler
-import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
 import kotlinx.coroutines.delay
 
@@ -88,7 +87,7 @@ fun UpdateNoticeDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.56f))
+            .background(Color.Black.copy(alpha = 0.74f))
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -105,9 +104,11 @@ fun UpdateNoticeDialog(
                     detectTapGestures { }
                 },
             shape = RoundedCornerShape(24.dp),
-            fill = Glass.DarkFill,
+            // 【可读性优先】更新说明是要被读的文字块，不能做液态玻璃：
+            // 采样会把底下的海报/标题透上来，深浅色下正文都发花。改成不透明卡面。
+            fill = Palette.CardBg,
             elevation = 18.dp,
-            liquid = true,
+            liquid = false,
         ) {
             Column(
                 modifier = Modifier
@@ -123,7 +124,7 @@ fun UpdateNoticeDialog(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Palette.SearchBg.copy(alpha = 0.62f))
+                            .background(Palette.SearchBg.copy(alpha = 0.9f))
                             .padding(9.dp),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -175,7 +176,7 @@ fun UpdateNoticeDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Palette.SearchBg.copy(alpha = 0.52f))
+                        .background(Palette.SearchBg.copy(alpha = 0.92f))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                 )
 
@@ -267,7 +268,7 @@ private fun UpdateQuietAction(
                 onClick = onClick,
             ),
         shape = RoundedCornerShape(14.dp),
-        fill = Palette.SearchBg.copy(alpha = 0.5f),
+        fill = Palette.SearchBg.copy(alpha = 0.9f),
         elevation = 0.dp,
         liquid = false,
     ) {
