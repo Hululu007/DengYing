@@ -474,6 +474,36 @@ object CmsSources {
             rule = SUBAIBAI_RULE,
             note = "2026-10-04 实测：HTTPS 握手失败 / HTTP 返回 JS 反爬挑战页（_0x 混淆），未做绕过（ADR-0006 边界）；" + "2026-10-27 复核：HTTPS 仍 TLS 握手失败（UNEXPECTED_EOF_WHILE_READING），HTTP 返回 _0xcc9b 混淆挑战页（body 仅 <a id='baidu'> 与一段混淆 JS）⇒ 维持停用，不绕过",
         ),
+        CmsSource(
+            key = "hulu_huya", name = "虎牙采集",
+            api = "https://www.huyaapi.com/api.php/provide/vod/",
+            speed = 40, direct = true, enabled = true, tier = 3,
+            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=44，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）；首页样本未见成人条目",
+        ),
+        CmsSource(
+            key = "hulu_ikun", name = "ikun采集",
+            api = "https://ikunzyapi.com/api.php/provide/vod/",
+            speed = 41, direct = true, enabled = true, tier = 3,
+            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=53，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）",
+        ),
+        CmsSource(
+            key = "hulu_subo", name = "速播采集",
+            api = "https://subocaiji.com/api.php/provide/vod/",
+            speed = 42, direct = true, enabled = true, tier = 3,
+            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=44，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）",
+        ),
+        CmsSource(
+            key = "hulu_ffzy", name = "非凡资源",
+            api = "http://ffzy.tv/api.php/provide/vod/",
+            speed = 43, direct = true, enabled = true, tier = 3,
+            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=31，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url；站点为 HTTP，仅保留清单声明，传输层校验不放松",
+        ),
+        CmsSource(
+            key = "hulu_mdzy", name = "魔都影视",
+            api = "https://www.mdzyapi.com/api.php/provide/vod",
+            speed = 44, direct = true, enabled = true, tier = 3,
+            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=42，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）",
+        ),
     )
 
     /**
