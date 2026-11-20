@@ -55,12 +55,26 @@
 - 声称完成、修复或通过前必须有本次修改后的命令输出或真机证据；失败写明命令、关键错误、环境差异和未完成项。被 `@Ignore` 跳过的测试、JVM 结果、脚本配置期噪声都不冒充目标平台验证。
 - 交付前：读回改动文件，`rtk git diff --check`，核对文档中的路径/命令，`rtk git status --short` 确认无构建产物或他人改动混入。最终答复按「改了什么 / 验证了什么 / 还有什么风险」列明通过、失败、未验证。不自动提交或推送。
 
+### 5.1 Release 发布门槛
+
+新 Release 只在**全部满足**以下条件后创建，不因单纯改代码、计划/文档或 debug 验证通过就发：
+
+1. **功能闭环**：`main` 上至少有一个面向用户的功能/修复完成，并按功能点分别 commit + push 到 GitHub `origin` 和 Gitee；不新建 feature 分支积攒发布。
+2. **验证通过**：跑过改动对应的最小足够验证（单测、编译、assembleDebug）；涉及用户可见行为时，有本次真机证据（探针/截图/dump），不能只靠模拟器或 debug 包验证冒充。
+3. **版本同步**：五处版本声明统一递增（三端 build 文件、iOS Info.plist、OHOS app.json5），文档抬头/追踪矩阵同步。
+4. **文档同步**：`docs/02` 需求证据、`docs/04` / `docs/05` 验证记录写清本次结果与未验证项。
+5. **发布产物**：`app-release.apk` 构建成功，Release Notes/变更说明准备好，`v<版本>` tag 就绪。
+6. **推送完整**：`main` 和 tag 都已推到 GitHub 与 Gitee，再创建两端 Release 并上传 APK。
+
+**不发 Release 的情况**：纯计划/文档/内部重构；只有 debug 构建或模拟器验证、缺真机证据；版本未递增、文档未同步、双端未推完；存在阻断性 bug 或未解释的验证失败。满足条件就发，不为凑版本拖着；多个已验证功能点可合并到同一个版本，但每个功能点仍要独立 commit + push。
+
 ## 6. Skill 调度
 
 当前环境现场发现以下全局 Skill（逐一读取本会话全局 Skill 目录 `~/.claude/skills/*/SKILL.md` 的 frontmatter `name:` 核实）；本仓库根级与三个子工程均没有项目专用 `.claude/skills/`、`.agents/skills/`、`.codex/skills/`。仅加载任务需要的技能；子工程手册有更具体流程时优先遵守其边界。
 
 | 任务信号 | Skill | 用法与边界 |
 |---|---|---|
+| 会话常开输出形态 | `i-have-adhd` | 已确认本会话全局 Skill 目录存在；所有回复默认使用，用户说停止时再关闭 |
 | 新仓库初始化、更新 `AGENTS.md` / `CLAUDE.md`、规则漂移 | `project-agents-md` | 先取证再落盘，只写目标仓库内指令文件；`CLAUDE.md` 仅引用 `AGENTS.md` |
 | 新功能、组件、交互、行为变更 | `brainstorming` → `software-development-workflow` | 先澄清范围和验收，再小步实现并实测 |
 | 明确要求测试先行、red-green-refactor | `tdd` → `software-development-workflow` | 先写失败测试，再最小实现；纯视觉任务不强行套用 |
