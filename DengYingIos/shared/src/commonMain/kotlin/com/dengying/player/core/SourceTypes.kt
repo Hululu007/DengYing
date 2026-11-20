@@ -41,6 +41,9 @@ enum class SourceProtocol {
 
     /** 天翼视讯：h5.tv189.com BFF 接口，无密钥 MD5 签名（搜索/分类/详情/换链/首页版块） */
     Tv189,
+
+    /** XPTV csp 脚本型站点：HTML 内嵌 __NUXT_DATA__，播放链需二次解析 */
+    Xptv,
 }
 
 /** 源能力位 —— 聚合层按能力挑选源，缺能力不参与对应路径 */
@@ -72,6 +75,9 @@ val CAPS_TOKEN_SEARCH = SourceCaps(search = true, category = false, detail = tru
 
 /** 网站型（搜索 + 详情 + token 换链） */
 val CAPS_WEB = SourceCaps(search = true, category = false, detail = true, token = true)
+
+/** XPTV 站点（分类 + 搜索 + 详情 + token 换链） */
+val CAPS_XPTV = SourceCaps(search = true, category = true, detail = true, token = true)
 
 /**
  * 单次源请求的内部结果。

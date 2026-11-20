@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 /** Hululu007 MacCMS 编译期清单约束（2026-11-20 聚合筛选）。 */
 class HululuSourceCatalogTest {
 
-    private val huluSources = CmsSources.ALL.filter { it.key.startsWith("hulu_") }
+    private val huluSources = CmsSources.ALL.filter { it.key.startsWith("hulu_") && it.protocol == SourceProtocol.Cms }
 
     @Test
     fun `Hululu 源使用 CMS 协议且全部启用`() {

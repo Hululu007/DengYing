@@ -504,6 +504,14 @@ object CmsSources {
             speed = 44, direct = true, enabled = true, tier = 3,
             note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=42，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）",
         ),
+        CmsSource(
+            key = "hulu_xptv_cg", name = "橙果短剧",
+            api = "https://chengguodj.com",
+            speed = 45, direct = false, enabled = true, tier = 3,
+            protocol = SourceProtocol.Xptv,
+            caps = CAPS_XPTV,
+            note = "2026-11-21 Hululu007 xptv-my4k csp_chengguo 接入：Nuxt 扁平数组分类/搜索/详情可解析，播放页实测含 m3u8；只保留普通短剧标题，成人条目在解析层过滤",
+        ),
     )
 
     /**

@@ -11,6 +11,7 @@ import com.dengying.player.data.source.adapters.ShanzhaAdapter
 import com.dengying.player.data.source.adapters.Tv189Adapter
 import com.dengying.player.data.source.adapters.WebAdapter
 import com.dengying.player.data.source.adapters.WencaiAdapter
+import com.dengying.player.data.source.adapters.XptvAdapter
 import com.dengying.player.domain.page.ConcurrencyGate
 import com.dengying.player.core.HealthSignal
 import com.dengying.player.domain.page.ListBatch
@@ -185,6 +186,7 @@ class SourceRepository {
         return when (source.protocol) {
             SourceProtocol.Cms, SourceProtocol.Api2233 -> CmsAdapter.list(source, typeId, page)
             SourceProtocol.Tv189 -> Tv189Adapter.list(source, typeId, page)
+            SourceProtocol.Xptv -> XptvAdapter.list(source, typeId, page)
             else -> unsupported(source, "分类浏览")
         }
     }
@@ -207,6 +209,7 @@ class SourceRepository {
             // 2026-11-08 起走 keywordSearchCtyun（programsearch.keyword 实测无效，
             // 已弃用）；comeFrom=NEW_CPMS 只搜自营可播库
             SourceProtocol.Tv189 -> Tv189Adapter.search(source, keyword)
+            SourceProtocol.Xptv -> XptvAdapter.search(source, keyword)
         }
     }
 
@@ -221,6 +224,7 @@ class SourceRepository {
             SourceProtocol.Juzhi -> JuzhiAdapter.detail(source, vodId)
             SourceProtocol.Guapi -> GuapiAdapter.detail(source, vodId)
             SourceProtocol.Cms, SourceProtocol.Api2233 -> CmsAdapter.detail(source, vodId)
+            SourceProtocol.Xptv -> XptvAdapter.detail(source, vodId, vodUri)
             SourceProtocol.Shanzha -> null   // 该源只支持搜索（上游 502）
         }
 
@@ -245,6 +249,7 @@ class SourceRepository {
                 ?: PlayResolveResult()
             SourceProtocol.Juzhi -> JuzhiAdapter.resolvePlay(source, vodId, token, from)
             SourceProtocol.Guapi -> GuapiAdapter.resolvePlay(source, vodId, token, from)
+            SourceProtocol.Xptv -> XptvAdapter.resolvePlay(source, vodId, token, from)
             else -> PlayResolveResult(url = token, headers = "")
         }
     }
@@ -447,6 +452,8 @@ class SourceRepository {
             // 仍走缓存路径写入，与其他源行为一致（负缓存/TTL 语义照常生效）
             val classes = if (source.protocol == SourceProtocol.Tv189) {
                 Tv189Adapter.classes()
+            } else if (source.protocol == SourceProtocol.Xptv) {
+                XptvAdapter.classes()
             } else {
                 CmsAdapter.classes(source)
             }
