@@ -51,6 +51,7 @@ import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.rememberSkeletonTextColor
 import com.dengying.player.ui.components.glassPageBackdrop
 import com.dengying.player.ui.platform.ConsumePortraitOrientation
 import com.dengying.player.ui.platform.FullscreenState
@@ -407,7 +408,7 @@ private fun SkeletonInfoBlock(name: String, pic: String) {
                 Text(
                     text = "正在获取详情…",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
+                    color = rememberSkeletonTextColor(),
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }

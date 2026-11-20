@@ -1,10 +1,5 @@
 package com.dengying.player.ui.pages
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +40,7 @@ import com.dengying.player.core.HOME_HOT_TITLE
 import com.dengying.player.core.HomeSection
 import com.dengying.player.core.VideoItem
 import com.dengying.player.ui.components.GlassSurface
+import com.dengying.player.ui.components.HomeFeedSkeleton
 import com.dengying.player.ui.components.Poster
 import com.dengying.player.ui.theme.Palette
 import kotlinx.coroutines.delay
@@ -402,74 +398,3 @@ private fun railMeta(v: VideoItem): String =
 
 private fun primaryArea(v: VideoItem): String? =
     v.vod_area?.split('/')?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-
-/**
- * 首拉骨架：Banner + 两行双列卡 + 一条 rail，尺寸与真实内容一致，避免加载完成时跳动。
- */
-@Composable
-internal fun HomeFeedSkeleton(topPadding: Dp, bottomPadding: Dp) {
-    val transition = rememberInfiniteTransition(label = "home-skeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.28f,
-        targetValue = 0.62f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "home-skeleton-alpha",
-    )
-    val block = Palette.TextSecondary.copy(alpha = alpha * 0.35f)
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding, bottom = bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        userScrollEnabled = false,
-    ) {
-        item(key = "sk-hero") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(block),
-            )
-        }
-        items(listOf("sk-h1", "sk-h2")) { key ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                repeat(2) { i ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(128.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(block),
-                    )
-                }
-            }
-        }
-        item(key = "sk-rail") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                repeat(3) { i ->
-                    Box(
-                        modifier = Modifier
-                            .width(112.dp)
-                            .height(156.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(block),
-                    )
-                }
-            }
-        }
-    }
-}

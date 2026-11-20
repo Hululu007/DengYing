@@ -82,9 +82,11 @@ import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
 import com.dengying.player.ui.components.ErrorView
 import com.dengying.player.ui.components.GlassChip
+import com.dengying.player.ui.components.HomeFeedSkeleton
 import com.dengying.player.ui.components.GlassSurface
-import com.dengying.player.ui.components.LoadingView
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.SkeletonGrid
+import com.dengying.player.ui.components.rememberSkeletonColor
 import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.components.GlassPullIndicator
 import com.dengying.player.ui.navigation.Routes
@@ -590,7 +592,7 @@ private fun PageContent(
     state: androidx.compose.foundation.lazy.grid.LazyGridState,
 ) {
     when {
-        cs.loading && cs.items.isEmpty() -> LoadingView()
+        cs.loading && cs.items.isEmpty() -> SkeletonGrid(rememberSkeletonColor(), topPadding, bottomPadding)
         cs.errMsg != null && cs.items.isEmpty() -> ErrorView(message = cs.errMsg ?: "", onRetry = onRetry)
         cs.items.isEmpty() -> Column(
             modifier = Modifier
