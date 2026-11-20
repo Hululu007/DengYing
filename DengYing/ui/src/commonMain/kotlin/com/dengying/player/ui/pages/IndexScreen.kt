@@ -147,6 +147,7 @@ fun IndexScreen(
     onOpenDownloads: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSourceStatus: () -> Unit,
+    onOpenLiveChannels: () -> Unit,
     /** 「我的」页点登录：进独立登录页，而不是就地展开表单 */
     onOpenLogin: () -> Unit,
     onOpenDetail: (String) -> Unit,
@@ -378,6 +379,7 @@ fun IndexScreen(
                     onOpenDownloads = onOpenDownloads,
                     onOpenSettings = onOpenSettings,
                     onOpenSourceStatus = onOpenSourceStatus,
+                    onOpenLiveChannels = onOpenLiveChannels,
                     onOpenLogin = onOpenLogin,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,

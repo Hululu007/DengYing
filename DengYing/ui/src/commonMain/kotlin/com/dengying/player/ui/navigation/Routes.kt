@@ -36,6 +36,8 @@ object Routes {
     const val FAVORITES = "favorites"
     const val HISTORY = "history"
     const val SOURCE_STATUS = "source_status"
+    /** Hululu007 编译期直播频道清单入口 */
+    const val LIVE_CHANNELS = "live_channels"
     const val SETTINGS = "settings"
     const val DOWNLOADS = "downloads"
     /** AH 账号体系：独立登录 / 注册页，无参数（从「我的」页进入） */

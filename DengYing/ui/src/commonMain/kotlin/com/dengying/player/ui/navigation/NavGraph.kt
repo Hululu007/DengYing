@@ -25,6 +25,7 @@ import com.dengying.player.ui.pages.DownloadsScreen
 import com.dengying.player.ui.pages.FavoritesScreen
 import com.dengying.player.ui.pages.HistoryScreen
 import com.dengying.player.ui.pages.IndexScreen
+import com.dengying.player.ui.pages.LiveChannelsScreen
 import com.dengying.player.ui.pages.LoginScreen
 import com.dengying.player.ui.pages.PlayerScreen
 import com.dengying.player.ui.pages.RegisterScreen
@@ -113,6 +114,7 @@ fun DengYingNavHost(
                 onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
                 onOpenSourceStatus = { nav.navigate(Routes.SOURCE_STATUS) },
+                onOpenLiveChannels = { nav.navigate(Routes.LIVE_CHANNELS) },
                 onOpenLogin = { nav.navigate(Routes.LOGIN) },
                 onOpenDetail = { route -> nav.navigate(route) },
             )
@@ -279,6 +281,13 @@ fun DengYingNavHost(
 
         composable(Routes.SOURCE_STATUS) {
             SourceStatusScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable(Routes.LIVE_CHANNELS) {
+            LiveChannelsScreen(
+                onBack = { nav.popBackStack() },
+                onOpenPlayer = { route -> nav.navigate(route) },
+            )
         }
 
         composable(Routes.SETTINGS) {

@@ -27,3 +27,15 @@ class HululuSourceCatalogTest {
         assertTrue(huluSources.all { it.note?.contains("2026-11-20") == true })
     }
 }
+
+/** Hululu007 live.m3u 编译期频道清单约束（2026-11-21 抽样）。 */
+class HululuLiveCatalogTest {
+    @Test
+    fun `直播频道清单非空且 key 唯一`() {
+        val live = CmsSources.DIRECT
+        assertTrue(live.size >= 5)
+        assertEquals(live.size, live.map { it.key }.toSet().size)
+        assertTrue(live.all { it.key.startsWith("live_hulu_") })
+        assertTrue(live.all { it.url.startsWith("http") && ".m3u8" in it.url })
+    }
+}

@@ -507,14 +507,39 @@ object CmsSources {
     )
 
     /**
-     * 直链源（额外线路）
+     * 直链源（编译期常量，不做在线源市场）。
      *
-     * 2026-10-03 清空：唯一天翼视讯演示线路已删除。
-     * 原因：sign/session 等凭据参数随抓包失效（现确认已死），且带凭据形态的
-     * 参数不应入仓（FR-604/SEC-003，ADR-0005）。产品方向确定不依赖自建
-     * 基础设施，直链线路管理保留为远期占位，当前不启用。
+     * 2026-11-21：从 Hululu007 live-sources 的 live.m3u 选取五条公开频道，
+     * 本机 curl -L 五条均 200（CCTV1 有 HLS 重导向）；只收 m3u8，不写凭据参数。
+     * 这些是直播频道，不进入 CmsSources.ALL 的搜索/分类聚合，仅由「我的 → 直播频道」直接打开。
      */
-    val DIRECT: List<DirectSource> = emptyList()
+    val DIRECT: List<DirectSource> = listOf(
+        DirectSource(
+            key = "live_hulu_cctv1", name = "CCTV-1 综合",
+            url = "http://107.150.60.122/live/cctv1hd.m3u8",
+            group = "央视",
+        ),
+        DirectSource(
+            key = "live_hulu_cctv13", name = "CCTV-13 新闻",
+            url = "http://120.76.248.139/live/bfgd/4200000067.m3u8",
+            group = "央视",
+        ),
+        DirectSource(
+            key = "live_hulu_cgtn", name = "CGTN 英语",
+            url = "https://english-livebkali.cgtn.com/live/encgtn_0.m3u8",
+            group = "国际",
+        ),
+        DirectSource(
+            key = "live_hulu_dongfang", name = "东方卫视",
+            url = "http://39.165.39.49:19901/tsfile/live/1128_1.m3u8",
+            group = "卫视",
+        ),
+        DirectSource(
+            key = "live_hulu_beijing", name = "北京卫视",
+            url = "http://39.165.39.49:19901/tsfile/live/1130_1.m3u8",
+            group = "卫视",
+        ),
+    )
 
     /**
      * 首页分类 Tab

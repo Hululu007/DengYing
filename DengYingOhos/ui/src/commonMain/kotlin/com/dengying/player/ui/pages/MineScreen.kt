@@ -71,6 +71,8 @@ fun MineScreen(
     onOpenSettings: () -> Unit,
     /** 源状态：源的启用与探测，独立于设置页 */
     onOpenSourceStatus: () -> Unit,
+    /** 直播频道：Hululu007 编译期频道清单 */
+    onOpenLiveChannels: () -> Unit,
     /** 个人信息卡 / 登录胶囊：跳独立登录页 */
     onOpenLogin: () -> Unit,
     topPadding: Dp,
@@ -361,6 +363,51 @@ fun MineScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // ---- 直播频道入口 ----
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenLiveChannels() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(icon = DyIcons.Play, tint = Palette.Brand, size = 18.dp)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "直播频道",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = "Hululu007 公开频道清单",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
             }
         }
 
