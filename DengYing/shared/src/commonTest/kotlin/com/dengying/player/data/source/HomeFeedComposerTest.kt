@@ -51,6 +51,16 @@ class HomeFeedComposerTest {
     }
 
     @Test
+    fun oneCategoryAlreadyProducesRenderableHotSection() {
+        // 首个分类到货时先上屏：只要一个分类就能凑出 Banner + 双列宫格。
+        val sections = HomeFeedComposer.compose(linkedMapOf("电影" to videos(1, 12)))
+
+        assertEquals(1, sections.size)
+        assertEquals(HOME_HOT_TITLE, sections.first().title)
+        assertEquals(12, sections.first().items.size)
+    }
+
+    @Test
     fun blankCoversAndDuplicateKeysAreRemovedBeforeSampling() {
         val duplicated = videos(1, 2) + videos(1, 2)
         val blank = VideoItem(vod_id = 99, vod_name = "无封面", vod_pic = "", _source = "s")

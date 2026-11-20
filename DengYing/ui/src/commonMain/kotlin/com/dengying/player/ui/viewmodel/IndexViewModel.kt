@@ -162,16 +162,46 @@ class IndexViewModel(
      * 只有两边都拿不到任何 tabs 才返回 null。返回值里的 source 是实际生效的源，
      * 后续缓存 key 与详情预取都以它为准。
      */
-    private suspend fun fetchHomeFeed(primary: CmsSource, force: Boolean = false): HomeFeed? {
+    private suspend fun fetchHomeFeed(
+        primary: CmsSource,
+        force: Boolean = false,
+        reason: String = "cold",
+        onPartial: (List<HomeSection>) -> Unit = {},
+    ): HomeFeed? {
         var last: HomeFeed? = null
+        val start = com.dengying.player.platform.Clock.nowMs()
+        var attempt = 0
         for (src in listOfNotNull(primary, tv189Source()).distinctBy { it.key }) {
+            attempt++
+            val tabsAt = com.dengying.player.platform.Clock.nowMs()
             val tabs = repo.fetchHomeTabs(src, force = force)
-            if (tabs.isEmpty()) continue
+            val tabsMs = com.dengying.player.platform.Clock.nowMs() - tabsAt
+            if (tabs.isEmpty()) {
+                PlaybackProbe.note(
+                    "index-home-stage",
+                    "reason=$reason src=${src.key} attempt=$attempt tabs_ms=$tabsMs skip=tabs-empty",
+                )
+                continue
+            }
             val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.first()
-            val feed = HomeFeed(src, tabs, tab, repo.fetchHomeSections(src, tab.path, force = force))
+            val sectionsAt = com.dengying.player.platform.Clock.nowMs()
+            val sections = repo.fetchHomeSections(src, tab.path, force = force, onPartial = onPartial)
+            val sectionsMs = com.dengying.player.platform.Clock.nowMs() - sectionsAt
+            val feed = HomeFeed(src, tabs, tab, sections)
             last = feed
-            if (feed.sections.isNotEmpty()) return feed
+            PlaybackProbe.note(
+                "index-home-stage",
+                "reason=$reason src=${src.key} attempt=$attempt tabs_ms=$tabsMs " +
+                    "sections_ms=$sectionsMs sections=${sections.size} " +
+                    "elapsed=${com.dengying.player.platform.Clock.nowMs() - start}",
+            )
+            if (sections.isNotEmpty()) return feed
         }
+        PlaybackProbe.note(
+            "index-home-fallback",
+            "reason=$reason attempts=$attempt result=${if (last == null) "none" else "empty"} " +
+                "elapsed=${com.dengying.player.platform.Clock.nowMs() - start}",
+        )
         return last
     }
 
@@ -182,9 +212,18 @@ class IndexViewModel(
      * 若在页面组合时无条件加载，用户只看一个分类却会为左右各一个分类发请求。
      */
     fun onShown(idx: Int) {
+        val at = com.dengying.player.platform.Clock.nowMs()
+        val wasStarted = state.cat(idx).started
         if (idx != state.currentTab) state = state.copy(currentTab = idx)
-        if (!state.cat(idx).started) loadData(idx)
+        if (!wasStarted) loadData(idx)
         loadRanking(idx)
+        if (wasStarted && state.categories.getOrNull(idx) == RECOMMEND) {
+            PlaybackProbe.note(
+                "index-home-shown",
+                "sections=${state.cat(idx).sections.size} " +
+                    "ms=${com.dengying.player.platform.Clock.nowMs() - at}",
+            )
+        }
     }
 
     /**
@@ -590,7 +629,16 @@ class IndexViewModel(
         viewModelScope.launch {
             try {
                 val t0 = com.dengying.player.platform.Clock.nowMs()
-                val feed = fetchHomeFeed(src)
+                val feed = fetchHomeFeed(src, reason = "cold", onPartial = { early ->
+                    if (isLatest(idx, seq) && early.isNotEmpty()) {
+                        PlaybackProbe.note(
+                            "index-home-partial",
+                            "reason=cold sections=${early.size} cards=${early.sumOf { it.items.size }} " +
+                                "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                        )
+                        setCat(idx) { it.copy(sections = early, items = emptyList(), loading = false, errMsg = "") }
+                    }
+                })
                 if (!isLatest(idx, seq)) return@launch
                 if (feed == null) {
                     setCat(idx) {
@@ -603,6 +651,12 @@ class IndexViewModel(
                 PlaybackProbe.note(
                     "index-recommend",
                     "source=${feed.source.key} tabs=${feed.tabs.size} sections=${sections.size} " +
+                        "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                )
+                PlaybackProbe.note(
+                    "index-home-first",
+                    "reason=cold src=${feed.source.key} sections=${sections.size} " +
+                        "cards=${sections.sumOf { it.items.size }} " +
                         "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
                 )
                 setCat(idx) {
@@ -697,7 +751,8 @@ class IndexViewModel(
         viewModelScope.launch {
             try {
                 // 刷新要穿透 TTL：force=true 跳过仓库缓存与负缓存，再走同一套跨源回落。
-                val feed = fetchHomeFeed(src, force = true)
+                val t0 = com.dengying.player.platform.Clock.nowMs()
+                val feed = fetchHomeFeed(src, force = true, reason = "refresh")
                 if (!isLatest(idx, seq)) return@launch
                 if (feed == null) {
                     setCat(idx) { it.copy(refining = false, sections = emptyList(), errMsg = "推荐页暂时拉不到内容") }
@@ -707,6 +762,12 @@ class IndexViewModel(
                 // 备用池的版块（备用片已接在条目后面）每次刷新整体轮换一格，
                 // 让下拉真正换出一批不同的片。
                 val sections = rotateRefreshed(state.cat(idx).sections, feed.sections)
+                PlaybackProbe.note(
+                    "index-home-first",
+                    "reason=refresh src=${feed.source.key} sections=${sections.size} " +
+                        "cards=${sections.sumOf { it.items.size }} " +
+                        "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                )
                 sectionsByPath["${feed.source.key}|${feed.tab.path}"] = sections
                 setCat(idx) {
                     it.copy(

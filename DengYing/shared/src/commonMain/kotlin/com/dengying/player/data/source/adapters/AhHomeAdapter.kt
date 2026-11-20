@@ -6,7 +6,7 @@ import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
 import com.dengying.player.data.source.HomeFeedComposer
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 
 /**
@@ -41,13 +41,42 @@ internal object AhHomeAdapter {
 
     fun homeTabs(): List<HomeTab> = listOf(HomeTab(name = "推荐", path = PATH_RECOMMEND))
 
-    suspend fun homeSections(source: CmsSource, path: String): List<HomeSection> {
+    /**
+     * @param onPartial 第一个有足够卡片的分类到货时回调一次，供页面先出 Banner + 双列宫格；
+     *        最终仍以四分类全量 compose 覆盖。回调失败不影响全量结果。
+     */
+    suspend fun homeSections(
+        source: CmsSource,
+        path: String,
+        onPartial: (List<HomeSection>) -> Unit = {},
+    ): List<HomeSection> {
         if (path != PATH_RECOMMEND) return emptyList()
         val byCategory = coroutineScope {
-            CATEGORIES.map { (name, typeId) ->
-                async { name to fetchCategory(source, name, typeId) }
-            }.awaitAll()
-        }.filter { it.second.isNotEmpty() }.toMap()
+            val arrived = Channel<Pair<String, List<VideoItem>>>(CATEGORIES.size)
+            CATEGORIES.forEach { (name, typeId) ->
+                async {
+                    val items = runCatching { fetchCategory(source, name, typeId) }
+                        .getOrDefault(emptyList())
+                    arrived.send(name to items)
+                }
+            }
+            val collected = LinkedHashMap<String, List<VideoItem>>()
+            var partialSent = false
+            repeat(CATEGORIES.size) {
+                val (name, items) = arrived.receive()
+                if (items.isEmpty()) return@repeat
+                collected[name] = items
+                if (!partialSent) {
+                    val early = HomeFeedComposer.compose(collected)
+                    if (early.isNotEmpty()) {
+                        partialSent = true
+                        runCatching { onPartial(early) }
+                    }
+                }
+            }
+            arrived.close()
+            collected
+        }
         return HomeFeedComposer.compose(byCategory)
     }
 

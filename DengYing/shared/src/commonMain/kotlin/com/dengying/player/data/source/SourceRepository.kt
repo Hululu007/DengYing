@@ -525,7 +525,12 @@ class SourceRepository {
     }
 
     /** 首页版块（内存 TTL + 失败负缓存；force=true 跳过两者直拉网络） */
-    suspend fun fetchHomeSections(source: CmsSource, path: String, force: Boolean = false): List<HomeSection> {
+    suspend fun fetchHomeSections(
+        source: CmsSource,
+        path: String,
+        force: Boolean = false,
+        onPartial: (List<HomeSection>) -> Unit = {},
+    ): List<HomeSection> {
         if (!source.caps.home || path.isEmpty()) return emptyList()
         val key = "${source.key}|$path"
         val now = Clock.nowMs()
@@ -542,7 +547,7 @@ class SourceRepository {
             }
             if (recentlyFailed) return emptyList()
         }
-        val sections = homeSectionsOf(source, path)
+        val sections = homeSectionsOf(source, path, onPartial)
         homeLock.withLock {
             if (sections.isNotEmpty()) homeCache[key] = HomeCacheEntry(emptyList(), sections, Clock.nowMs())
             else homeFailAt[key] = Clock.nowMs()
@@ -562,9 +567,13 @@ class SourceRepository {
         else -> Tv189Adapter.homeTabs(source)
     }
 
-    private suspend fun homeSectionsOf(source: CmsSource, path: String): List<HomeSection> =
+    private suspend fun homeSectionsOf(
+        source: CmsSource,
+        path: String,
+        onPartial: (List<HomeSection>) -> Unit,
+    ): List<HomeSection> =
         when (source.protocol) {
-            SourceProtocol.Api2233 -> AhHomeAdapter.homeSections(source, path)
+            SourceProtocol.Api2233 -> AhHomeAdapter.homeSections(source, path, onPartial)
             else -> Tv189Adapter.homeSections(source, path)
         }
 
