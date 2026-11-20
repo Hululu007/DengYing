@@ -99,6 +99,8 @@ Skill 分两类接线：行为规约（如 `i-have-adhd`）由当前环境全局
 
 ## 7. MCP 与工具调度
 
+物理真机（vivo V2419A）搜索验证输入纪律（2026-11-20 明确）：不得用 IME、`adb shell input text` 或 `adb shell input keyevent` 注入搜索文字；只能通过 `uiautomator dump` 的 bounds 点击用户安装的手机软键盘逐字输入，或使用项目现有 DEBUG_ROUTE 注入中文路由。违反此法取得的搜索结果不得作为真机搜索证据。
+
 本仓库根级和三个子工程都没有 `.mcp.json` / `mcp.json`；只能使用当前会话实际暴露的工具。下表名称按本次会话工具清单、仓库 `.codegraph/` 目录和全局配置核实。能力不可用时按仓库文件与本地命令降级，不阻塞任务，并在总结中说明。`.codegraph/` 主要在 monorepo 根与 `DengYing/`；`DengYingIos` / `DengYingOhos` 通常无本地索引，缺索引时直接 Grep/Read。
 
 | 工具 / MCP | 何时用 | 约束 |
