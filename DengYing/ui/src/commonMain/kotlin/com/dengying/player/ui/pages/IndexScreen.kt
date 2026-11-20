@@ -77,6 +77,7 @@ import kotlin.random.Random
 import com.dengying.player.core.DiscoverItem
 import com.dengying.player.core.VideoItem
 import com.dengying.player.ui.components.BottomDock
+import com.dengying.player.ui.components.DiscoverSkeleton
 import com.dengying.player.ui.components.DockSpec
 import com.dengying.player.ui.components.DyIcon
 import com.dengying.player.ui.components.DyIcons
@@ -1184,27 +1185,18 @@ private fun DiscoverPane(
         }
     }
     if (pool.isEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = topPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            if (preparing) {
-                // 六分类预热中（v5.6 一次成型）：转圈等待，成型后一次到位不再狂刷
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
-                    color = Palette.TextSecondary,
-                )
-                Text(
-                    "正在为你备片…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-            } else {
+        // 六分类预热中：与首页/分类/搜索同节奏的骨架，几何对齐 16:9 内嵌播放卡；
+        // 成型后一次到位，不再用居中转圈打断浏览预期。
+        if (preparing) {
+            DiscoverSkeleton(topPadding, bottomPadding)
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = topPadding),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
                 Text("先去首页逛一圈，再来发现好片", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
                 Text(
                     "发现页从首页内容里随机抽选",

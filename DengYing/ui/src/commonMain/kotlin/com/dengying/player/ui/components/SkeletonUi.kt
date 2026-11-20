@@ -128,6 +128,34 @@ fun SkeletonResultRows(color: androidx.compose.ui.graphics.Color) {
     }
 }
 
+/** 发现页骨架：与 DiscoverVideoCard 一致的 16:9 播放窗 + 下方文字条。 */
+@Composable
+fun DiscoverSkeleton(topPadding: Dp, bottomPadding: Dp) {
+    val block = rememberSkeletonColor()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, top = topPadding, end = 12.dp, bottom = bottomPadding),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        userScrollEnabled = false,
+    ) {
+        items(3) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SkeletonBlock(block, Modifier.fillMaxWidth().aspectRatio(16f / 9f), radius = 22.dp)
+                SkeletonBlock(
+                    block,
+                    Modifier.fillMaxWidth(0.62f).padding(start = 6.dp, top = 10.dp).height(16.dp),
+                    radius = 4.dp,
+                )
+                SkeletonBlock(
+                    block,
+                    Modifier.fillMaxWidth(0.35f).padding(start = 6.dp, top = 6.dp).height(12.dp),
+                    radius = 3.dp,
+                )
+            }
+        }
+    }
+}
+
 /** 首页版块骨架：Banner + 两行双列卡 + 一条 rail，尺寸与真实内容一致。 */
 @Composable
 fun HomeFeedSkeleton(topPadding: Dp, bottomPadding: Dp) {
