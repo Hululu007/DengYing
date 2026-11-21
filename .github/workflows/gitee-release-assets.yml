@@ -1,0 +1,103 @@
+name: Gitee Release Assets
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag, e.g. v1.3.24"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mirror-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Gitee CLI tools
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Ensure Gitee release exists
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          test -n "$GITEE_TOKEN" || { echo "GITEE_TOKEN is not configured"; exit 1; }
+          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
+          CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$API")
+          if [ "$CODE" = "200" ]; then
+            echo "Gitee release $TAG already exists"
+          elif [ "$CODE" = "404" ]; then
+            curl -fSs -X POST 'https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases' \
+              -H 'Content-Type: application/json;charset=UTF-8' \
+              -d "{\"access_token\":\"$GITEE_TOKEN\",\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"Release assets mirrored from GitHub Actions.\",\"draft\":false,\"prerelease\":false}"
+          else
+            echo "Unexpected Gitee release lookup status: $CODE"
+            cat /tmp/gitee-release.json
+            exit 1
+          fi
+
+      - name: Download GitHub release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          mkdir -p release-assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release-assets --clobber
+          ls -lh release-assets
+
+      - name: Find or upload Gitee asset
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          test -f release-assets/app-release.apk || { echo "app-release.apk missing from GitHub release"; exit 1; }
+          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
+          EXISTING=$(curl -fSs -H 'Accept: application/json;charset=UTF-8' "$API" \
+            | jq -r --arg name 'app-release.apk' '.assets[]? | select(.name == $name) | .id // empty')
+          if [ -n "$EXISTING" ]; then
+            curl -fSs -X PATCH "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets/$EXISTING" \
+              -H 'Content-Type: application/json;charset=UTF-8' \
+              -d "{\"access_token\":\"$GITEE_TOKEN\",\"name\":\"app-release.apk\"}"
+          else
+            curl -fSs -X POST "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets" \
+              -F "access_token=$GITEE_TOKEN" \
+              -F "file=@release-assets/app-release.apk" \
+              -F "name=app-release.apk"
+          fi
+
+      - name: Upload IPA to Gitee when available
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          if [ ! -f release-assets/DengYing-unsigned.ipa ]; then
+            echo "DengYing-unsigned.ipa not attached to GitHub release; skipping"
+            exit 0
+          fi
+          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
+          EXISTING=$(curl -fSs -H 'Accept: application/json;charset=UTF-8' "$API" \
+            | jq -r --arg name 'DengYing-unsigned.ipa' '.assets[]? | select(.name == $name) | .id // empty')
+          if [ -n "$EXISTING" ]; then
+            curl -fSs -X PATCH "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets/$EXISTING" \
+              -H 'Content-Type: application/json;charset=UTF-8' \
+              -d "{\"access_token\":\"$GITEE_TOKEN\",\"name\":\"DengYing-unsigned.ipa\"}"
+          else
+            curl -fSs -X POST "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets" \
+              -F "access_token=$GITEE_TOKEN" \
+              -F "file=@release-assets/DengYing-unsigned.ipa" \
+              -F "name=DengYing-unsigned.ipa"
+          fi

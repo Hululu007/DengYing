@@ -5,7 +5,12 @@ on:
     paths:
       - ".github/workflows/android-apk.yml"
       - "DengYing/**"
+    tags:
+      - "v*"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -43,3 +48,9 @@ jobs:
           name: DengYing-release-apk
           path: DengYing/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
+
+      - name: Attach APK to tag release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" DengYing/app/build/outputs/apk/release/app-release.apk --clobber
