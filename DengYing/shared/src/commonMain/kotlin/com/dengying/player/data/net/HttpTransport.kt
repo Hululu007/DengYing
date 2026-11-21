@@ -106,4 +106,24 @@ expect object HttpTransport {
         readMs: Int,
         binary: Boolean,
     ): RawResponse
+
+    /**
+     * 流式 GET：在传输层逐块回调响应体，避免把整个文件读进堆内存。
+     *
+     * 契约与 [send] 相同（不跟随重定向、不设 Accept-Encoding、异常折成
+     * `status = 0`、后台线程执行），另外：
+     *  - `onChunk` 每读一块调用一次，`ByteArray` 是短生命周期缓冲区，调用方
+     *    必须立即消费，不能持有引用；
+     *  - 回调抛异常视为传输失败（`status = 0`）；
+     *  - 返回值不含响应体，只给状态码与响应头。
+     *
+     * 平台不支持流式传输时实际实现返回 `status = -1`，上层据此回退整段下载。
+     */
+    suspend fun streamGet(
+        url: String,
+        headers: Map<String, String>,
+        connectMs: Int,
+        readMs: Int,
+        onChunk: (ByteArray) -> Unit,
+    ): RawResponse
 }
