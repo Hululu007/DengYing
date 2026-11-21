@@ -75,7 +75,8 @@ jobs:
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           TAG: ${{ steps.tag.outputs.name }}
-          DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          IS_DRY_RUN: ${{ inputs.dry_run == true }}
         run: |
           test -n "$GITEE_TOKEN" || { echo "GITEE_TOKEN is not configured" >&2; exit 1; }
           BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
@@ -89,26 +90,25 @@ jobs:
               exit 1
             fi
             echo "Found Gitee release $TAG with id $ID"
+          elif [ "$CODE" = "404" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "INPUT_DRY_RUN=$INPUT_DRY_RUN IS_DRY_RUN=$IS_DRY_RUN"
+            echo "DRY RUN: would create Gitee release $TAG"
+            ID=""
           elif [ "$CODE" = "404" ]; then
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "DRY RUN: would create Gitee release $TAG"
-              ID=""
-            else
-              jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" \
-                '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false}' \
-                > /tmp/gitee-create.json
-              curl -fSs -X POST "$BASE/releases" \
-                -H 'Content-Type: application/json;charset=UTF-8' \
-                --data-binary @/tmp/gitee-create.json \
-                -o /tmp/gitee-release.json
-              ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
-              if [ -z "$ID" ]; then
-                echo "Gitee release creation returned no id for $TAG" >&2
-                cat /tmp/gitee-release.json
-                exit 1
-              fi
-              echo "Created Gitee release $TAG with id $ID"
+            jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" \
+              '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false}' \
+              > /tmp/gitee-create.json
+            curl -fSs -X POST "$BASE/releases" \
+              -H 'Content-Type: application/json;charset=UTF-8' \
+              --data-binary @/tmp/gitee-create.json \
+              -o /tmp/gitee-release.json
+            ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+            if [ -z "$ID" ]; then
+              echo "Gitee release creation returned no id for $TAG" >&2
+              cat /tmp/gitee-release.json
+              exit 1
             fi
+            echo "Created Gitee release $TAG with id $ID"
           else
             echo "Unexpected Gitee release lookup status: $CODE" >&2
             cat /tmp/gitee-release.json
