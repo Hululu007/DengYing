@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
+import com.dengying.player.data.download.DownloadCenter
 import com.dengying.player.ui.components.GlassBackdropState
 import com.dengying.player.ui.components.LocalGlassBackdrop
 import com.dengying.player.ui.components.glassBackdrop
@@ -32,6 +33,10 @@ import com.dengying.player.ui.pages.SearchScreen
 import com.dengying.player.ui.pages.SettingsScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
 import com.dengying.player.ui.platform.rememberFullscreenState
+import com.dengying.player.ui.UiDepsHolder
+import com.dengying.player.ui.update.UpdateChecker
+import com.dengying.player.ui.update.UpdateNoticeController
+import com.dengying.player.ui.update.UpdateNoticeDialog
 import com.dengying.player.ui.viewmodel.PlayerViewModel
 
 /**
@@ -57,6 +62,8 @@ import com.dengying.player.ui.viewmodel.PlayerViewModel
 fun DengYingNavHost(
     debugRoute: String? = null,
     onDebugRouteConsumed: () -> Unit = {},
+    /** 进程级冷启动（非重建/非转屏）才自动查更新；壳按 savedInstanceState 判定 */
+    coldStartAutoCheck: Boolean = false,
 ) {
     val nav = rememberNavController()
 
@@ -93,6 +100,12 @@ fun DengYingNavHost(
     // 这里只负责把 state 挂进 CompositionLocal 供 GlassSurface 读取。
     val glassBackdrop = remember { GlassBackdropState() }
     CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
+    val deps = remember { UiDepsHolder.get() }
+    // 自动检查不阻塞首帧：请求在 IO 上发出，失败只更新「我的」页状态。
+    // 只认冷启动：转屏/重建会让 NavHost 重组，但不应周期性再弹更新提示。
+    LaunchedEffect(coldStartAutoCheck) {
+        if (coldStartAutoCheck) UpdateNoticeController.autoCheckOnColdStart(deps)
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Routes.INDEX) {
 
@@ -121,6 +134,33 @@ fun DengYingNavHost(
                 onOpenDetail = { route -> nav.navigate(route) },
                 // 从首页榜单点进来的关键词；空串 = 普通进页
                 initialKeyword = entry.arguments?.stringArg("kw") ?: "",
+            )
+        }
+
+        composable(
+            route = "${Routes.LIVE_PLAYER}?url={url}&name={name}&source={source}&headers={headers}",
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType; defaultValue = "" },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                navArgument("source") { type = NavType.StringType; defaultValue = "" },
+                navArgument("headers") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val a = entry.arguments
+            DetailScreen(
+                vodId = 0L,
+                source = dec(a?.stringArg("source")),
+                name = dec(a?.stringArg("name")),
+                pic = "",
+                vodUri = "",
+                resumeEpisode = -1,
+                autoPlay = true,
+                onBack = { nav.popBackStack() },
+                onOpenPlayer = {},
+                pageActive = backStackEntry?.id == entry.id,
+                liveMode = true,
+                liveUrl = dec(a?.stringArg("url")),
+                liveHeaders = dec(a?.stringArg("headers")),
             )
         }
 
@@ -232,7 +272,7 @@ fun DengYingNavHost(
                     //   b) 播放页是直接进来的（调试入口、将来的「继续观看」直达）
                     //      → 用 params 里的 source/vodId 构造详情页路由，并**替换**本页
                     val prev = nav.previousBackStackEntry?.destination?.route
-                    if (prev != null && prev.startsWith(Routes.DETAIL)) {
+                    if (prev != null && (prev.startsWith(Routes.DETAIL) || prev.startsWith(Routes.DOWNLOADS))) {
                         nav.popBackStack()
                     } else if (params.source.isNotEmpty() && params.vodId != 0L) {
                         nav.navigate(
@@ -278,7 +318,7 @@ fun DengYingNavHost(
         composable(Routes.LIVE_CHANNELS) {
             LiveChannelsScreen(
                 onBack = { nav.popBackStack() },
-                onOpenPlayer = { route -> nav.navigate(route) },
+                onOpenLive = { route -> nav.navigate(route) },
             )
         }
 
@@ -290,12 +330,16 @@ fun DengYingNavHost(
             DownloadsScreen(
                 onBack = { nav.popBackStack() },
                 onOpenPlayer = { item ->
-                    val localUrl = com.dengying.player.data.download.DownloadCenter.localPlayUrl(item)
+                    // 【断网也要能播】下载项直接进播放页并带 localFile=true。
+                    // 之前走详情页路由，离线时详情请求失败（「详情加载失败：桔子
+                    // 无数据或请求失败」），本地文件根本没机会起播。iOS/鸿蒙
+                    // 早就走播放页直连，这里对齐。
+                    val localUrl = DownloadCenter.localPlayUrl(item)
                     if (localUrl.isNotEmpty()) {
                         nav.navigate(
                             Routes.player(
                                 url = localUrl,
-                                title = "${item.vodName} ${item.episodeName}".trim(),
+                                title = item.vodName,
                                 vodId = item.vodId,
                                 source = item.source,
                                 vodName = item.vodName,
@@ -327,6 +371,32 @@ fun DengYingNavHost(
         }
         }
 
+        UpdateNoticeController.dialogInfo?.let { info ->
+            UpdateNoticeDialog(
+                info = info,
+                ignored = UpdateNoticeController.isIgnored(info),
+                onIgnoreChange = { ignored ->
+                    UpdateNoticeController.setIgnored(deps, info, ignored)
+                },
+                onDismiss = { UpdateNoticeController.dismissDialog() },
+                onCopy = {
+                    deps.copyText(info.url)
+                },
+                onOpen = {
+                    val opened = deps.openExternalUrl(info.url)
+                    if (opened) UpdateNoticeController.dismissDialog()
+                    opened
+                },
+                onOpenApk = {
+                    // Gitee 的附件 MIME 是 application/zip，浏览器会把 APK 存成 .zip；
+                    // 主按钮改走 GitHub 的 APK 直链，拿到的文件才是 .apk。
+                    val apkUrl = UpdateChecker.githubApkUrl(info.version)
+                    val opened = apkUrl != null && deps.openExternalUrl(apkUrl)
+                    if (opened) UpdateNoticeController.dismissDialog()
+                    opened
+                },
+            )
+        }
     }
     }
 }

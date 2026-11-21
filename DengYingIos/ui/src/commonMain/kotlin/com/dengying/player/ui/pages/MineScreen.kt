@@ -49,6 +49,8 @@ import com.dengying.player.ui.components.formatBytesText
 import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.theme.ThemeMode
 import com.dengying.player.ui.theme.ThemePrefs
+import com.dengying.player.ui.update.UpdateCheckState
+import com.dengying.player.ui.update.UpdateNoticeController
 import kotlinx.coroutines.launch
 
 /**
@@ -71,7 +73,7 @@ fun MineScreen(
     onOpenSettings: () -> Unit,
     /** 源状态：源的启用与探测，独立于设置页 */
     onOpenSourceStatus: () -> Unit,
-    /** 直播频道：Hululu007 编译期频道清单 */
+    /** 直播频道：编译期内置的公开频道清单 */
     onOpenLiveChannels: () -> Unit,
     /** 个人信息卡 / 登录胶囊：跳独立登录页 */
     onOpenLogin: () -> Unit,
@@ -108,6 +110,7 @@ fun MineScreen(
         refreshCounts()
         refreshDownloads()
     }
+    LaunchedEffect(Unit) { UpdateNoticeController.refresh(deps) }
     androidx.compose.runtime.DisposableEffect(backStackEntry) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -366,6 +369,59 @@ fun MineScreen(
             }
         }
 
+        // ---- 检查更新 ----
+        val updateChecking = UpdateNoticeController.state == UpdateCheckState.Checking
+        GlassSurface(
+            modifier = Modifier
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            liquid = false,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateChecking) {
+                        scope.launch { UpdateNoticeController.manualCheck(deps) }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Palette.SearchBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    DyIcon(
+                        icon = DyIcons.Refresh,
+                        tint = Palette.Brand,
+                        size = 18.dp,
+                        contentDescription = "检查更新",
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "检查更新",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = UpdateNoticeController.statusText(deps),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Palette.TextSecondary,
+                    )
+                }
+                DyIcon(
+                    icon = DyIcons.ArrowForward,
+                    tint = Palette.TextSecondary,
+                    size = 18.dp,
+                )
+            }
+        }
+
         // ---- 直播频道入口 ----
         GlassSurface(
             modifier = Modifier
@@ -398,7 +454,7 @@ fun MineScreen(
                         color = Palette.TextPrimary,
                     )
                     Text(
-                        text = "Hululu007 公开频道清单",
+                        text = "电视台与公开直播",
                         style = MaterialTheme.typography.labelSmall,
                         color = Palette.TextSecondary,
                     )

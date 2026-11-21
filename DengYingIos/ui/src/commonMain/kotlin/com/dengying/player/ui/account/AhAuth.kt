@@ -219,6 +219,9 @@ object AhAuth {
      *
      * 后端契约已实测（[loginThirdParty]），缺的只有「拿到 32 位标识」这一步；
      * 这里如实说明，不假装可用。
+     *
+     * 注意：登录页目前直接显示「QQ 登录暂未开放」，不渲染本方法的说明文字；
+     * 保留它是因为 [loginThirdParty] 的契约以后接线时还要用。
      */
     fun qqLoginNotReady(): Outcome = Outcome.Error(
         "QQ 登录需要 QQ SDK 授权取得 32 位账号标识；本应用不引入第三方 SDK。可先用账号 / 邮箱登录，或粘贴会话令牌恢复登录",

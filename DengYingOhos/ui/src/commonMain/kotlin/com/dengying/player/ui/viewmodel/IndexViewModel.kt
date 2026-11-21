@@ -13,6 +13,7 @@ import kotlinx.coroutines.Job
 import com.dengying.player.data.cache.PageCache
 import com.dengying.player.data.net.NetPriority
 import com.dengying.player.data.source.SourceRepository
+import com.dengying.player.core.CmsSource
 import com.dengying.player.core.CmsSources
 import com.dengying.player.core.HomeSection
 import com.dengying.player.core.HomeTab
@@ -138,15 +139,91 @@ class IndexViewModel(
     private fun tv189Source() = CmsSources.byKey("tv189")?.takeIf { it.enabled }
 
     /**
+     * 推荐页首选首页源。
+     *
+     * 首选「蓝光4k」（ah_ap2233）：它的首页由 AhHomeAdapter 按分类现场合成，
+     * 封面与年份完整、版块结构接近 AH 原版。该源未启用或合成失败时，
+     * [fetchHomeFeed] 自动回落到天翼视讯的 jsondata。
+     */
+    private fun homeSource() = CmsSources.byKey("ah_ap2233")?.takeIf { it.enabled && it.caps.home }
+        ?: tv189Source()
+
+    private data class HomeFeed(
+        val source: CmsSource,
+        val tabs: List<HomeTab>,
+        val tab: HomeTab,
+        val sections: List<HomeSection>,
+    )
+
+    /**
+     * 拉推荐页首页内容，带一次跨源回落。
+     *
+     * 主源 tabs 为空时继续试天翼；有 tabs 但没版块时也继续试天翼，
+     * 只有两边都拿不到任何 tabs 才返回 null。返回值里的 source 是实际生效的源，
+     * 后续缓存 key 与详情预取都以它为准。
+     */
+    private suspend fun fetchHomeFeed(
+        primary: CmsSource,
+        force: Boolean = false,
+        reason: String = "cold",
+        onPartial: (List<HomeSection>) -> Unit = {},
+    ): HomeFeed? {
+        var last: HomeFeed? = null
+        val start = com.dengying.player.platform.Clock.nowMs()
+        var attempt = 0
+        for (src in listOfNotNull(primary, tv189Source()).distinctBy { it.key }) {
+            attempt++
+            val tabsAt = com.dengying.player.platform.Clock.nowMs()
+            val tabs = repo.fetchHomeTabs(src, force = force)
+            val tabsMs = com.dengying.player.platform.Clock.nowMs() - tabsAt
+            if (tabs.isEmpty()) {
+                PlaybackProbe.note(
+                    "index-home-stage",
+                    "reason=$reason src=${src.key} attempt=$attempt tabs_ms=$tabsMs skip=tabs-empty",
+                )
+                continue
+            }
+            val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.first()
+            val sectionsAt = com.dengying.player.platform.Clock.nowMs()
+            val sections = repo.fetchHomeSections(src, tab.path, force = force, onPartial = onPartial)
+            val sectionsMs = com.dengying.player.platform.Clock.nowMs() - sectionsAt
+            val feed = HomeFeed(src, tabs, tab, sections)
+            last = feed
+            PlaybackProbe.note(
+                "index-home-stage",
+                "reason=$reason src=${src.key} attempt=$attempt tabs_ms=$tabsMs " +
+                    "sections_ms=$sectionsMs sections=${sections.size} " +
+                    "elapsed=${com.dengying.player.platform.Clock.nowMs() - start}",
+            )
+            if (sections.isNotEmpty()) return feed
+        }
+        PlaybackProbe.note(
+            "index-home-fallback",
+            "reason=$reason attempts=$attempt result=${if (last == null) "none" else "empty"} " +
+                "elapsed=${com.dengying.player.platform.Clock.nowMs() - start}",
+        )
+        return last
+    }
+
+    /**
      * 某一页真正呈现给用户时调用（Pager 停稳、或 tab 被点）。
      *
      * 【为什么不在构造时一次性加载】横向预组合会把相邻页也组合出来，
      * 若在页面组合时无条件加载，用户只看一个分类却会为左右各一个分类发请求。
      */
     fun onShown(idx: Int) {
+        val at = com.dengying.player.platform.Clock.nowMs()
+        val wasStarted = state.cat(idx).started
         if (idx != state.currentTab) state = state.copy(currentTab = idx)
-        if (!state.cat(idx).started) loadData(idx)
+        if (!wasStarted) loadData(idx)
         loadRanking(idx)
+        if (wasStarted && state.categories.getOrNull(idx) == RECOMMEND) {
+            PlaybackProbe.note(
+                "index-home-shown",
+                "sections=${state.cat(idx).sections.size} " +
+                    "ms=${com.dengying.player.platform.Clock.nowMs() - at}",
+            )
+        }
     }
 
     /**
@@ -536,14 +613,14 @@ class IndexViewModel(
      */
     private fun loadRecommend(idx: Int) {
         val seq = beginReq(idx)
-        val src = tv189Source()
+        val src = homeSource()
         if (src == null) {
             setCat(idx) {
                 it.copy(
                     started = true,
                     loading = false,
                     hasMore = false,
-                    errMsg = "推荐内容来自「天翼视讯」源，当前未启用——可在「源状态」里开启",
+                    errMsg = "推荐暂时没有内容。去“我的”打开更多片源后下拉重试。",
                 )
             }
             return
@@ -552,27 +629,40 @@ class IndexViewModel(
         viewModelScope.launch {
             try {
                 val t0 = com.dengying.player.platform.Clock.nowMs()
-                val tabs = repo.fetchHomeTabs(src)
+                val feed = fetchHomeFeed(src, reason = "cold", onPartial = { early ->
+                    if (isLatest(idx, seq) && early.isNotEmpty()) {
+                        PlaybackProbe.note(
+                            "index-home-partial",
+                            "reason=cold sections=${early.size} cards=${early.sumOf { it.items.size }} " +
+                                "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                        )
+                        setCat(idx) { it.copy(sections = early, items = emptyList(), loading = false, errMsg = "") }
+                    }
+                })
                 if (!isLatest(idx, seq)) return@launch
-                if (tabs.isEmpty()) {
+                if (feed == null) {
                     setCat(idx) {
                         it.copy(loading = false, hasMore = false, errMsg = "推荐页暂时拉不到内容，请下拉重试")
                     }
                     return@launch
                 }
-                val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.first()
-                val sections = repo.fetchHomeSections(src, tab.path)
-                if (!isLatest(idx, seq)) return@launch
-                sectionsByPath["${src.key}|${tab.path}"] = sections
+                val sections = feed.sections
+                sectionsByPath["${feed.source.key}|${feed.tab.path}"] = sections
                 PlaybackProbe.note(
                     "index-recommend",
-                    "tabs=${tabs.size} sections=${sections.size} " +
+                    "source=${feed.source.key} tabs=${feed.tabs.size} sections=${sections.size} " +
+                        "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                )
+                PlaybackProbe.note(
+                    "index-home-first",
+                    "reason=cold src=${feed.source.key} sections=${sections.size} " +
+                        "cards=${sections.sumOf { it.items.size }} " +
                         "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
                 )
                 setCat(idx) {
                     it.copy(
-                        homeTabs = tabs,
-                        homeTabPath = tab.path,
+                        homeTabs = feed.tabs,
+                        homeTabPath = feed.tab.path,
                         sections = sections,
                         items = emptyList(),
                         loading = false,
@@ -652,32 +742,37 @@ class IndexViewModel(
     private fun refreshRecommend(idx: Int) {
         if (state.cat(idx).refining) return
         val seq = beginReq(idx)
-        val src = tv189Source()
+        val src = homeSource()
         if (src == null) {
-            setCat(idx) { it.copy(refining = false, errMsg = "推荐内容来自「天翼视讯」源，当前未启用") }
+            setCat(idx) { it.copy(refining = false, errMsg = "推荐暂时没有内容。去“我的”打开更多片源后下拉重试。") }
             return
         }
         setCat(idx) { it.copy(refining = true, errMsg = "") }
         viewModelScope.launch {
             try {
-                val tabs = repo.fetchHomeTabs(src, force = true)
+                // 刷新要穿透 TTL：force=true 跳过仓库缓存与负缓存，再走同一套跨源回落。
+                val t0 = com.dengying.player.platform.Clock.nowMs()
+                val feed = fetchHomeFeed(src, force = true, reason = "refresh")
                 if (!isLatest(idx, seq)) return@launch
-                val tab = tabs.firstOrNull { it.name == "推荐" } ?: tabs.firstOrNull()
-                if (tab == null) {
+                if (feed == null) {
                     setCat(idx) { it.copy(refining = false, sections = emptyList(), errMsg = "推荐页暂时拉不到内容") }
                     return@launch
                 }
-                val fetched = repo.fetchHomeSections(src, tab.path, force = true)
-                if (!isLatest(idx, seq)) return@launch
                 // 源站这份首页是运营固定排的，直拉网络也换不出新片。带「换一换」
                 // 备用池的版块（备用片已接在条目后面）每次刷新整体轮换一格，
                 // 让下拉真正换出一批不同的片。
-                val sections = rotateRefreshed(state.cat(idx).sections, fetched)
-                sectionsByPath["${src.key}|${tab.path}"] = sections
+                val sections = rotateRefreshed(state.cat(idx).sections, feed.sections)
+                PlaybackProbe.note(
+                    "index-home-first",
+                    "reason=refresh src=${feed.source.key} sections=${sections.size} " +
+                        "cards=${sections.sumOf { it.items.size }} " +
+                        "elapsed=${com.dengying.player.platform.Clock.nowMs() - t0}",
+                )
+                sectionsByPath["${feed.source.key}|${feed.tab.path}"] = sections
                 setCat(idx) {
                     it.copy(
-                        homeTabs = tabs,
-                        homeTabPath = tab.path,
+                        homeTabs = feed.tabs,
+                        homeTabPath = feed.tab.path,
                         sections = sections,
                         errMsg = if (sections.isEmpty()) "版块暂时没有内容" else "",
                         refining = false,

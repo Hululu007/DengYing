@@ -13,18 +13,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -35,9 +40,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.core.CmsSources
 import com.dengying.player.core.Episode
@@ -51,6 +61,7 @@ import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.InlineNotice
 import com.dengying.player.ui.components.InlinePlayer
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.rememberSkeletonTextColor
 import com.dengying.player.ui.components.glassPageBackdrop
 import com.dengying.player.ui.platform.ConsumePortraitOrientation
 import com.dengying.player.ui.platform.FullscreenState
@@ -60,6 +71,32 @@ import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.AltItem
 import com.dengying.player.ui.viewmodel.DetailViewModel
 import com.dengying.player.data.download.DownloadCenter
+
+/**
+ * 固定宽度按钮里的单行标签样式：量出超过可用宽度就按 0.5sp 步进缩小。
+ *
+ * 【为什么需要这一步】选集区两枚按钮改成等宽 76dp 后，`maxLines = 1` +
+ * `softWrap = false` 只保证不换行，不保证放得下。真机（MuMu，1080×1920，280dpi）
+ * 把字体放大到 2.0x 时，「正序 ↑」实测宽 133px = 76dp，正好顶满按钮，箭头右半边
+ * 被裁掉。用 `TextMeasurer` 先量后定字号，比「把按钮改宽」更能守住等宽这条需求。
+ */
+@Composable
+private fun fittedLabelStyle(text: String, maxWidth: Dp): TextStyle {
+    val measurer = rememberTextMeasurer()
+    val base = MaterialTheme.typography.labelMedium
+    val density = LocalDensity.current
+    val maxPx = with(density) { maxWidth.toPx() }
+    return remember(text, base, maxPx, density.fontScale) {
+        var style = base
+        var guard = 0
+        while (guard++ < 24 && style.fontSize.value > 8f &&
+            measurer.measure(text, style).size.width > maxPx
+        ) {
+            style = style.copy(fontSize = (style.fontSize.value - 0.5f).sp)
+        }
+        style
+    }
+}
 
 @Composable
 fun DetailScreen(
@@ -87,6 +124,10 @@ fun DetailScreen(
      * 默认 true：非导航宿主（预览、测试）调用时不改变既有行为。
      */
     pageActive: Boolean = true,
+    /** 直播直达：跳过详情加载，进入后即全屏，返回直接回频道列表。 */
+    liveMode: Boolean = false,
+    liveUrl: String = "",
+    liveHeaders: String = "",
 ) {
     val vm: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
         key = "detail_$source$vodId",
@@ -104,6 +145,9 @@ fun DetailScreen(
             store = deps.store,
             engineHost = deps.engineHost,
             deps = deps,
+            live = liveMode,
+            liveUrl = liveUrl,
+            liveHeaders = liveHeaders,
         )
     }
     val s = vm.state
@@ -197,7 +241,7 @@ fun DetailScreen(
         // 【为什么仍然 attachInlineSurface】本页仍是引擎的视图宿主，
         // 全屏形态只是布局变化，表面登记语义不变。
         if (vm.screenOnlyFullscreen) {
-            DetailFullscreenView(vm = vm, fullscreen = fullscreen, pageActive = pageActive)
+            DetailFullscreenView(vm = vm, fullscreen = fullscreen, pageActive = pageActive, onBack = onBack, liveMode = liveMode)
         }
 
         // ---- 返回栏 ----
@@ -272,6 +316,11 @@ fun DetailScreen(
                 InlinePlayer(
                     engine = vm.inlineEngine,
                     title = vm.inlineState.title,
+                    episodeName = vm.inlineState.episodeName,
+                    episodeCount = vm.inlineEpisodeCount(),
+                    live = vm.inlineState.live,
+                    zoomMode = vm.inlineState.zoomMode,
+                    onZoomModeChange = { vm.setInlineZoomMode(it) },
                     isPlaying = vm.inlineState.isPlaying,
                     curTime = vm.inlineState.curTime,
                     totalTime = vm.inlineState.totalTime,
@@ -312,6 +361,7 @@ fun DetailScreen(
                             alts = s.altSources,
                             loading = s.altLoading,
                             currentSourceKey = s.sourceKey,
+                            switchingTo = s.switchingTo,
                             onSwitch = { vm.switchToSource(it) },
                         )
                     }
@@ -385,6 +435,7 @@ private fun SkeletonInfoBlock(name: String, pic: String) {
         Row {
             Poster(
                 url = pic,
+                title = name,
                 modifier = Modifier
                     .width(110.dp)
                     .height(150.dp),
@@ -407,7 +458,7 @@ private fun SkeletonInfoBlock(name: String, pic: String) {
                 Text(
                     text = "正在获取详情…",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
+                    color = rememberSkeletonTextColor(),
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
@@ -435,6 +486,7 @@ private fun InfoBlock(item: VideoItem) {
         Row {
             Poster(
                 url = item.vod_pic,
+                title = item.vod_name,
                 modifier = Modifier
                     .width(110.dp)
                     .height(150.dp),
@@ -516,6 +568,7 @@ private fun AltSourceBlock(
     alts: List<AltItem>,
     loading: Boolean,
     currentSourceKey: String,
+    switchingTo: String,
     onSwitch: (AltItem) -> Unit,
 ) {
     GlassSurface(
@@ -544,12 +597,21 @@ private fun AltSourceBlock(
                 color = Palette.TextPrimary,
             )
             Text(
-                text = if (loading) "查找中…" else "另有 ${alts.size} 个",
+                text = when {
+                    switchingTo.isNotEmpty() -> "切换到 $switchingTo…"
+                    loading -> "查找中…"
+                    else -> "另有 ${alts.size} 个"
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
+        // 源清单可到上百条：一次只铺 20 个 chip（含「当前」），其余收进弹窗，
+        // 否则 FlowRow 会把详情页推得极长、每次换源都要滚半天。
+        var showAll by remember { mutableStateOf(false) }
+        val (visibleCount, hidden) = splitSourceChips(alts.size)
+        val visible = alts.take(visibleCount)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -572,15 +634,100 @@ private fun AltSourceBlock(
                     )
                 }
             }
-            for (a in alts) {
+            for (a in visible) {
                 GlassChip(
-                    text = a.sourceName,
+                    text = altLabel(a),
                     onClick = { onSwitch(a) },
                 )
             }
+            if (hidden > 0) {
+                GlassChip(
+                    text = "更多 $hidden 个 ›",
+                    onClick = { showAll = true },
+                )
+            }
+        }
+        if (showAll) {
+            AllSourcesDialog(
+                alts = alts,
+                onSwitch = { showAll = false; onSwitch(it) },
+                onDismiss = { showAll = false },
+            )
         }
     }
     }
+}
+
+/** 详情页一次最多展示的播放源条数（含「当前」chip） */
+private const val MAX_VISIBLE_SOURCES = 20
+
+/**
+ * 候选 chip 文案：集数已后台探测到就带上「全 N 集」。
+ *
+ * 换源前用户最想知道的就是"哪条更全"——以前要点进去才发现是 1 集试看线。
+ * [AltItem.epCount] 为 -1 表示还没探测到，只显示源名，不写猜的数字。
+ */
+private fun altLabel(a: AltItem): String =
+    if (a.epCount > 0) "${a.sourceName} · 全${a.epCount}集" else a.sourceName
+
+/**
+ * 播放源 chip 切分：返回 (直接铺出的候选数, 折叠进「更多」的候选数)。
+ *
+ * 上限含「当前」那枚黑底 chip，所以候选只能占 `max - 1` 个位置；
+ * 候选不多于上限时全部铺出，隐藏数为 0（不出现「更多」）。
+ */
+internal fun splitSourceChips(
+    totalAlternatives: Int,
+    max: Int = MAX_VISIBLE_SOURCES,
+): Pair<Int, Int> {
+    val room = (max - 1).coerceAtLeast(0)
+    val visible = totalAlternatives.coerceIn(0, room)
+    return visible to (totalAlternatives - visible)
+}
+
+/** 「更多」弹窗：列出全部跨源候选，点条目直接换源。 */
+@Composable
+private fun AllSourcesDialog(
+    alts: List<AltItem>,
+    onSwitch: (AltItem) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("全部播放源 · ${alts.size}") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+            ) {
+                items(alts) { a ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSwitch(a) }
+                            .padding(horizontal = 4.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = altLabel(a),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Palette.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "切换",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Palette.Brand,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -623,9 +770,10 @@ private fun EpisodeBlock(
         if (s.resumeNotice.isNotEmpty()) {
             InlineNotice("⚠ ${s.resumeNotice}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
         }
-        // 源播放链缺口：显式提示不可播，避免点进去才静默失败
+        // 源播放链缺口：显式提示不可播，避免点进去才静默失败。
+        // 文案走统一用语——playGap 原文是维护者视角的内部描述，不给用户看。
         if (s.playGap.isNotEmpty()) {
-            InlineNotice("⚠ ${s.playGap}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
+            InlineNotice("⚠ ${com.dengying.player.ui.viewmodel.PLAYBACK_UNAVAILABLE_TEXT}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
         }
         if (s.downloadMsg.isNotEmpty()) {
             Text(
@@ -687,6 +835,7 @@ private fun EpisodeBlock(
                 // 下载模式开关：比长按手势可见，也让「点了就下载」有明确的进入/退出
                 Box(
                     modifier = Modifier
+                        .width(76.dp)
                         .height(36.dp)
                         .background(
                             if (downloadMode) Palette.Brand else Palette.SearchBg,
@@ -697,33 +846,38 @@ private fun EpisodeBlock(
                             PlaybackProbe.note(
                                 "ui-download-mode", "on=$downloadMode",
                             )
-                        }
-                        .padding(horizontal = 12.dp),
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
+                    val downloadLabel = if (downloadMode) "完成" else "下载"
                     Text(
-                        text = if (downloadMode) "完成" else "下载",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = downloadLabel,
+                        style = fittedLabelStyle(downloadLabel, 74.dp),
                         color = if (downloadMode) Color.White else Palette.TextSecondary,
+                        maxLines = 1,
+                        softWrap = false,
                     )
                 }
                 Spacer(Modifier.width(8.dp))
                 if (displayEps.size > 1) {
                     Box(
                         modifier = Modifier
+                            .width(76.dp)
                             .height(36.dp)
                             .background(
                                 if (s.descOrder) Palette.Brand else Palette.SearchBg,
                                 RoundedCornerShape(18.dp),
                             )
-                            .clickable(onClick = onToggleOrder)
-                            .padding(horizontal = 12.dp),
+                            .clickable(onClick = onToggleOrder),
                         contentAlignment = Alignment.Center,
                     ) {
+                        val orderLabel = if (s.descOrder) "倒序 ↓" else "正序 ↑"
                         Text(
-                            text = if (s.descOrder) "倒序 ↓" else "正序 ↑",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = orderLabel,
+                            style = fittedLabelStyle(orderLabel, 74.dp),
                             color = if (s.descOrder) Color.White else Palette.TextSecondary,
+                            maxLines = 1,
+                            softWrap = false,
                         )
                     }
                 }
@@ -868,11 +1022,18 @@ private fun DetailFullscreenView(
     vm: DetailViewModel,
     fullscreen: FullscreenState,
     pageActive: Boolean,
+    onBack: () -> Unit,
+    liveMode: Boolean = false,
 ) {
     SideEffect { vm.attachInlineSurface() }
     InlinePlayer(
         engine = vm.inlineEngine,
         title = vm.inlineState.title,
+        episodeName = vm.inlineState.episodeName,
+        episodeCount = vm.inlineEpisodeCount(),
+        live = vm.inlineState.live,
+        zoomMode = vm.inlineState.zoomMode,
+        onZoomModeChange = { vm.setInlineZoomMode(it) },
         isPlaying = vm.inlineState.isPlaying,
         curTime = vm.inlineState.curTime,
         totalTime = vm.inlineState.totalTime,
@@ -895,6 +1056,7 @@ private fun DetailFullscreenView(
         onExitFullscreen = {
             vm.exitScreenFullscreen()
             fullscreen.exit()
+            if (liveMode) onBack()
         },
         // FR-711 全屏形态扩展（2026-11-15 用户反馈）：倍速 + 投屏键
         speed = vm.inlineSpeed,
@@ -907,5 +1069,6 @@ private fun DetailFullscreenView(
     PlatformBackHandler(enabled = true) {
         vm.exitScreenFullscreen()
         fullscreen.exit()
+        if (liveMode) onBack()
     }
 }

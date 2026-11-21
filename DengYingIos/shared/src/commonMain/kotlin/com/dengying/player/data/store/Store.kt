@@ -176,7 +176,12 @@ class Store(private val store: KeyValueStore) {
         // sync = true 而非 false：异步写拿不到「是否真的写成功」，
         // 而 FR-507 的契约就是返回这个布尔值
         val ok = store.putString(key, StoreEnvelope.encodePayload(jsonArray.toString()), sync = true)
-        if (ok) unmarkNewer(key)
+        if (ok) {
+            unmarkNewer(key)
+        } else {
+            // FR-507：写失败不得静默丢弃，调用方靠返回值给用户提示
+            Log.w("DY/Store", "write $op not persisted: putString returned false")
+        }
         return ok
     }
 
@@ -375,8 +380,8 @@ class Store(private val store: KeyValueStore) {
      * 不把这套同步路径开放给页面：它会在主线程做 IO，只适合"最后一次写入"
      * 这种不可避免的场景。
      */
-    fun saveHistoryBlocking(item: HistoryItem) {
-        try {
+    fun saveHistoryBlocking(item: HistoryItem): Boolean {
+        return try {
             val list = runCatching { getHistoryBlocking() }.getOrDefault(emptyList())
             val next = list.filterNot {
                 it.vod_id == item.vod_id && it.source == item.source &&
@@ -386,14 +391,20 @@ class Store(private val store: KeyValueStore) {
             val pruned = LedgerPrune.pruneLedger(next.map { LedgerEntry(it) }, MAX_HISTORY)
                 .map { it.item }
             val raw = readListRaw(KEY_HIS)
-            if (!StoreEnvelope.canOverwrite(raw)) return
-            store.putString(
+            if (!StoreEnvelope.canOverwrite(raw)) {
+                Log.w("DY/Store", "write saveHistoryBlocking blocked: key holds newer-version data")
+                return false
+            }
+            val ok = store.putString(
                 KEY_HIS,
                 StoreEnvelope.encodePayload(historyJson(pruned).toString()),
                 sync = true,
             )
+            if (!ok) Log.w("DY/Store", "write saveHistoryBlocking not persisted: putString returned false")
+            ok
         } catch (e: Exception) {
             warnWrite("saveHistoryBlocking", e)
+            false
         }
     }
 

@@ -66,6 +66,8 @@ object PlaybackSession {
         val errMsg: String = "",
         /** 【v5.6 试看标记】tv189 免登录试看链（end=300）且跨源未救回全片——UI 打"试看"角标 */
         val isPreview: Boolean = false,
+        /** 直播会话：不可暂停/seek，播完/出错不换源。 */
+        val live: Boolean = false,
     ) {
         /** 是否存在可恢复的会话（详情页内嵌位据此决定恢复还是空态） */
         val hasSession: Boolean get() = url.isNotEmpty() && status != Status.Idle
@@ -137,7 +139,10 @@ object PlaybackSession {
         preHeaders: String = "",
         startAtMs: Long = 0L,
         altUrls: List<String> = emptyList(),
+        localFile: Boolean = false,
+        live: Boolean = false,
     ) {
+        val isLocal = localFile || rawUrl.startsWith("file://", ignoreCase = true)
         // Keep the last settled state before marking this request as Resolving.
         // Replaying the same URL does not call setMedia, so Media3 may not emit a
         // new READY event to clear a speculative Buffering state.
@@ -152,15 +157,17 @@ object PlaybackSession {
         // 而不是各页面：inline（playInline）与未来一切入口共用本方法，一处拦全拦
         // （docs/04 §16.16.4：ap2233 的加密 token 经 caps.token=false 的直通路径
         // 落进引擎报 2001，用户只看到通用「播放失败」）。
-        val gapSrc = com.dengying.player.core.CmsSources.byKey(source)
-        if (gapSrc != null && !gapSrc.playGap.isNullOrEmpty()) {
-            PlaybackProbe.note("playGap-hit", "source=${gapSrc.key} entry=session")
-            _state.value = _state.value.copy(
-                status = Status.Error,
-                errMsg = "该源暂不可播：${gapSrc.playGap}",
-                buffering = false,
-            )
-            return
+        if (!isLocal) {
+            val gapSrc = com.dengying.player.core.CmsSources.byKey(source)
+            if (gapSrc != null && !gapSrc.playGap.isNullOrEmpty()) {
+                PlaybackProbe.note("playGap-hit", "source=${gapSrc.key} entry=session")
+                _state.value = _state.value.copy(
+                    status = Status.Error,
+                    errMsg = "该源暂不可播：${gapSrc.playGap}",
+                    buffering = false,
+                )
+                return
+            }
         }
         // 【换集必须清进度】旧实现只改身份字段，curTime/totalTime 原样留下：
         // 详情页内嵌位把会话状态直接映射成进度条，换集后的解析/缓冲期间
@@ -170,9 +177,11 @@ object PlaybackSession {
         // totalTime 必须归 0：InlinePlayer 以 totalTime<=0 判定"还没拿到时长"
         // 并显示缓冲态——这正是换集后应该看到的形态。
         val prev = _state.value
+        val directMedia = live || isLocal
         val switchingEpisode = !prev.hasSession ||
             prev.vodId != vodId || prev.source != source || prev.episodeIndex != episodeIndex
         _state.value = prev.copy(
+            live = live,
             status = Status.Resolving,
             url = rawUrl,
             headers = "",
@@ -192,10 +201,10 @@ object PlaybackSession {
         scope.launch {
             try {
                 // 1) 地址解析：优先用预解析结果；否则走解析链（含换源兜底）
-                var url = preResolved ?: ""
-                var headers = preHeaders
+                var url = if (directMedia) rawUrl else preResolved ?: ""
+                var headers = if (directMedia) preHeaders else ""
                 var previewOnly = false
-                if (url.isEmpty()) {
+                if (!directMedia && url.isEmpty()) {
                     val resolved = resolveChain(repo, rawUrl, source, vodId, altUrls)
                     if (resolved == null) {
                         _state.value = _state.value.copy(
@@ -207,7 +216,7 @@ object PlaybackSession {
                     url = resolved.url
                     headers = resolved.headers
                     previewOnly = resolved.previewOnly
-                } else if (url.contains("end=300")) {
+                } else if (!isLocal && url.contains("end=300")) {
                     // 【预解析路径的试看兜底】预解析（详情页后台）拿到的若仍是 tv189
                     // end=300 试看授权链，解析链没参与、previewOnly 信号丢失——
                     // 用 URL 特征补判（全片链 end=总时长秒数，恰好 300s 的片极少）。

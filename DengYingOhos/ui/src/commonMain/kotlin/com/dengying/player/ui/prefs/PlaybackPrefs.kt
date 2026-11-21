@@ -18,7 +18,7 @@ object PlaybackPrefs {
     const val DEFAULT_BOOST_SPEED = 2f
 
     /**
-     * 长按右侧画面的临时倍速档位。
+     * 长按画面任意位置的临时倍速档位。
      *
      * 上限 3x：OHOS 播放内核的倍速表最高到 3x，三端使用同一份设置，
      * 不能提供只有 Android 能兑现的 4x。

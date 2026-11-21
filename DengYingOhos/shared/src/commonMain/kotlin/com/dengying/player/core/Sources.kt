@@ -68,7 +68,13 @@ object CmsSources {
     // 规则以正则承载（原工程无 XPath 引擎），正则只用基础语法、不使用 lookbehind。
     // 命中证据见各条 note 与 docs/06 §3.2 验证记录。
 
-    /** 蓝光4k（AH 接口清单 §1.5）：provide/vod 详情 + 非标搜索端点 */
+    /**
+     * 蓝光4k（AH 接口清单 §1.5）：provide/vod 详情 + 非标搜索端点。
+     *
+     * 2026-11-21 复盘：曾把本 key 换到非凡资源，但非凡的最新列表按上传时间倒序，
+     * 首页推荐位全是网络电影/短剧/老片重传，观感比蓝光4k 差一大截；故首页与分类
+     * 仍回到 api2233，非凡资源作为独立可播源（`hulu_ffzy`）供详情页换源使用。
+     */
     private const val AP2233_BASE = "https://api2233.yiys06.com/api.php/provide/vod"
     private const val AP2233_SEARCH =
         "https://api2233.yiys06.com/api.php/search/index?wd={kw}&module=vod&page={page}"
@@ -494,9 +500,13 @@ object CmsSources {
         ),
         CmsSource(
             key = "hulu_ffzy", name = "非凡资源",
-            api = "http://ffzy.tv/api.php/provide/vod/",
-            speed = 43, direct = true, enabled = true, tier = 3,
-            note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=31，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url；站点为 HTTP，仅保留清单声明，传输层校验不放松",
+            api = "https://api.ffzyapi.com/api.php/provide/vod/",
+            speed = 23, direct = false, enabled = true, tier = 3,
+            // 2026-11-21 起兼作「蓝光4k」的换源来源：蓝光只下发加密 token 不可直播，
+            // 同名片在这里 95% 命中且是 /share/<32hex> 分享页，由 HlsUtil 换 m3u8。
+            note = "2026-11-21 实测（https api.ffzyapi.com）：ac=list total=99215/pagecount=4961、31 分类，" +
+                "ac=detail 字段齐全，vod_play_url 每集为 https 分享页，故 direct=false；" +
+                "40 部蓝光4k 同名样本 38 部搜索命中（95%）；搜索走默认 ac=detail&wd=",
         ),
         CmsSource(
             key = "hulu_mdzy", name = "魔都影视",
@@ -504,13 +514,46 @@ object CmsSources {
             speed = 44, direct = true, enabled = true, tier = 3,
             note = "2026-11-20 Hululu007 tvbox-api-backup-- 聚合筛选：list/videolist/detail(ids)/detail(wd) 四端点 JSON 200，class=42，videolist=20，ids 与庆余年搜索均返回 vod_id/vod_play_url（m3u8 直链）",
         ),
+        // 【2026-11-21 停用】该站内容不符合接入规范，XptvParser 的编译期标题黑名单
+        // （XptvParser.kt:153）覆盖不到整站内容。先关掉；恢复的前提是能按站点整体
+        // 口径判定内容合规，而不是再加几个过滤词。
         CmsSource(
             key = "hulu_xptv_cg", name = "橙果短剧",
             api = "https://chengguodj.com",
-            speed = 45, direct = false, enabled = true, tier = 3,
+            speed = 45, direct = false, enabled = false, tier = 3,
             protocol = SourceProtocol.Xptv,
             caps = CAPS_XPTV,
-            note = "2026-11-21 Hululu007 xptv-my4k csp_chengguo 接入：Nuxt 扁平数组分类/搜索/详情可解析，播放页实测含 m3u8；只保留普通短剧标题，成人条目在解析层过滤",
+            note = "2026-11-21 停用：站点内容不符合接入规范，XptvParser 标题黑名单覆盖不到整站内容",
+        ),
+
+        // ==================== Hululu007 清单批量接入（2026-11-21） ====================
+        // 141 条里先剔除 41 条成人源（file=18sex.json / 名称带 🔞·色·麻豆·成人），
+        // 再只保留 https + 标准 provide/vod 的 27 条实测可用端点；与已有源同主机去重后
+        // 剩 10 条，其中搜索/详情都闭环的 4 条启用。其余 48 条非标准 CMS 或不可达，
+        // 不做协议硬接（证据见 docs/04 §19）。speed 按实测响应排序。
+        CmsSource(
+            key = "hulu_hongniu", name = "红牛资源",
+            api = "https://www.hongniuzy2.com/api.php/provide/vod/",
+            speed = 46, direct = false, enabled = true, tier = 3,
+            note = "2026-11-21 实测：ac=list 118333 条 2.3s；搜索「庆余年」8 条 36 集；首行是 /play/ 分享页，由 HlsUtil.resolveSharePage 换 m3u8",
+        ),
+        CmsSource(
+            key = "hulu_aidan", name = "艾旦影视",
+            api = "https://lovedan.net/api.php/provide/vod",
+            speed = 47, direct = false, enabled = true, tier = 3,
+            note = "2026-11-21 实测：ac=list 190257 条 4.2s；搜索「庆余年」12 条 36 集，播放链直接给 hd.ijycnd.com 的 m3u8",
+        ),
+        CmsSource(
+            key = "hulu_xinlang", name = "新浪资源",
+            api = "https://api.xinlangapi.com/xinlangapi.php/provide/vod",
+            speed = 48, direct = false, enabled = true, tier = 3,
+            note = "2026-11-21 实测：ac=list 118956 条 2.8s；搜索「流浪地球」5 条（「庆余年」该站索引为空）；首行 /play/ 分享页，第二行直连 m3u8",
+        ),
+        CmsSource(
+            key = "hulu_uku", name = "U酷资源",
+            api = "https://api.ukuapi.com/api.php/provide/vod",
+            speed = 49, direct = false, enabled = true, tier = 3,
+            note = "2026-11-21 实测：ac=list 60984 条 9.9s（较慢）；搜索「庆余年」3 条 71 集；首行 /share/ 分享页，第二行直连 m3u8",
         ),
     )
 

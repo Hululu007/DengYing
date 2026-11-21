@@ -289,6 +289,35 @@ class PlayerViewModelEngineTest {
         }
     }
 
+    @Test
+    fun `已起播后 retry 会对同一地址再次 setMedia`() = runTest(timeout = 20.seconds) {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val engine = RecordingEngine()
+        val vm = newVm(engine) { okProbe() }
+        vm.attachEngine()
+
+        try {
+            vm.primeEngineForTest(OLD_URL)
+            runCurrent()
+            assertEquals(1, engine.setMediaCalls.size, "前提：首次起播已 setMedia")
+            assertEquals(OLD_URL, engine.currentUrl)
+
+            vm.retry()
+            runCurrent()
+
+            assertEquals(
+                2,
+                engine.setMediaCalls.size,
+                "retry 必须重新 setMedia：bindEngine(null) 后新引擎没有媒体，" +
+                    "startedUrl 幂等判据不能把同址重试挡掉",
+            )
+            assertEquals(OLD_URL, engine.setMediaCalls.last().first, "重试应使用当前已解析地址")
+            assertEquals(OLD_URL, engine.currentUrl)
+        } finally {
+            vm.stopProgressLoopForTest()
+        }
+    }
+
     // ------------------------------------------------------------------ 取消 / 并发
 
     @Test
@@ -426,6 +455,77 @@ class PlayerViewModelEngineTest {
         runCurrent()
     }
 
+    // ------------------------------------------------------------------ 观看历史（计划 14）
+
+    @Test
+    fun `进度过 3 秒立刻写一次历史`() = runTest(timeout = 20.seconds) {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val kv = FakeKeyValueStore()
+        val store = Store(kv).also { it.init() }
+        val engine = RecordingEngine().apply { position = 1_000L }
+        val vm = newVm(engine, { okProbe() }, emptyList(), vodId = 900L, source = "test_src", kv = kv, store = store)
+        vm.attachEngine()
+
+        try {
+            engine.emitPlaying()
+            advanceTimeBy(2_500)
+            runCurrent()
+            assertEquals("", kv.getString("history", ""), "3 秒门槛前不得写历史（误触/片头不算看过）")
+
+            engine.position = 3_500L
+            advanceTimeBy(1_500)
+            runCurrent()
+            awaitHistory(kv, "\"position\":3500")
+            assertTrue(
+                kv.getString("history", "").contains("3500"),
+                "过门槛后应立刻落盘，不能等满 5 个 tick",
+            )
+        } finally {
+            vm.stopProgressLoopForTest()
+        }
+    }
+
+    @Test
+    fun `暂停补写未落盘的进度`() = runTest(timeout = 20.seconds) {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val kv = FakeKeyValueStore()
+        val store = Store(kv).also { it.init() }
+        val engine = RecordingEngine().apply { position = 6_000L }
+        val vm = newVm(engine, { okProbe() }, emptyList(), vodId = 901L, source = "test_src", kv = kv, store = store)
+        vm.attachEngine()
+
+        try {
+            engine.emitPlaying()
+            advanceTimeBy(1_500) // 首个 tick 写 6000
+            runCurrent()
+            awaitHistory(kv, "\"position\":6000")
+
+            // 第二个 tick 只更新 curTime（未到 5 tick 周期），随后用户暂停
+            engine.position = 11_000L
+            advanceTimeBy(1_500)
+            runCurrent()
+            engine.emitPaused()
+            runCurrent()
+
+            awaitHistory(kv, "\"position\":11000")
+            assertTrue(
+                kv.getString("history", "").contains("11000"),
+                "暂停时必须把 curTime 补写一次（FR-408）",
+            )
+        } finally {
+            vm.stopProgressLoopForTest()
+        }
+    }
+
+    /** 落盘走真实 IO 调度器，等它真写完（虚拟时钟等不到别的线程） */
+    private suspend fun awaitHistory(kv: KeyValueStore, needle: String) {
+        kotlinx.coroutines.withContext(Dispatchers.Default) {
+            kotlinx.coroutines.withTimeoutOrNull(3_000) {
+                while (!kv.getString("history", "").contains(needle)) kotlinx.coroutines.delay(10)
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ 脚手架
 
     private fun newVm(
@@ -437,13 +537,17 @@ class PlayerViewModelEngineTest {
         engine: PlayerEngine,
         probe: suspend (String) -> HlsUtil.ReachResult,
         epUrls: List<String>,
+        vodId: Long = 0L,
+        source: String = "",
+        kv: KeyValueStore = FakeKeyValueStore(),
+        store: Store = Store(kv),
     ): PlayerViewModel = PlayerViewModel(
         params = PlayerViewModel.PlayerParams(
             url = OLD_URL,
             title = "测试影片",
-            vodId = 0L,
-            source = "",
-            vodName = "",
+            vodId = vodId,
+            source = source,
+            vodName = if (vodId == 0L) "" else "测试影片",
             vodPic = "",
             vodUri = "",
             lineFrom = "",
@@ -454,7 +558,7 @@ class PlayerViewModelEngineTest {
             epNames = if (epUrls.isEmpty()) emptyList() else epUrls.indices.map { "第${it + 1}集" },
         ),
         repo = SourceRepository(),
-        store = Store(FakeKeyValueStore()),
+        store = store,
         engineHost = FakeEngineHost(engine),
         isDebug = false,
         probeReachability = probe,
@@ -553,7 +657,7 @@ class PlayerViewModelEngineTest {
     }
 
     private class FakeKeyValueStore : KeyValueStore {
-        private val map = mutableMapOf<String, String>()
+        private val map = java.util.concurrent.ConcurrentHashMap<String, String>()
         override fun getString(key: String, defValue: String): String = map[key] ?: defValue
         override fun allKeys(): Set<String> = map.keys.toSet()
         override fun putString(key: String, value: String, sync: Boolean): Boolean {

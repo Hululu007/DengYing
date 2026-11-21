@@ -54,6 +54,10 @@ lifecycle = "2.9.4"
 # 播放与投屏
 media3 = "1.10.1"
 mediarouter = "1.8.1"
+# GMS Cast 框架（FR-418..423）。23.0.0 的 cast-framework POM 传递依赖
+# androidx.mediarouter:1.9.0-beta01，故 app 侧用 resolutionStrategy 锁回 1.8.1，
+# 不把 mediarouter 升到 beta。AAR 的 minCompileSdk=1，不会顶高 compileSdk 36。
+playServicesCastFramework = "23.0.0"
 
 # 协程
 coroutines = "1.11.0"
@@ -101,6 +105,9 @@ androidx-media3-session = { module = "androidx.media3:media3-session", version.r
 
 # ---- 投屏（替代鸿蒙的 AVSessionKit 投播）----
 androidx-mediarouter = { module = "androidx.mediarouter:mediarouter", version.ref = "mediarouter" }
+# GMS Cast 框架：提供 CastContext / SessionManager / RemoteMediaClient / OptionsProvider。
+# 只在 :app 使用，:ui/commonMain 不认识 GMS 类型；iOS target 注入 NoopCastController。
+play-services-cast-framework = { module = "com.google.android.gms:play-services-cast-framework", version.ref = "playServicesCastFramework" }
 
 # ---- 协程 ----
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

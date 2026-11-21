@@ -38,6 +38,8 @@ object Routes {
     const val SOURCE_STATUS = "source_status"
     /** Hululu007 编译期直播频道清单入口 */
     const val LIVE_CHANNELS = "live_channels"
+    /** 直播直达新全屏 UI 的独立路由 */
+    const val LIVE_PLAYER = "live_player"
     const val SETTINGS = "settings"
     const val DOWNLOADS = "downloads"
     /** AH 账号体系：独立登录 / 注册页，无参数（从「我的」页进入） */
@@ -56,6 +58,9 @@ object Routes {
     ): String =
         "$DETAIL?vodId=$vodId&source=${enc(source)}&name=${enc(name)}&pic=${enc(pic)}" +
             "&vodUri=${enc(vodUri)}&resumeEpisode=$resumeEpisode&autoPlay=$autoPlay"
+
+    fun livePlayer(url: String, name: String, source: String, headers: String = ""): String =
+        "$LIVE_PLAYER?url=${enc(url)}&name=${enc(name)}&source=${enc(source)}&headers=${enc(headers)}"
 
     // ---- player ----
     fun player(

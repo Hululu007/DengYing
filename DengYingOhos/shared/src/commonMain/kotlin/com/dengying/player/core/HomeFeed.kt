@@ -29,3 +29,11 @@ data class HomeSection(
     val title: String,
     val items: List<VideoItem>,
 )
+
+/**
+ * 首屏热播版块的固定标题。
+ *
+ * data 层合成时写这个标题，ui 层按它把该版块拆成 Banner + 双列宫格；
+ * 两端共用一个常量，避免中文标题在两处各写一份后漂移。
+ */
+const val HOME_HOT_TITLE = "热播推荐"

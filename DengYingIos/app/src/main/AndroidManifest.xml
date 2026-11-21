@@ -59,6 +59,22 @@
             </intent-filter>
         </activity>
 
+        <!--
+          Google Cast 选项提供者（FR-418..423）。
+
+          CastContext.getSharedInstance() 会按这个名字反射实例化 Provider；
+          实现类 DengYingCastOptionsProvider 就在本模块
+          （app/src/main/java/com/dengying/player/playback/cast/），
+          不再是 PR #6 之前那个指向不存在类的悬空声明，也无需
+          tools:ignore="MissingClass"。
+
+          口径：设备发现与会话管理由 Google Play 服务（GMS Cast 框架）承担，
+          媒体地址交给局域网内的 Cast 接收端自行拉流；应用自身不建服务端、
+          不上传用户数据。详见 docs/01 §1 与 docs/04 §3。
+        -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="com.dengying.player.playback.cast.DengYingCastOptionsProvider" />
     </application>
 
 </manifest>

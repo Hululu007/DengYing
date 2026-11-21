@@ -179,6 +179,7 @@ object HttpClient {
      * GET 原始字节。
      *
      * 用途：离线下载 HLS 分片与 MP4。仍走统一闸门与平台传输，不新增出网通道。
+     * 下载分片可能较大，默认读超时放宽到 30s；调用方按需覆盖。
      */
     suspend fun getBinary(
         url: String,

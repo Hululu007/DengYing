@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import com.dengying.player.data.cache.MediaCache
 import com.dengying.player.data.cache.MediaCacheDataSource
@@ -127,9 +128,19 @@ object PlayerFactory {
             networkFactory.setDefaultRequestProperties(props)
         }
 
+        // 离线下载播放的是应用私有目录里的 `file://` HLS。`DefaultHttpDataSource`
+        // 只接受 HTTP(S)，把 file 连接强转 `HttpURLConnection` 会抛
+        // ClassCastException（真机 0:00 起播即 2000 Source error）。用
+        // `DefaultDataSource` 按 scheme 分派：file → FileDataSource，
+        // http(s) → 带请求头的 DefaultHttpDataSource。
+        val baseFactory = DefaultDataSource.Factory(context, networkFactory)
+
         // KMP P4-1c：缓存的 Media3 解释点已收进 MediaCacheDataSource（:app 唯一一处），
         // 决策层（开关/上限/预热时机）在 :shared/commonMain 的 MediaCache。
-        val factory = MediaCacheDataSource.wrap(networkFactory)
+        // 本地文件不进入网络缓存：它已经在磁盘上，套 CacheDataSource 只会多一层
+        // 无意义的复制与状态。
+        val isLocal = url.startsWith("file://", ignoreCase = true)
+        val factory = if (isLocal) baseFactory else MediaCacheDataSource.wrap(baseFactory)
         val item = MediaItem.fromUri(url)
         return if (url.substringBefore('?').lowercase().endsWith(".m3u8")) {
             HlsMediaSource.Factory(factory).createMediaSource(item)

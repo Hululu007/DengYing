@@ -90,6 +90,13 @@ android {
     }
 }
 
+// cast-framework 23.0.0 的 POM 声明 androidx.mediarouter:1.9.0-beta01。
+// 本项目把 mediarouter 锁在 1.8.1（版本目录 mediarouter，minCompileSdk 已校验），
+// 不让第三方 POM 悄悄把稳定线换成 beta。Gradle 默认取最高版本，故需显式 force。
+configurations.all {
+    resolutionStrategy.force(libs.androidx.mediarouter.get().toString())
+}
+
 dependencies {
     // ---- 跨平台逻辑层（KMP P1）----
     // core/ 与 domain/ 已全部下沉到 :shared/commonMain。:app 通过它访问这些类型，
@@ -139,7 +146,10 @@ dependencies {
     implementation(libs.androidx.media3.session)
 
     // ---- 投屏（替代 AVSessionKit 投播）----
+    // FR-418..423：GMS Cast 框架 + MediaRouter 程序化选路。
+    // 设备发现与会话管理由 Play 服务承担，媒体由接收端直拉；口径见 docs/01 §1。
     implementation(libs.androidx.mediarouter)
+    implementation(libs.play.services.cast.framework)
 
     // ---- 协程 ----
     implementation(libs.kotlinx.coroutines.android)

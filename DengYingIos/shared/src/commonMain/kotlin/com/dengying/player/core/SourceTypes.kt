@@ -15,7 +15,7 @@ enum class SourceProtocol {
     /** 苹果CMS/海洋CMS 标准 provide/vod */
     Cms,
 
-    /** provide/vod 详情 + 非标搜索端点（蓝光4k） */
+    /** provide/vod 详情（非标搜索端点已不用；沿用以保留首页分类合成） */
     Api2233,
 
     /** 米米4k：普通 JSON + /parse 换链 */

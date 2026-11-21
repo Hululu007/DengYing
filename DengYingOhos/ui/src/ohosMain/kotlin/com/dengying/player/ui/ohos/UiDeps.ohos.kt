@@ -7,6 +7,8 @@ import com.dengying.player.data.store.Store
 import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Log
+import com.dengying.player.playback.cast.CastController
+import com.dengying.player.playback.cast.NoopCastController
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.account.AhAuth
@@ -45,6 +47,14 @@ object OhosUiDeps : UiDeps {
      * 暂不生效。
      */
     override val engineHost: PlayerEngineHost = OhosPlayerEngineHost
+
+    /**
+     * 投屏（FR-418..423）：鸿蒙侧没有 GMS Cast，注入空实现。
+     *
+     * UI 的投屏入口会显示但 `isAvailable() == false`，与 iOS 壳一致；
+     * 真投屏只在 Android 壳由 `GmsCastController` 提供，口径见 docs/03。
+     */
+    override val castController: CastController = NoopCastController
 
     /** 当前只有 debug 产物（HAP 由 hvigor debug 构建），真接签名包时改由 ArkTS 传入 */
     override val isDebug: Boolean = true

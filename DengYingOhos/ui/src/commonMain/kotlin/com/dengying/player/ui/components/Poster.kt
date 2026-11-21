@@ -1,10 +1,17 @@
 package com.dengying.player.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,9 +21,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import com.dengying.player.platform.PlatformLock
 import com.dengying.player.ui.theme.Palette
 
@@ -134,10 +145,9 @@ private suspend fun fetchAndDecode(url: String): ImageBitmap? {
 }
 
 /**
- * 海报位。
+ * 海报位：有图显示图；下载中浅灰呼吸；失败/空地址显示片名首字渐变兜底。
  *
- * 加载中与失败都显示**同一个暖灰底块**——原工程用 `alt` 占位，
- * 这里手写对应物：不给"加载中骨架屏"，因为海报位很小，闪一下骨架反而更花。
+ * 不再有「有海报位却全灰」的状态：空 URL 直接兜底，失败自动重试一次后停在兜底。
  */
 @Composable
 fun Poster(
@@ -145,29 +155,90 @@ fun Poster(
     modifier: Modifier = Modifier,
     cornerRadius: Int = 6,
     contentScale: ContentScale = ContentScale.Crop,
+    title: String = "",
 ) {
     var bitmap by remember(url) { mutableStateOf(PosterCache.get(url)) }
+    var failed by remember(url) { mutableStateOf(false) }
 
     LaunchedEffect(url) {
-        if (bitmap == null && url.isNotEmpty()) {
-            bitmap = loadPoster(url)
+        failed = false
+        if (url.isEmpty()) return@LaunchedEffect
+        PosterCache.get(url)?.let { bitmap = it; return@LaunchedEffect }
+        val first = loadPoster(url)
+        if (first != null) {
+            bitmap = first
+        } else {
+            // 失败后再试一次：绕开单飞直接取字节，避免拿到第一次的同一个失败结果。
+            val retry = loadPosterAfterFailure(url)
+            bitmap = retry
+            failed = retry == null
         }
     }
 
+    val breathing by rememberInfiniteTransition(label = "poster-loading").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "poster-loading-alpha",
+    )
+
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(cornerRadius.dp))
-            .background(Palette.SearchBg),
+            .clip(RoundedCornerShape(cornerRadius.dp)),
         contentAlignment = Alignment.Center,
     ) {
         val b = bitmap
-        if (b != null) {
-            Image(
+        when {
+            b != null -> Image(
                 bitmap = b,
                 contentDescription = null,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
             )
+            url.isEmpty() || failed -> PosterFallback(title = title)
+            else -> Box(
+                Modifier.fillMaxSize().background(Palette.TextSecondary.copy(alpha = breathing * 0.32f)),
+            )
         }
     }
 }
+
+@Composable
+private fun PosterFallback(title: String) {
+    val (c1, c2) = posterFallbackColors(title)
+    Box(
+        modifier = Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(Color(c1), Color(c2))),
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        val ch = posterFallbackChar(title)
+        if (ch != null) {
+            Text(
+                text = ch.toString(),
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.9f),
+                ),
+            )
+        } else {
+            DyIcon(
+                icon = DyIcons.Play,
+                tint = Color.White.copy(alpha = 0.85f),
+                size = 36.dp,
+                contentDescription = null,
+            )
+        }
+    }
+}
+
+/** 绕开单飞缓存强制再拉一次，供失败重试专用。 */
+private suspend fun loadPosterAfterFailure(url: String): ImageBitmap? =
+    try {
+        fetchAndDecode(url)?.also { PosterCache.put(url, it) }
+    } catch (_: Exception) {
+        null
+    }

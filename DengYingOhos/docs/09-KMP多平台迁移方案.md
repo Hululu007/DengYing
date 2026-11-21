@@ -366,6 +366,13 @@ NSUserDefaults 冒烟（M-12）、签名与 `DEVELOPMENT_TEAM`（M-26）。
 **均未验证**。本文任何声称 iOS 可用的表述都不成立，直到 `docs/11` 的对应项
 在 Mac 上做完并记回 `docs/04` §16。
 
+**2026-11-07 漂移复验**：P5-6 后 commonMain 漂移（`355f4f3` detail 提速 + P6-4~7
+鸿蒙线）把 `:ui` iOS klib 打断 1 处（`PosterFetch.ios.kt` 缺
+`platform.Foundation.setValue` import），补 1 行回绿；klib 四任务 `--rerun-tasks`
+强制全量 0 `e:`、测试 775 例 0 失败，详见 `docs/04` §16.40。上方边界声明不变。
+
+**2026-11-21 计划 14 跨端同步（已补）**：本轮先前只在 `DengYing/`（Android 侧）落盘的改动，已按用户「保持 iOS、鸿蒙和安卓进度同步」的要求同步到 `DengYingIos/` 与 `DengYingOhos/`：`shared/commonMain`、`ui/commonMain` 全量对齐 Android 当前源码；`app/src/main` 对齐后按平台差异收口（GMS Cast 仅 Android/iOS Android 壳保留，OHOS 壳改 `NoopCastController` 并移除 manifest 的 Cast Provider）；新增 JVM 测试与金样本一并复制到两端。保留的平台差异：`OhosVideoSurfaceBridge`/`VideoSurfaceLayer.kt`、`HttpHeaderCodec.kt`、`PlayerScreen.kt` 的鸿蒙画面打洞、`Platform.ohos.kt` 的 `VideoSurface` 新 `zoomMode` 参数与 `OhosUiDeps.castController`。验证：iOS `:shared:jvmTest :ui:jvmTest :app:testDebugUnitTest :app:assembleDebug` 通过；OHOS `:shared:jvmTest :ui:compileKotlinOhosX64` 的已修编译错误见 `docs/04`。**iOS framework link/Xcode 与鸿蒙 HAP/装机仍只能在对应平台验证，Windows 侧编译通过不等于运行期可用。**
+
 ## 参考
 
 - [Compose Multiplatform 1.10 发布说明（Navigation 3 支持）](https://blog.jetbrains.com/kotlin/2026/01/compose-multiplatform-1-10-0)

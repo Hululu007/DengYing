@@ -52,6 +52,7 @@ import com.dengying.player.player.PlayerEngine
 actual fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier,
+    zoomMode: VideoZoomMode,
     onBind: (bound: Boolean) -> Unit,
 ) {
     var surfaceReady by remember { mutableStateOf(OhosVideoSurfaceBridge.isReady()) }

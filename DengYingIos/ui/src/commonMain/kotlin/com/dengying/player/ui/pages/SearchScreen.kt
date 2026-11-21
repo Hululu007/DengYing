@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -21,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +45,8 @@ import com.dengying.player.ui.components.GlassActionButton
 import com.dengying.player.ui.components.GlassClearButton
 import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.Poster
+import com.dengying.player.ui.components.SkeletonResultRows
+import com.dengying.player.ui.components.rememberSkeletonColor
 import com.dengying.player.ui.components.GlassPage
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.theme.Palette
@@ -140,23 +140,8 @@ fun SearchScreen(
         }
 
         when {
-            // 加载中（还没有任何结果时才显示整页 spinner）
-            s.searching && s.results.isEmpty() -> Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 60.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(36.dp), color = Palette.Brand, strokeWidth = 3.dp,
-                )
-                Text(
-                    text = s.tip,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
-            }
+            // 首搜骨架与结果行同版式，减少加载完成时的跳动；提示文案保留在搜索栏上方
+            s.searching && s.results.isEmpty() -> SkeletonResultRows(rememberSkeletonColor())
 
             s.results.isNotEmpty() -> {
                 LazyColumn(
@@ -383,6 +368,7 @@ private fun ResultRow(item: VideoItem, onClick: () -> Unit) {
         ) {
         Poster(
             url = item.vod_pic,
+            title = item.vod_name,
             modifier = Modifier
                 .width(80.dp)
                 .height(110.dp),

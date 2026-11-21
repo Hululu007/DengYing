@@ -1,12 +1,17 @@
 package com.dengying.player.app
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.data.store.Store
+import com.dengying.player.platform.KeyValueStore
+import com.dengying.player.platform.SharedPrefsStore
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.UiDepsHolder
-import com.dengying.player.platform.SharedPrefsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +38,15 @@ class DengYingApp : Application(), UiDeps {
     override lateinit var store: Store
         private set
 
+    /**
+     * 更新提示状态使用的 KV，与 [store] 共用同一个 preferences 文件。
+     *
+     * `Store` 不暴露底层 KV；更新提示只需要两个独立键，单独持有同一个实例
+     * 比给 Store 增加公共 getter 更窄。
+     */
+    override lateinit var keyValueStore: KeyValueStore
+        private set
+
     /** 源接入聚合客户端（含健康表与分类缓存） */
     override lateinit var sources: SourceRepository
         private set
@@ -47,6 +61,30 @@ class DengYingApp : Application(), UiDeps {
         get() = com.dengying.player.playback.PlaybackEngineHolder
 
     /**
+     * [UiDeps] 契约实现：投屏通道（FR-418..423）。
+     *
+     * `GmsCastController` 构造时会取 `CastContext.getSharedInstance()`，
+     * 依赖 Manifest 里已登记的 `DengYingCastOptionsProvider`。用 `lazy`
+     * 而不是 `onCreate` 里立即建：CastContext 初始化要等 Application 完全就绪，
+     * 且并非每次启动都会点投屏，懒建省一次 GMS 绑定。
+     *
+     * 拿不到 Play 服务时 `GmsCastController` 自己降级为 `isAvailable() == false`，
+     * 不会让启动崩溃。
+     */
+    /**
+     * [UiDeps] 契约实现：投屏通道（FR-418..423）。
+     *
+     * 【本工程为什么是 Noop】CPF 线只跑 Android + 鸿蒙，投屏是 Android 壳的
+     * GMS Cast 能力；把 `play-services-cast-framework` 引进本工程会连带把
+     * mediarouter 换到 beta 线，与 CPF 侧锁定的 androidx 端口冲突。故这里注入
+     * `NoopCastController`：UI 侧投屏入口保持可见但 `isAvailable() == false`，
+     * 与 iOS/鸿蒙侧一致。要开真投屏时再按 `DengYing/app/build.gradle.kts` 的做法
+     * 引入 GMS Cast，并同步 docs/03、docs/04。
+     */
+    override val castController: com.dengying.player.playback.cast.CastController =
+        com.dengying.player.playback.cast.NoopCastController
+
+    /**
      * [UiDeps] 契约实现：是否 debug 构建。
      *
      * 迁移前 `PlayerViewModel` 直接读 `BuildConfig.DEBUG`，升舱到 `:ui` 后
@@ -55,6 +93,12 @@ class DengYingApp : Application(), UiDeps {
      */
     override val isDebug: Boolean
         get() = com.dengying.player.BuildConfig.DEBUG
+
+    override val appVersionName: String
+        get() = com.dengying.player.BuildConfig.VERSION_NAME
+
+    override val appVersionCode: Long
+        get() = com.dengying.player.BuildConfig.VERSION_CODE.toLong()
 
     /** 首页分页结果缓存（FR-701/702）—— 派生数据，与用户资产分开存 */
     override lateinit var pageCache: com.dengying.player.data.cache.PageCache
@@ -67,6 +111,7 @@ class DengYingApp : Application(), UiDeps {
         // 播放链路探针：写应用私有目录。**不依赖日志**——实测 vivo 会全量过滤
         // 本应用日志，排查时读不到任何自打日志。
         com.dengying.player.player.PlaybackProbe.init(filesDir.absolutePath)
+        // 离线下载文件区：与播放缓存分开，清缓存不会误删已下载剧集。
         com.dengying.player.data.download.DownloadStorage.init(
             java.io.File(filesDir, "downloads").absolutePath,
         )
@@ -96,7 +141,8 @@ class DengYingApp : Application(), UiDeps {
         // P3 批 E：SharedPreferences 由 SharedPrefsStore 包成跨平台接口，
         // commonMain 的 Store/PageCache 只认接口，不再认识 android.content。
         val prefs = getSharedPreferences("hmvideo_store", Context.MODE_PRIVATE)
-        val kv = SharedPrefsStore(prefs)
+        keyValueStore = SharedPrefsStore(prefs)
+        val kv = keyValueStore
         store = Store(kv)
         // 两个BT 登录态与用户资产共用同一 preferences 文件（独立键，见 BttwoAuth）
         com.dengying.player.data.source.adapters.BttwoAuth.init(kv)
@@ -105,6 +151,7 @@ class DengYingApp : Application(), UiDeps {
         com.dengying.player.ui.account.AhAuth.init(kv)
         // 主题风格偏好（我的页可切，见 ThemePrefs）同样走这份 kv
         com.dengying.player.ui.theme.ThemePrefs.init(kv)
+        // 播放偏好（长按倍速、媒体缓存开关）必须早于首个播放器数据源构建
         com.dengying.player.ui.prefs.PlaybackPrefs.init(kv)
         com.dengying.player.data.download.DownloadCenter.init(kv)
         sources = SourceRepository()
@@ -133,6 +180,43 @@ class DengYingApp : Application(), UiDeps {
             // 而这条"存储是否就绪"是排查 FR-507 类问题的第一手证据，必须能读到。
             android.util.Log.w("DY/App", "store ${store.storeState()} reason=${store.storeFailReason()}")
         }
+    }
+
+    /**
+     * 只允许打开本仓库的 GitHub / Gitee Releases 页面。
+     *
+     * 更新检查本身已经校验了下载页地址，这里再做一次 host/path 校验，防止
+     * 将来调用方把任意 URL 传进来时被 `ACTION_VIEW` 直接打开。
+     */
+    override fun openExternalUrl(url: String): Boolean {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+        if (uri.scheme != "https") return false
+        val path = uri.path ?: return false
+        val allowed = when (uri.host) {
+            "github.com" -> {
+                path == "/xiao-hans/DengYing/releases" ||
+                    path.startsWith("/xiao-hans/DengYing/releases/")
+            }
+            "gitee.com" -> {
+                path == "/han-xiaos-whisper/DengYing/releases" ||
+                    path.startsWith("/han-xiaos-whisper/DengYing/releases/")
+            }
+            else -> false
+        }
+        if (!allowed) return false
+        return runCatching {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    override fun copyText(text: String): Boolean {
+        if (text.isBlank()) return false
+        val clipboard = getSystemService(ClipboardManager::class.java) ?: return false
+        clipboard.setPrimaryClip(ClipData.newPlainText("DengYing 下载链接", text))
+        return true
     }
 
     companion object {

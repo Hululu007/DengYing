@@ -14,6 +14,7 @@ import com.dengying.player.core.CmsSources
 import com.dengying.player.core.capsOf
 import com.dengying.player.domain.playback.CastUtil
 import com.dengying.player.domain.playback.HlsVariants
+import com.dengying.player.domain.playback.HistoryWritePolicy
 import com.dengying.player.domain.playback.ResumeRestore
 import com.dengying.player.domain.playback.SeekPreview
 import com.dengying.player.domain.ui.UrlGuard
@@ -26,6 +27,12 @@ import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Clock
 import com.dengying.player.platform.Log
 import com.dengying.player.platform.ioDispatcher
+import com.dengying.player.playback.cast.CastController
+import com.dengying.player.playback.cast.CastDevice
+import com.dengying.player.playback.cast.CastEvent
+import com.dengying.player.playback.cast.CastMedia
+import com.dengying.player.playback.cast.DisconnectCause
+import com.dengying.player.playback.cast.NoopCastController
 import com.dengying.player.ui.prefs.PlaybackPrefs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -70,6 +77,15 @@ class PlayerViewModel(
      * 经平台壳注入。
      */
     private val isDebug: Boolean,
+    /**
+     * 投屏通道（FR-418..423）。
+     *
+     * 由 `:app` 的 `UiDeps` 注入基于 GMS Cast 框架的实现；缺省 [NoopCastController]
+     * 只给 JVM 单测与没有投屏通道的平台壳用，不伪造投屏能力。
+     * 用接口而非 expect/actual：`PlayerViewModel` 在 commonMain 不能认识 GMS 类型，
+     * 而这是装配关系，不是平台服务。
+     */
+    private val castController: CastController = NoopCastController,
     /**
      * 清晰度换档前的可达性探测。
      *
@@ -116,10 +132,10 @@ class PlayerViewModel(
          */
         val headersJson: String = "",
         /**
-         * 离线下载的本地文件。
+         * 本地离线文件：地址由下载中心产出的 `file://` URL。
          *
-         * 不走 UrlGuard / 分享页解析 / token 换链 / 码率变体 / 自动换线，
-         * 直接把 file:// 地址交给引擎。
+         * 本地文件不走 UrlGuard（只允许 http/https）、分享页解析、token 换链、
+         * 码率变体抓取和自动换线；直接交给引擎。
          */
         val localFile: Boolean = false,
         /** HLS 直播：短窗口结束不算本集看完，播放器保持待机等待下一段。 */
@@ -166,6 +182,12 @@ class PlayerViewModel(
         val castBlockReason: String = "",
         val castMsg: String = "",
         val castLink: CastUtil.CastabilityKind = CastUtil.CastabilityKind.NotCastable,
+        /** 已发现的可投设备（FR-420）。空列表 + [showCastSheet] = 正在搜索。 */
+        val castDevices: List<CastDevice> = emptyList(),
+        /** 设备选择面板是否展开。 */
+        val showCastSheet: Boolean = false,
+        /** 是否已建立投屏会话；true 时顶栏按钮变「停止投屏」。 */
+        val castConnected: Boolean = false,
         /**
          * 一次性轻提示（如「该清晰度暂时不可用，已回退原档位」）。
          *
@@ -279,6 +301,8 @@ class PlayerViewModel(
         override fun onPaused() {
             progressLoop.stop()
             state = state.copy(isPlaying = false)
+            // FR-408：暂停补写一次——5 秒周期可能还没轮到，用户已经离页
+            saveHistoryOnPause()
         }
 
         override fun onBuffering(active: Boolean) {
@@ -369,8 +393,10 @@ class PlayerViewModel(
         }
         state = state.copy(curTime = pos)
         if (pendingSeekTargetMs > 0L) pendingSeekTargetMs = 0L
+        // 3 秒门槛前不写（误触/片头不算看过）；过门槛后先立刻写一次，再每 5 tick 一次
+        if (!HistoryWritePolicy.shouldWrite(pos)) return
         lastSaveTick++
-        if (lastSaveTick % 5 == 0) persistHistory()
+        if (lastSavedPositionMs < 0L || lastSaveTick % 5 == 0) persistHistory()
     }
 
     private var resolvedUrl = params.url
@@ -386,6 +412,8 @@ class PlayerViewModel(
     private var urlReady = false
     private var starting = false
     private var lastSaveTick = 0
+    /** 上次成功落盘的位置；`-1` = 当前集还没写过。换集/播完/seek 后重置 */
+    private var lastSavedPositionMs = -1L
     private var hideTimerJob: kotlinx.coroutines.Job? = null
 
     /** 缓存的变体清单判据（`shouldShowPicker` 每次重组都算一遍没必要） */
@@ -461,7 +489,7 @@ class PlayerViewModel(
     fun resolveUrl() {
         viewModelScope.launch {
             val raw = currentUrl
-            if (params.localFile) {
+            if (params.localFile && raw.startsWith("file://", ignoreCase = true)) {
                 PlaybackProbe.note("local-file-play", "len=${raw.length}")
                 resolvedUrl = raw
                 resolvedHeaders = ""
@@ -469,6 +497,7 @@ class PlayerViewModel(
                 startedHeaders = ""
                 urlReady = true
                 state = state.copy(status = "正在准备…", errMsg = "")
+                refreshCastability()
                 startEngine()
                 return@launch
             }
@@ -500,7 +529,7 @@ class PlayerViewModel(
             // 提前拦会掐掉本可播的线路（两个BT 就是这种形态）。
             if (src != null && !capsOf(src).token && !src.playGap.isNullOrEmpty()) {
                 PlaybackProbe.note("playGap-hit", "source=${src.key}")
-                state = state.copy(errMsg = "该源暂不可播：${src.playGap}", status = "")
+                state = state.copy(errMsg = PLAYBACK_UNAVAILABLE_TEXT, status = "")
                 return@launch
             }
             val tokenNeedsSwap = src != null && capsOf(src).token &&
@@ -584,7 +613,7 @@ class PlayerViewModel(
                     } else {
                         // 换链为空：若是已知播放链缺口，显式说明而不是静默失败
                         if (!src.playGap.isNullOrEmpty()) {
-                            state = state.copy(errMsg = "该源暂不可播：${src.playGap}", status = "")
+                            state = state.copy(errMsg = PLAYBACK_UNAVAILABLE_TEXT, status = "")
                             return@launch
                         }
                     }
@@ -1151,6 +1180,9 @@ class PlayerViewModel(
     /** FR-507：续播点未落盘必须可见（否则用户以为"接着看"生效，实际回到片头） */
     private suspend fun persistHistory() {
         if (params.vodId == 0L || params.source.isEmpty()) return
+        val pos = state.curTime
+        // 3 秒门槛内不写；同一位置重复回调也不重复写
+        if (!HistoryWritePolicy.shouldWrite(pos, lastSavedPositionMs)) return
         val item = HistoryItem(
             vod_id = params.vodId,
             vod_name = params.vodName.ifEmpty { state.title },
@@ -1159,13 +1191,27 @@ class PlayerViewModel(
             vod_uri = params.vodUri,
             episodeIndex = state.curEpIndex,
             episodeName = currentEpName,
-            position = state.curTime,
+            position = pos,
             duration = state.totalTime,
             updateTime = Clock.nowMs(),
         )
-        if (!store.saveHistory(item)) {
+        val ok = store.saveHistory(item)
+        if (ok) {
+            lastSavedPositionMs = pos
+        } else {
             state = state.copy(errMsg = state.errMsg.ifEmpty { "本地存储不可用，观看记录未保存" })
         }
+        // 写没写是历史问题的唯一可观测证据；读取探针（resume-restore）不能当写入证据
+        PlaybackProbe.note(
+            "history-save",
+            "vod=${params.vodId} source=${params.source} ep=${state.curEpIndex} pos=$pos result=${if (ok) "ok" else "fail"}",
+        )
+    }
+
+    /** 暂停时补写一次（FR-408）：3 秒门槛内或位置未变则不写 */
+    private fun saveHistoryOnPause() {
+        if (!HistoryWritePolicy.shouldWrite(state.curTime, lastSavedPositionMs)) return
+        viewModelScope.launch { persistHistory() }
     }
 
     // ---------------- 控制 ----------------
@@ -1295,7 +1341,7 @@ class PlayerViewModel(
     private var boostPrevSpeed: Float? = null
 
     /**
-     * 长按画面右侧：临时切到设置里的长按倍速。
+     * 长按画面任意位置：临时切到设置里的长按倍速。
      *
      * 重复调用幂等；松手由 [endBoost] 恢复进入前的速度。
      */
@@ -1569,6 +1615,9 @@ class PlayerViewModel(
                 showQualitySheet = false,
             )
             showQualityEntry = false
+            // 新集是新条目：旧集的 "5 tick / 已落盘位置" 不能带过来
+            lastSaveTick = 0
+            lastSavedPositionMs = -1L
             // variantsEpIndex 故意保留：它标记"旧清单属于哪一集"，
             // applyQuality 靠它拒绝换集后残留的旧档位点击。
             resolvedUrl = epUrl
@@ -1636,29 +1685,158 @@ class PlayerViewModel(
             // 显式保证主线程：ExoPlayer 的 API 全部要求主线程（真机踩过 wrong-thread 异常）
             engineHost.surfaceInactive()
             bindEngine(null)
+            // 重试必须重新 setMedia：新引擎没有媒体，而 startEngine 的幂等判据
+            // （startedUrl == resolvedUrl）会直接 return，把重试变成黑屏。
+            // 旧实现依赖"引擎从不释放"这一前提；这里显式清空，地址与请求头成对清。
+            startedUrl = ""
+            startedHeaders = ""
             // 不直接 starting=false：startEngine 用代际管理该标志，
             // 手工复位会让在飞的起播提前解锁并二次 setMedia。
             if (urlReady) startEngine() else resolveUrl()
         }
     }
 
-    // ---------------- 投屏可投性（FR-419） ----------------
+    // ---------------- 投屏通道（FR-418..423） ----------------
 
     /**
      * 重算源可投性。判定为纯函数，见 [CastUtil]。
      *
-     * `castEnabled` 只表达「这个源能不能投」，不掺连接中状态——
+     * `castEnabled` 表达「这个源能不能投 + 通道在不在」，但不掺连接中状态——
      * 一旦掺入，投播组件会因为自身把状态置为 Connecting 而把自己从界面上抹掉。
+     * 通道不可用（无 GMS / 无设备）时同样禁用入口并给出理由，不能留一个点了没反应的按钮。
      */
     private fun refreshCastability() {
         // 判定输入只有两项——解析后的地址、是否依赖自定义请求头。
         // 换链来源作为第三项只影响「可投/可试」的区分，不参与禁用判定。
         val fromChain = resolvedHeaders.isNotEmpty() || params.source.isNotEmpty()
         val c = CastUtil.decideCastability(resolvedUrl, resolvedHeaders.isNotEmpty(), fromChain)
+        val sourceEnabled = CastUtil.isCastEntryEnabled(c)
+        val channelAvailable = castController.isAvailable()
         state = state.copy(
-            castEnabled = CastUtil.isCastEntryEnabled(c),
-            castBlockReason = CastUtil.castBlockText(c.reason),
+            castEnabled = sourceEnabled && channelAvailable,
+            castBlockReason = when {
+                !sourceEnabled -> CastUtil.castBlockText(c.reason)
+                !channelAvailable -> "当前设备不支持投屏，请检查 Google Play 服务"
+                else -> ""
+            },
+            castLink = c.kind,
         )
+    }
+
+    /**
+     * 顶栏「投屏」点击（FR-418 / FR-420 / FR-422）。
+     *
+     * 已连接 → 停止投屏并回落本机；未连接 → 开始发现设备并展开选择面板。
+     * `castController.isAvailable()` 为 false 时入口已被禁用，这里再兜一次底，
+     * 避免从其它路径（如恢复状态）触发点击后静默无反应。
+     */
+    fun onCastClick() {
+        if (state.castConnected) {
+            stopCast()
+            return
+        }
+        if (!state.castEnabled || !castController.isAvailable()) {
+            state = state.copy(
+                castMsg = CastUtil.castFailureText(
+                    CastUtil.classifyCastFailure(CastUtil.Stage.Precheck, hasAddress = resolvedUrl.isNotEmpty()),
+                ),
+            )
+            return
+        }
+        state = state.copy(showCastSheet = true, castMsg = "", castDevices = emptyList())
+        castController.startDiscovery(
+            onDevices = { devices ->
+                if (!cleared) state = state.copy(castDevices = devices)
+            },
+            onState = { event -> if (!cleared) onCastEvent(event) },
+        )
+    }
+
+    /** 用户在面板里选中一台设备（FR-420）。 */
+    fun onCastDeviceSelected(deviceId: String) {
+        if (!state.castEnabled) return
+        val ok = castController.selectDevice(deviceId)
+        if (!ok) {
+            onCastFailure(CastUtil.Stage.Link, hasAddress = resolvedUrl.isNotEmpty())
+            return
+        }
+        state = state.copy(castMsg = "正在连接投屏设备…")
+    }
+
+    /** 关掉设备选择面板。不结束已建立的会话。 */
+    fun dismissCastSheet() {
+        state = state.copy(showCastSheet = false)
+    }
+
+    /** 停止投屏：结束远端会话，随后由 [CastEvent.Disconnected] 回落本机。 */
+    private fun stopCast() {
+        state = state.copy(castMsg = "正在断开投屏…")
+        castController.endSession()
+    }
+
+    /** 来自 [CastController] 的事件统一入口。 */
+    private fun onCastEvent(event: CastEvent) {
+        when (event) {
+            CastEvent.Connected -> {
+                // 会话建立后立刻下发媒体（FR-421）。本机先暂停，避免两端同时出声。
+                val media = CastMedia(
+                    url = resolvedUrl,
+                    title = params.title.ifEmpty { state.title },
+                    subtitle = currentEpName.ifEmpty { state.title },
+                    startPositionMs = state.curTime,
+                    contentType = "", // 由 GmsCastController 按扩展名推断
+                )
+                val accepted = castController.load(media)
+                if (!accepted) {
+                    onCastFailure(CastUtil.Stage.Link, hasAddress = resolvedUrl.isNotEmpty())
+                } else {
+                    runCatching { engineHost.peek()?.pause() }
+                    state = state.copy(castMsg = "正在投屏…")
+                }
+            }
+            CastEvent.HandoffStarted -> {
+                state = state.copy(
+                    castConnected = true,
+                    showCastSheet = false,
+                    castMsg = "已投屏到电视",
+                )
+            }
+            is CastEvent.Failed -> onCastFailure(event.stage, event.hasAddress)
+            is CastEvent.Disconnected -> onCastDisconnected(event.cause)
+        }
+    }
+
+    /** 失败分流（FR-423）：地址问题优先，其次链路，最后远端拉流。 */
+    private fun onCastFailure(stage: CastUtil.Stage, hasAddress: Boolean) {
+        val kind = CastUtil.classifyCastFailure(stage, hasAddress)
+        state = state.copy(
+            castMsg = CastUtil.castFailureText(kind),
+            showCastSheet = false,
+            castConnected = false,
+        )
+    }
+
+    /**
+     * 断开后回落本机播放（FR-422）。
+     *
+     * 用户主动断开：静默恢复本机并从当前进度续播；链路断开：额外给一条可行动提示。
+     * 这里不重建引擎、不清 `startedUrl`——本机引擎本来就还挂着同一地址，
+     * 只需 seek 到投屏时刻并 `play()`，不能走 `retry()` 把 #3 的幂等判据冲掉。
+     */
+    private fun onCastDisconnected(cause: DisconnectCause) {
+        val resumeAt = state.curTime
+        val engine = engineHost.peek()
+        runCatching {
+            engine?.seekTo(resumeAt)
+            engine?.play()
+        }
+        state = state.copy(
+            castConnected = false,
+            showCastSheet = false,
+            castDevices = emptyList(),
+            castMsg = if (cause == DisconnectCause.LinkLost) "投屏已断开，已回到本机播放" else "已回到本机播放",
+        )
+        castController.stopDiscovery()
     }
 
     // ---------------- 生命周期 ----------------
@@ -1672,6 +1850,14 @@ class PlayerViewModel(
      */
     internal fun stopProgressLoopForTest() {
         progressLoop.stop()
+    }
+
+    /**
+     * 仅供 `:ui:jvmTest`：在不起解析链（依赖真实网络）的情况下刷新投屏可投性。
+     * 测试先用 [primeEngineForTest] 注入地址，再调本方法驱动入口状态。
+     */
+    internal fun refreshCastabilityForTest() {
+        refreshCastability()
     }
 
     /** 仅供 `:ui:jvmTest`：注入变体清单，模拟后台抓取完成（抓取本身依赖网络）。 */
@@ -1706,16 +1892,21 @@ class PlayerViewModel(
         cleared = true
         qualitySwitchJob?.cancel()
         noticeJob?.cancel()
+        // 投屏会话与 MediaRouter 监听都长于页面：不注销会持续回调已销毁的 VM（B-7 同型泄漏）。
+        // 页面离开时主动结束会话，接收端不会停在投屏界面耗电。
+        if (state.castConnected) castController.endSession()
+        castController.release()
         // 【先停进度循环与监听】否则循环会在 viewModelScope 取消前再写一次状态，
         // 且旧 VM 可能继续响应单例引擎的回调（B-6 / B-7）。
         progressLoop.stop()
-        // FR-408：离开页面立即落盘位置并释放引擎
+        // FR-408：离开页面立即落盘位置并释放引擎。
+        // 只作兜底：正常路径已由 3 秒首写、5 tick 周期和 onPaused 补写覆盖；
+        // 仍遵守 3 秒门槛，不让误触留下一行 0:00 记录。
         val pos = state.curTime
         val snap = state
-        val vmScope = viewModelScope
-        // onCleared 里 viewModelScope 已取消，用 runBlocking 的廉价替代：
-        // 直接同步写（SharedPreferences.commit 是同步的），不依赖协程
-        if (params.vodId != 0L && params.source.isNotEmpty()) {
+        if (params.vodId != 0L && params.source.isNotEmpty() &&
+            HistoryWritePolicy.shouldWrite(pos, lastSavedPositionMs)
+        ) {
             val item = HistoryItem(
                 vod_id = params.vodId,
                 vod_name = params.vodName.ifEmpty { snap.title },
@@ -1732,7 +1923,11 @@ class PlayerViewModel(
             // 不用 Thread（Kotlin/Native 上没有 java.lang.Thread），改用 ioDispatcher 上的
             // 一次性 CoroutineScope：语义与「起一个后台线程写盘」等价，且跨平台。
             kotlinx.coroutines.CoroutineScope(ioDispatcher).launch {
-                store.saveHistoryBlocking(item)
+                val ok = store.saveHistoryBlocking(item)
+                PlaybackProbe.note(
+                    "history-save",
+                    "vod=${params.vodId} source=${params.source} ep=${snap.curEpIndex} pos=$pos result=${if (ok) "ok" else "fail"} via=onCleared",
+                )
             }
         }
         // `onCleared` 由 ViewModel 框架在**主线程**调用，故直接释放即可，

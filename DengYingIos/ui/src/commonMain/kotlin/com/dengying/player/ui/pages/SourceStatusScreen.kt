@@ -102,7 +102,7 @@ fun SourceStatusScreen(
 
         // ---- 口径说明：健康分不持久化，避免误导 ----
         Text(
-            text = "健康分只在本会话内累计，重启后重置；来源分级（tier）为人工实测快照",
+            text = "健康统计只在本次使用中累计；启用开关的设置会保留，重新打开应用后不会自动改回。来源分级（tier）为人工实测快照。",
             style = MaterialTheme.typography.labelMedium,
             color = Palette.TextSecondary,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
@@ -138,7 +138,7 @@ fun SourceStatusScreen(
                         ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = row.key,
+                                text = row.displayName,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Palette.TextPrimary,
                                 modifier = Modifier.weight(1f),
@@ -205,7 +205,7 @@ fun SourceStatusScreen(
                             modifier = Modifier.padding(top = 2.dp),
                         )
                         Text(
-                            text = row.displayName,
+                            text = row.key,
                             style = MaterialTheme.typography.labelSmall,
                             color = Palette.TextSecondary,
                             modifier = Modifier.padding(top = 2.dp),

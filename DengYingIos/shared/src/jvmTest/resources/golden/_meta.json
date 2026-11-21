@@ -380,5 +380,23 @@
   "status": 200,
   "bytes": 559,
   "note": "2026-10-31 实抓 showOne 解密后业务 JSON：url=vd.wmvbo.com /decry/ m3u8（时效 token，两次抓取字节不同故只钉形状）"
+ },
+ {
+  "name": "ffzy_catlist",
+  "status": 200,
+  "bytes": 6097,
+  "note": "2026-11-21 api.ffzyapi.com ac=list&pg=1 真实响应：total=99215 / pagecount=4961 / 31 分类 / 20 条"
+ },
+ {
+  "name": "ffzy_detail100474",
+  "status": 200,
+  "bytes": 3665,
+  "note": "2026-11-21 ac=detail&ids=100474「两京十五日」：11 集，首集是 /share/<32hex> 分享页，末集是直连 m3u8"
+ },
+ {
+  "name": "ffzy_search_qyn",
+  "status": 200,
+  "bytes": 87423,
+  "note": "2026-11-21 ac=detail&wd=庆余年：total=8，首条「庆余年第二季粤语」61 集"
  }
 ]

@@ -1,4 +1,6 @@
 # 11. Mac 待办清单 —— P5-6 收敛版
+> **说明**：`DengYing/ohos-build` 与 `DengYing/harmony` 已移至 `DengYing/archive/`；本文件为历史记录，正文路径保留当时现场，未改写。
+
 
 **定位**：本清单是 P5 六类 28 项工单的**逐项终审结果**。P5-6 在 Windows 上把
 「凡 Windows 能实做或实跑的」全部做完，剩下的才是真正需要 macOS 的工作量。
@@ -79,6 +81,7 @@
 | M-26 | **Mac-only** | pbxproj 两处 `DEVELOPMENT_TEAM = ""` 保持空串。**Mac 上要做**：填入 Team ID，`xcodebuild -allowProvisioningUpdates` 能自动签名。空串是刻意的——写一个假 Team ID 会让 `xcodebuild` 报更难的错。 |
 | M-27 | **Mac-only**（非代码项） | 免费 Apple ID签名 7 天过期、不能给别人装；长期给朋友用需付费账号走 TestFlight 或 Ad Hoc。IPA 必须在 macOS + Xcode 上编出，Windows 无法转换。此项无 Windows 可做的工作。 |
 | M-28 | **done-on-Windows** | iOS 与 Android 版本已由后续迭代统一递增；本轮复核 `DengYingIos/iosApp/Info.plist` 与三工程 `app/build.gradle.kts` 同为当前发布版本（见各文件的 `versionCode` / `versionName`、`CFBundleShortVersionString` / `CFBundleVersion`，本表不复制会过期的数字）。`DengYingOhos/harmony/AppScope/app.json5` 亦已对齐。`PRODUCT_BUNDLE_IDENTIFIER = com.dengying.player.ios` 未动。旧记录的 `1.1.0 / 1000100` 是当时值，不是当前值。 |
+| M-29 | **共享源码已同步，运行待 Mac**（计划 14，2026-11-21） | 计划 14 的共享改动已从 `DengYing/` 全量复制到 `DengYingIos/` 的 `shared/commonMain` 与 `ui/commonMain`，测试与金样本也已同步；Windows 侧 `:shared:jvmTest :ui:jvmTest :app:testDebugUnitTest :app:assembleDebug` 全部通过。**Mac 上要做**：按 M-9 的冷启动确认「播过 3 秒的历史能读到」「熄屏回来不自动续播」「发现页滑到底继续出新卡」这些运行期行为，并在真机检查 `NoIndication`/`LocalRippleConfiguration` 的视觉表现是否真的无波纹。iOS 的 Store 写失败语义另受 M-12 约束（`synchronize()` 恒 true）。iOS framework link/Xcode 构建/模拟器/真机仍未验证。 |
 
 ## 五、清单之外
 

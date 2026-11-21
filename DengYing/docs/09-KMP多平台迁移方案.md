@@ -371,7 +371,7 @@ NSUserDefaults 冒烟（M-12）、签名与 `DEVELOPMENT_TEAM`（M-26）。
 `platform.Foundation.setValue` import），补 1 行回绿；klib 四任务 `--rerun-tasks`
 强制全量 0 `e:`、测试 775 例 0 失败，详见 `docs/04` §16.40。上方边界声明不变。
 
-**2026-11-21 计划 14 未跨端同步**：本轮改动只在 `DengYing/`（Android 侧 `shared` + `ui` + `app`）落盘，包括 `domain/playback/HistoryWritePolicy.kt`、`Store` 写返回 Boolean、`PlayerViewModel`/`DetailViewModel` 历史写入策略、发现页 `DiscoverFeed.kt` 与 `playableInDiscover`、`Theme.kt` 波纹关闭、`AuthErrorText.kt`、`ForegroundResumePolicy.kt` 与 `MainActivity` 生命周期判定。`DengYingIos/` 与 `DengYingOhos/` 的共享源码是各自副本，**尚未同步**，两端的观看历史、发现页无限流、文案与波纹行为仍是旧口径；同步时要逐文件比对 `Store`/`DetailViewModel`/`IndexScreen` 的对应副本，并按各端 `actual` 检查 `LocalIndication`/`LocalRippleConfiguration` 是否可用（CMP 1.9.2 的鸿蒙线 Material3 API 需先确认存在 `LocalRippleConfiguration`）。iOS/鸿蒙的运行验证仍按 `docs/11` 与 `DengYingOhos/harmony/README.md` 的口径，不得用本轮的 Android 编译结果代替。
+**2026-11-21 计划 14 跨端同步（已补）**：本轮先前只在 `DengYing/`（Android 侧）落盘的改动，已按用户「保持 iOS、鸿蒙和安卓进度同步」的要求同步到 `DengYingIos/` 与 `DengYingOhos/`：`shared/commonMain`、`ui/commonMain` 全量对齐 Android 当前源码；`app/src/main` 对齐后按平台差异收口（GMS Cast 仅 Android/iOS Android 壳保留，OHOS 壳改 `NoopCastController` 并移除 manifest 的 Cast Provider）；新增 JVM 测试与金样本一并复制到两端。保留的平台差异：`OhosVideoSurfaceBridge`/`VideoSurfaceLayer.kt`、`HttpHeaderCodec.kt`、`PlayerScreen.kt` 的鸿蒙画面打洞、`Platform.ohos.kt` 的 `VideoSurface` 新 `zoomMode` 参数与 `OhosUiDeps.castController`。验证：iOS `:shared:jvmTest :ui:jvmTest :app:testDebugUnitTest :app:assembleDebug` 通过；OHOS `:shared:jvmTest :ui:compileKotlinOhosX64` 的已修编译错误见 `docs/04`。**iOS framework link/Xcode 与鸿蒙 HAP/装机仍只能在对应平台验证，Windows 侧编译通过不等于运行期可用。**
 
 ## 参考
 

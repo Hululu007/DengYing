@@ -28,9 +28,9 @@ import kotlinx.serialization.json.put
  *
  * ## 平台注意
  *
- * `set-cookie` 读取依赖 [HttpClient.HttpResult.headers]：JVM/Android、iOS 直接透传；
- * 鸿蒙走 ArkTS http 桥，响应头按逐行 `name: value` 回传，再经
- * [com.dengying.player.data.net.HttpHeaderCodec] 解析为同一口径的头表。
+ * `set-cookie` 读取依赖 [HttpClient.HttpResult.headers]：JVM/Android、iOS 已透传；
+ * 鸿蒙走 JS 桥（只回传 body）暂无响应头 → 鸿蒙侧登录拿不到会话，[login] 返回
+ * 明确错误文案而不是静默失败。
  */
 object BttwoAuth {
 

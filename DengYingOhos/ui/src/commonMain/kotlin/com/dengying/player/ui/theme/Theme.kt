@@ -1,6 +1,10 @@
 package com.dengying.player.ui.theme
 
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -10,10 +14,38 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.dengying.player.platform.KeyValueStore
+
+/**
+ * 全局关闭按压波纹。
+ *
+ * 应用以玻璃/渐变为主视觉，Material3 默认的灰色波纹压在深色海报上像一块脏污；
+ * 反馈由各控件自己的缩放/高亮承担。Material3 的 Surface/IconButton/Button
+ * 会**显式**传 ripple，所以只设 `indication = null` 关不掉——必须同时把
+ * `LocalRippleConfiguration` 置 null（其内部 `removeRipple` 才会生效）。
+ *
+ * 节点每次创建都新实例：同一个 Node 被复用到多处会触发 Compose 的节点复用断言。
+ */
+private object NoIndication : IndicationNodeFactory {
+    private class NoIndicationNode : Modifier.Node(), DrawModifierNode {
+        override fun ContentDrawScope.draw() {
+            drawContent()
+        }
+    }
+
+    override fun create(interactionSource: InteractionSource): DelegatableNode = NoIndicationNode()
+
+    // 值相等：没有状态，所有实例可互换，避免把「无波纹」误判成变更
+    override fun hashCode(): Int = 0
+    override fun equals(other: Any?): Boolean = other === this
+}
 
 /**
  * 主题风格偏好（v5，「我的」页可切，主流 app 的设置口径）。
@@ -135,6 +167,9 @@ fun DengYingTheme(
     CompositionLocalProvider(
         LocalPalette provides palette,
         LocalGlassScheme provides glass,
+        LocalIndication provides NoIndication,
+        // Material3 控件显式传 ripple，只有把 RippleConfiguration 置 null 才真正去掉
+        LocalRippleConfiguration provides null,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) darkColors(palette) else lightColors(palette),

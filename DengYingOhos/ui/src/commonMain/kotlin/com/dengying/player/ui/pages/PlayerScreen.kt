@@ -47,11 +47,11 @@ import com.dengying.player.ui.components.GlassSurface
 import com.dengying.player.ui.components.SeekPreviewBubble
 import com.dengying.player.ui.platform.PlatformBackHandler
 import com.dengying.player.ui.platform.VideoSurface
-import com.dengying.player.ui.platform.shouldRevealVideoSurface
-import com.dengying.player.ui.platform.videoSurfaceIsBelowCompose
 import com.dengying.player.ui.platform.rememberBrightnessController
 import com.dengying.player.ui.platform.rememberIsLandscape
 import com.dengying.player.ui.platform.rememberVolumeController
+import com.dengying.player.ui.platform.shouldRevealVideoSurface
+import com.dengying.player.ui.platform.videoSurfaceIsBelowCompose
 import com.dengying.player.ui.prefs.PlaybackPrefs
 import com.dengying.player.ui.theme.Glass
 import com.dengying.player.ui.theme.Palette
@@ -83,6 +83,7 @@ fun PlayerScreen(
             store = deps.store,
             engineHost = deps.engineHost,
             isDebug = deps.isDebug,
+            castController = deps.castController,
         )
     }
     val s = vm.state
@@ -334,8 +335,10 @@ fun PlayerScreen(
                         playFlash = wasPlaying
                         PlaybackProbe.note("gesture-double-tap", "wasPlaying=$wasPlaying")
                     },
-                    onLongPress = { offset ->
-                        if (!boosting && offset.x >= size.width / 2f) {
+                    onLongPress = {
+                        // 长按画面**任意位置**临时加速（原口径是长按右半屏）；
+                        // 松手即恢复原速，由下面的 onPress 统一收尾。
+                        if (!boosting) {
                             boosting = true
                             vm.beginBoost()
                         }
@@ -648,13 +651,14 @@ private fun ControlOverlay(
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
             }
-            // FR-419：不可投的源入口为禁用态且点击不响应；理由常驻显示在下方提示行
+            // FR-418..423：可投时点击展开设备选择 / 连接；已投屏时点它停止投屏并回落本机。
+            // FR-419：不可投的源或通道不可用时入口为禁用态且点击不响应，理由常驻显示在下方提示行。
             Text(
-                text = "投屏",
+                text = if (s.castConnected) "停止投屏" else "投屏",
                 style = MaterialTheme.typography.bodySmall,
-                color = if (s.castEnabled) Color.White else Color.White.copy(alpha = 0.35f),
+                color = if (s.castEnabled || s.castConnected) Color.White else Color.White.copy(alpha = 0.35f),
                 modifier = Modifier
-                    .clickable(enabled = s.castEnabled) { /* 见下方说明 */ }
+                    .clickable(enabled = s.castEnabled || s.castConnected) { vm.onCastClick() }
                     .padding(horizontal = 10.dp, vertical = 12.dp),
             )
         }
@@ -683,6 +687,58 @@ private fun ControlOverlay(
                     .background(Palette.Danger.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
                     .padding(horizontal = 10.dp, vertical = 6.dp),
             )
+        }
+
+        // ---- 投屏设备选择（FR-420）----
+        // 与倍速/清晰度面板同一玻璃设计语言，但放在右上角靠近「投屏」按钮。
+        if (s.showCastSheet) {
+            GlassSurface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 56.dp, end = 12.dp)
+                    .width(220.dp),
+                shape = RoundedCornerShape(18.dp),
+                fill = Glass.DarkFill,
+                elevation = 0.dp,
+            ) {
+                Column(modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp)) {
+                    Text(
+                        text = "选择投屏设备",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                    if (s.castDevices.isEmpty()) {
+                        Text(
+                            text = "正在搜索设备…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        )
+                    } else {
+                        for (d in s.castDevices) {
+                            Text(
+                                text = d.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .clickable { vm.onCastDeviceSelected(d.id) }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "取消",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .clickable { vm.dismissCastSheet() }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    )
+                }
+            }
         }
 
         // ---- 倍速面板 ----

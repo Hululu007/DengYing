@@ -37,7 +37,7 @@ import com.dengying.player.ui.theme.Palette
 @Composable
 fun LiveChannelsScreen(
     onBack: () -> Unit,
-    onOpenPlayer: (String) -> Unit,
+    onOpenLive: (String) -> Unit,
 ) {
     val channels = CmsSources.DIRECT
     GlassPage(
@@ -50,7 +50,7 @@ fun LiveChannelsScreen(
             ) {
                 Spacer(Modifier.height(56.dp))
                 Text(
-                    text = "Hululu007 live.m3u 抽样频道，点击直接播放；频道可用性以当前线路为准。",
+                    text = "点一个频道就播放。播不了就换一个。",
                     style = MaterialTheme.typography.labelSmall,
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -64,22 +64,12 @@ fun LiveChannelsScreen(
                 ) {
                     items(channels, key = { it.key }) { channel ->
                         LiveChannelCard(channel = channel, onClick = {
-                            onOpenPlayer(
-                                Routes.player(
+                            onOpenLive(
+                                Routes.livePlayer(
                                     url = channel.url,
-                                    title = channel.name,
-                                    vodId = 0L,
+                                    name = channel.name,
                                     source = channel.key,
-                                    vodName = channel.name,
-                                    vodPic = "",
-                                    vodUri = "",
-                                    lineFrom = "直播频道",
-                                    episodeIndex = 0,
-                                    episodeName = "直播",
-                                    altUrls = emptyList(),
-                                    epUrls = emptyList(),
-                                    epNames = emptyList(),
-                                    live = true,
+                                    headers = channel.headers.entries.joinToString(",") { (k, v) -> "$k=$v" },
                                 ),
                             )
                         })

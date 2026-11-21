@@ -106,6 +106,21 @@ object CmsAdapter {
     }
 
     /**
+     * 批量详情：`?ac=detail&ids=1,2,3`（苹果 CMS 标准端点，api2233 实测支持）。
+     *
+     * 首页热播宫格要封面和年份/地区。`ac=videolist` 虽带封面，但字段不全；
+     * 一次批量 detail 能补齐 12 张卡的完整字段，只多一个请求。
+     * 失败或空列表都返回空，由调用方回落到列表条目。
+     */
+    suspend fun details(source: CmsSource, vodIds: List<Long>): List<VideoItem> {
+        if (vodIds.isEmpty()) return emptyList()
+        val ids = vodIds.joinToString(",")
+        val r = HttpClient.get("${source.api}?ac=detail&ids=$ids", null, CONNECT_MS, READ_MS)
+        if (r.status != 200) return emptyList()
+        return CmsParser.fill(r.body, source, 1).items
+    }
+
+    /**
      * 分类表（ac=list）
      *
      * 用 3s/3s 短超时：分类表是首屏的**前置依赖**，这里卡住会拖住整屏。
