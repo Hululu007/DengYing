@@ -141,7 +141,7 @@ fun InlinePlayer(
     speed: Float = 1.0f,
     /** 倍速选择回调；调用方负责写会话速度并回填状态（`DetailViewModel.setInlineSpeed`）。 */
     onSpeedChange: (Float) -> Unit = {},
-    /** 长按画面右半屏开始临时加速；由调用方保存原倍速。 */
+    /** 长按画面任意位置开始临时加速；由调用方保存原倍速。 */
     onBoostStart: () -> Unit = {},
     /** 松手 / 手势取消 / 离开页面时恢复原倍速。 */
     onBoostEnd: () -> Unit = {},
@@ -432,8 +432,9 @@ fun InlinePlayer(
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
                     onDoubleTap = { if (!live) onTogglePlay() },
-                    onLongPress = { offset ->
-                        if (!boosting && offset.x >= size.width / 2f) {
+                    onLongPress = {
+                        // 长按画面任意位置即临时加速（原口径是长按右半屏），与全屏同口径。
+                        if (!boosting) {
                             boosting = true
                             onBoostStart()
                         }

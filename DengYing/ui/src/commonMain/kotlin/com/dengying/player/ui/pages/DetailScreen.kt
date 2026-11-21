@@ -13,18 +13,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -596,6 +601,11 @@ private fun AltSourceBlock(
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
+        // 源清单可到上百条：一次只铺 20 个 chip（含「当前」），其余收进弹窗，
+        // 否则 FlowRow 会把详情页推得极长、每次换源都要滚半天。
+        var showAll by remember { mutableStateOf(false) }
+        val (visibleCount, hidden) = splitSourceChips(alts.size)
+        val visible = alts.take(visibleCount)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -618,15 +628,91 @@ private fun AltSourceBlock(
                     )
                 }
             }
-            for (a in alts) {
+            for (a in visible) {
                 GlassChip(
                     text = a.sourceName,
                     onClick = { onSwitch(a) },
                 )
             }
+            if (hidden > 0) {
+                GlassChip(
+                    text = "更多 $hidden 个 ›",
+                    onClick = { showAll = true },
+                )
+            }
+        }
+        if (showAll) {
+            AllSourcesDialog(
+                alts = alts,
+                onSwitch = { showAll = false; onSwitch(it) },
+                onDismiss = { showAll = false },
+            )
         }
     }
     }
+}
+
+/** 详情页一次最多展示的播放源条数（含「当前」chip） */
+private const val MAX_VISIBLE_SOURCES = 20
+
+/**
+ * 播放源 chip 切分：返回 (直接铺出的候选数, 折叠进「更多」的候选数)。
+ *
+ * 上限含「当前」那枚黑底 chip，所以候选只能占 `max - 1` 个位置；
+ * 候选不多于上限时全部铺出，隐藏数为 0（不出现「更多」）。
+ */
+internal fun splitSourceChips(
+    totalAlternatives: Int,
+    max: Int = MAX_VISIBLE_SOURCES,
+): Pair<Int, Int> {
+    val room = (max - 1).coerceAtLeast(0)
+    val visible = totalAlternatives.coerceIn(0, room)
+    return visible to (totalAlternatives - visible)
+}
+
+/** 「更多」弹窗：列出全部跨源候选，点条目直接换源。 */
+@Composable
+private fun AllSourcesDialog(
+    alts: List<AltItem>,
+    onSwitch: (AltItem) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("全部播放源 · ${alts.size}") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+            ) {
+                items(alts) { a ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSwitch(a) }
+                            .padding(horizontal = 4.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = a.sourceName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Palette.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "切换",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Palette.Brand,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)

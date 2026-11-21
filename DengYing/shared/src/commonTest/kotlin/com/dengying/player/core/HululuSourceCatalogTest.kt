@@ -4,27 +4,33 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Hululu007 MacCMS 编译期清单约束（2026-11-20 聚合筛选）。 */
+/** Hululu007 MacCMS 编译期清单约束（2026-11-20 聚合筛选 + 2026-11-21 批量接入）。 */
 class HululuSourceCatalogTest {
 
     private val huluSources = CmsSources.ALL.filter { it.key.startsWith("hulu_") && it.protocol == SourceProtocol.Cms }
 
     @Test
     fun `Hululu 源使用 CMS 协议且全部启用`() {
-        assertEquals(5, huluSources.size)
+        // 5 条 2026-11-20 聚合 + 4 条 2026-11-21 批量接入
+        assertEquals(9, huluSources.size)
         assertTrue(huluSources.all { it.enabled })
         assertTrue(huluSources.all { it.protocol == SourceProtocol.Cms })
         assertTrue(huluSources.all { it.caps == CAPS_CMS })
-        assertTrue(huluSources.all { it.direct })
         assertTrue(huluSources.all { it.tier == 3 })
+        // 11-20 那批是直链；11-21 新接入的 4 条首行是分享页，
+        // 由 HlsUtil.isSharePage 识别后换 m3u8，故 direct=false。
+        assertTrue(huluSources.filter { it.note?.contains("2026-11-20") == true }.all { it.direct })
+        assertTrue(huluSources.filter { it.note?.contains("2026-11-21") == true }.all { !it.direct })
     }
 
     @Test
     fun `Hululu 源 key 与接口基址唯一`() {
         assertEquals(huluSources.size, huluSources.map { it.key }.toSet().size)
         assertEquals(huluSources.size, huluSources.map { it.api }.toSet().size)
-        assertTrue(huluSources.all { it.api.contains("api.php/provide/vod") })
-        assertTrue(huluSources.all { it.note?.contains("2026-11-20") == true })
+        assertTrue(huluSources.all { it.api.contains("provide/vod") })
+        assertTrue(huluSources.all {
+            it.note?.contains("2026-11-20") == true || it.note?.contains("2026-11-21") == true
+        })
     }
 }
 

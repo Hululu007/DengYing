@@ -74,7 +74,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                             color = Palette.TextPrimary,
                         )
                         Text(
-                            text = "长按画面右侧临时加速，松手恢复原速",
+                            text = "长按画面任意位置临时加速，松手恢复原速",
                             style = MaterialTheme.typography.labelSmall,
                             color = Palette.TextSecondary,
                             modifier = Modifier.padding(top = 2.dp),
