@@ -233,7 +233,7 @@ class CmsGoldenTest {
         assertEquals(1, r.total)
         assertEquals(1, r.page)
         assertEquals(1, r.pageCount, "该端点单一来源，恒为 1")
-        assertEquals("蓝光4k", r.sourceName)
+        assertEquals("非凡资源2", r.sourceName)
 
         val item = r.items.single()
         assertEquals(4020L, item.vod_id)
