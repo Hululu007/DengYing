@@ -314,8 +314,10 @@ fun PlayerScreen(
                         playFlash = wasPlaying
                         PlaybackProbe.note("gesture-double-tap", "wasPlaying=$wasPlaying")
                     },
-                    onLongPress = { offset ->
-                        if (!boosting && offset.x >= size.width / 2f) {
+                    onLongPress = {
+                        // 长按画面**任意位置**临时加速（原口径是长按右半屏）；
+                        // 松手即恢复原速，由下面的 onPress 统一收尾。
+                        if (!boosting) {
                             boosting = true
                             vm.beginBoost()
                         }

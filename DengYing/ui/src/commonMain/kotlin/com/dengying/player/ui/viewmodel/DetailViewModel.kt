@@ -1211,7 +1211,7 @@ class DetailViewModel(
         PlaybackProbe.note("inline-speed", "v=$v")
     }
 
-    /** 长按内嵌画面右侧前的倍速；null = 当前没有进行中的加速。 */
+    /** 长按内嵌画面任意位置前的倍速；null = 当前没有进行中的加速。 */
     private var boostPrevSpeed: Float? = null
 
     fun beginInlineBoost() {

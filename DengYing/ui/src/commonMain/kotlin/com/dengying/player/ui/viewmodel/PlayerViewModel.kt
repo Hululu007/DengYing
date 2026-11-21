@@ -1317,7 +1317,7 @@ class PlayerViewModel(
     private var boostPrevSpeed: Float? = null
 
     /**
-     * 长按画面右侧：临时切到设置里的长按倍速。
+     * 长按画面任意位置：临时切到设置里的长按倍速。
      *
      * 重复调用幂等；松手由 [endBoost] 恢复进入前的速度。
      */
