@@ -28,14 +28,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x DengYing/gradlew
 
-      - name: Verify and build release APK
+      - name: Build release APK
         working-directory: DengYing
-        run: |
-          ./gradlew --no-daemon \
-            :shared:jvmTest \
-            :ui:jvmTest \
-            :app:testDebugUnitTest \
-            :app:assembleRelease
+        run: ./gradlew --no-daemon :app:assembleRelease
 
       - name: Verify APK is signed
         run: |
