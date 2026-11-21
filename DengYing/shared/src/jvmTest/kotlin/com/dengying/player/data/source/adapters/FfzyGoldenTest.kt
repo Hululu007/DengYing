@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * 非凡资源2（key 沿用 `ah_ap2233`）解析层守卫 —— 2026-11-21 换数据源后的金样本
+ * 非凡资源（key `hulu_ffzy`）解析层守卫 —— 2026-11-21 复核后的金样本
  *
  * 样本见 `shared/src/jvmTest/resources/golden/`（`_meta.json` 登记字节数）：
  * `ffzy_catlist` = `ac=list&pg=1`、`ffzy_detail100474` = `ac=detail&ids=100474`、
@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
  */
 class FfzyGoldenTest {
 
-    private val src = CmsSources.byKey("ah_ap2233")!!
+    private val src = CmsSources.byKey("hulu_ffzy")!!
 
     /** Kotlin 字符串里 `$` 是模板起始符，紧跟中文还是合法标识符——故用常量拼接 */
     private val D = "$"
@@ -36,13 +36,13 @@ class FfzyGoldenTest {
 
     @Test
     fun source_config_points_at_ffzy_standard_cms() {
-        assertEquals("非凡资源2", src.name)
+        assertEquals("非凡资源", src.name)
         assertTrue(src.api.contains("api.ffzyapi.com"), "api 指向非凡资源")
         assertNull(src.searchUrl, "标准 CMS 不配非标搜索端点")
         assertNull(src.playGap, "分享页可换 m3u8，无播放链缺口")
         assertTrue(!src.direct, "分享页不是直链")
         assertTrue(src.caps.search && src.caps.detail, "搜索与详情可用")
-        assertTrue(src.caps.home, "首页仍由 AhHomeAdapter 合成")
+        assertTrue(!src.caps.home, "首页推荐位仍归蓝光4k，本源只做换源来源")
     }
 
     // ---------------- 分类表（ac=list） ----------------
@@ -68,21 +68,19 @@ class FfzyGoldenTest {
     }
 
     /**
-     * 首页 rail 用的是叶子分类，不是顶层分类。
+     * 叶子分类与顶层分类的父子关系（换源/分类页可用的守卫）。
      *
-     * 顶层 `t=1..4` 在 ffzy 上几乎不挂直属影片（实测 t=1/2/3 返回 total=0，
-     * t=4 只有 44 条 2022 年前的旧动漫），直接用会把首页刷成老片墙。
-     * AhHomeAdapter 因此改用 6/7、13/14、25/26、29/30 这些叶子 id，
-     * 这里钉住它们在分类表里的父级，防止对面改表后静默跑偏。
+     * 2026-11-21 复盘：首页 rail 已回到蓝光4k 的顶层 `t=1..4`，不再用叶子 id；
+     * 但叶子分类仍是详情页换源与分类浏览的落点，这里钉住父级表，防止对面改表静默跑偏。
      */
     @Test
-    fun catlist_leaf_ids_used_by_home_rails() {
+    fun catlist_leaf_ids_still_map_to_top_level_parents() {
         val classes = CmsParser.classes(Golden.text("ffzy_catlist"))
-        val homeLeaves = listOf(6, 7, 13, 14, 25, 26, 29, 30)
+        val leaves = listOf(6, 7, 13, 14, 25, 26, 29, 30)
         assertEquals(
-            homeLeaves,
-            classes.map { it.type_id }.filter { it in homeLeaves },
-            "首页用到的 8 个叶子分类都在分类表里",
+            leaves,
+            classes.map { it.type_id }.filter { it in leaves },
+            "叶子分类都在分类表里",
         )
         val parentOf = classes.associate { it.type_id to (it.type_pid to it.type_name) }
         assertEquals(listOf(1 to "动作片", 1 to "喜剧片"), listOf(parentOf.getValue(6), parentOf.getValue(7)))
@@ -112,7 +110,7 @@ class FfzyGoldenTest {
         assertEquals("两京十五日", item.vod_name)
         assertEquals("2026", item.vod_year)
         assertTrue(item.vod_pic?.startsWith("https://") == true, "封面走 https")
-        assertEquals("ah_ap2233", item._source)
+        assertEquals("hulu_ffzy", item._source)
         // 两条线路：feifan（分享页）$$$ ffm3u8（直连），各 6 集
         val lines = item.vod_play_url!!.split("$D$D$D")
         assertEquals(2, lines.size, "两行播放链")
@@ -163,7 +161,7 @@ class FfzyGoldenTest {
         assertEquals(8, r.items.size)
         assertEquals("庆余年第二季粤语", r.items.first().vod_name)
         assertTrue(
-            r.items.all { it._source == "ah_ap2233" },
+            r.items.all { it._source == "hulu_ffzy" },
             "搜索结果全部带源 key，跨源换源才认得出处",
         )
     }

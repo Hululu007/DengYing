@@ -6,7 +6,6 @@ import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
 import com.dengying.player.data.source.HomeFeedComposer
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 
@@ -29,21 +28,12 @@ internal object AhHomeAdapter {
     /** 每个分类先取这么多条，补全后再由 composer 截断/轮转 */
     private const val FETCH_PER_CATEGORY = 14
 
-    /**
-     * 分类名 → ffzy 叶子 typeId（每栏两个，合并后截 14 条）。
-     *
-     * 【为什么是叶子 id】ffzy 的 `t=1..4` 是顶层分类，顶层几乎不挂直属影片：
-     * 实测 `ac=videolist&t=1/2/3` 返回 total=0，`t=4` 只有 44 条 2022 年前的旧动漫，
-     * 首页会整屏变成 2011-2013 年的老片。叶子 id（动作片 6 / 国产剧 13 /
-     * 大陆综艺 25 / 国产动漫 29 等）才按 vod_time 倒序返回最新内容。
-     * api2233 时期用 `t=1..4` 是因为那套数据把影片直接挂在顶层，换源后必须改口径。
-     * 刻意不取 34 伦理片、36 短剧：前者内容不合规，后者与现有短剧源重复。
-     */
+    /** 分类名 → api2233 的 typeId（实测 t=1 电影 2523 / t=2 电视剧 3439 / t=3 综艺 57 / t=4 动漫 1241） */
     private val CATEGORIES = listOf(
-        "电影" to listOf(6, 7),
-        "电视剧" to listOf(13, 14),
-        "综艺" to listOf(25, 26),
-        "动漫" to listOf(29, 30),
+        "电影" to 1,
+        "电视剧" to 2,
+        "综艺" to 3,
+        "动漫" to 4,
     )
 
     /** api2233 的 type_name 对这几个分类统一返回「分类N」，不能当展示名用。 */
@@ -63,9 +53,9 @@ internal object AhHomeAdapter {
         if (path != PATH_RECOMMEND) return emptyList()
         val byCategory = coroutineScope {
             val arrived = Channel<Pair<String, List<VideoItem>>>(CATEGORIES.size)
-            CATEGORIES.forEach { (name, typeIds) ->
+            CATEGORIES.forEach { (name, typeId) ->
                 async {
-                    val items = runCatching { fetchCategory(source, name, typeIds) }
+                    val items = runCatching { fetchCategory(source, name, typeId) }
                         .getOrDefault(emptyList())
                     arrived.send(name to items)
                 }
@@ -93,19 +83,11 @@ internal object AhHomeAdapter {
     private suspend fun fetchCategory(
         source: CmsSource,
         category: String,
-        typeIds: List<Int>,
+        typeId: Int,
     ): List<VideoItem> {
-        val pages = coroutineScope {
-            typeIds.map { typeId ->
-                async {
-                    runCatching {
-                        CmsAdapter.list(source, typeId, 1).items
-                            .filter { it.vod_id > 0L && it.vod_name.isNotBlank() }
-                    }.getOrDefault(emptyList())
-                }
-            }.awaitAll()
-        }
-        val listed = interleaveNewest(pages, FETCH_PER_CATEGORY)
+        val listed = CmsAdapter.list(source, typeId, 1).items
+            .filter { it.vod_id > 0L && it.vod_name.isNotBlank() }
+            .take(FETCH_PER_CATEGORY)
         if (listed.isEmpty()) return emptyList()
         val detailed = runCatching {
             CmsAdapter.details(source, listed.map { it.vod_id })
@@ -119,27 +101,4 @@ internal object AhHomeAdapter {
             }
         }
     }
-}
-
-/**
- * 多个分类页轮流取位合并，按 vod_id 去重，最多取 [limit] 条。
- *
- * 每个分类页自身已按 vod_time 倒序，交替取值既保持「新片在前」，
- * 又不会让第一个子分类把整栏占满。纯函数，便于单测。
- */
-internal fun interleaveNewest(groups: List<List<VideoItem>>, limit: Int): List<VideoItem> {
-    if (limit <= 0) return emptyList()
-    val out = ArrayList<VideoItem>(limit)
-    val seen = HashSet<Long>()
-    val maxSize = groups.maxOfOrNull { it.size } ?: 0
-    var i = 0
-    while (out.size < limit && i < maxSize) {
-        for (g in groups) {
-            val item = g.getOrNull(i) ?: continue
-            if (seen.add(item.vod_id)) out += item
-            if (out.size >= limit) break
-        }
-        i++
-    }
-    return out
 }

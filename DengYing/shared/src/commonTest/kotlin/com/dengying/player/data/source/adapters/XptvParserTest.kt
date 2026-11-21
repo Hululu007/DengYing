@@ -6,6 +6,7 @@ import com.dengying.player.core.RequestOutcome
 import com.dengying.player.core.SourceProtocol
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class XptvParserTest {
@@ -16,7 +17,9 @@ class XptvParserTest {
     fun sourceCatalogDeclaresXptvWithTokenCaps() {
         assertEquals(SourceProtocol.Xptv, source.protocol)
         assertEquals(CAPS_XPTV, source.caps)
-        assertTrue(source.enabled)
+        // 2026-11-21 停用：站点内容不符合接入规范，标题黑名单覆盖不到整站，见 docs/04 §16.88.6。
+        // 解析层单测仍按 key 拿配置跑，不受 enabled 影响；改回 true 必须先有整站级判定。
+        assertFalse(source.enabled)
         assertTrue(source.api.startsWith("https://"))
     }
 

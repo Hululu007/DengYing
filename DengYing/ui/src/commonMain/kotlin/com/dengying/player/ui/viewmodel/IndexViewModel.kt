@@ -141,7 +141,7 @@ class IndexViewModel(
     /**
      * 推荐页首选首页源。
      *
-     * 首选「非凡资源2」（ah_ap2233）：它的首页由 AhHomeAdapter 按分类现场合成，
+     * 首选「蓝光4k」（ah_ap2233）：它的首页由 AhHomeAdapter 按分类现场合成，
      * 封面与年份完整、版块结构接近 AH 原版。该源未启用或合成失败时，
      * [fetchHomeFeed] 自动回落到天翼视讯的 jsondata。
      */

@@ -31,6 +31,9 @@ import com.dengying.player.player.PlaybackProbe
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeout
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.prefs.PlaybackPrefs
@@ -46,6 +49,14 @@ data class AltItem(
     val sourceName: String,
     val vodId: Long,
     val vodName: String,
+    /**
+     * 该源正片集数；-1 = 还没探测到。
+     *
+     * 【为什么要预拉集数】换源要「点一下就换」，就不能在点击那一刻才发现
+     * 目标源只有 1 集试看线。候选上屏后由 [DetailViewModel.prefetchAltDetails]
+     * 后台补全，既让 chip 能标「全 24 集」，也让自动选源有依据。
+     */
+    val epCount: Int = -1,
 )
 
 /**
@@ -90,6 +101,13 @@ class DetailViewModel(
         val errMsg: String = "",
         val altSources: List<AltItem> = emptyList(),
         val altLoading: Boolean = false,
+        /**
+         * 正在切换到的源名；非空 = 页面**保留上一源的影片信息**，只有选集区在等新源。
+         *
+         * 换源不再把 state 重建成 `UiState(loading = true)`：那会让整页回到骨架屏，
+         * 用户看到的是"点了个源，然后详情页重新加载一遍"。
+         */
+        val switchingTo: String = "",
         val descOrder: Boolean = false,
         val playGap: String = "",
         val resumeNotice: String = "",
@@ -332,7 +350,7 @@ class DetailViewModel(
         } else {
             chooseDefaultLineIndex(lines)
         }
-        state = state.copy(item = item, lines = lines, lineIdx = picked)
+        state = state.copy(item = item, lines = lines, lineIdx = picked, switchingTo = "")
         refreshEpState()
         if (!contentShown) {
             contentShown = true
@@ -380,17 +398,26 @@ class DetailViewModel(
             // 每次回调都做标题守卫，避免切片/换源后旧片候选落到新详情页。
             fun onBatch(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>) {
                 if (state.item?.vod_name != expectedTitle && curName != expectedTitle) return
+                // 逐批上屏时会整表替换：把已探测到的集数按 (源, vodId) 带过去，
+                // 否则第二批到来就把第一批的「全 24 集」清回 -1。
+                val probed = state.altSources.associate { (it.sourceKey to it.vodId) to it.epCount }
                 val mapped = ArrayList<AltItem>(alts.size)
                 for (a in alts) {
                     val s = CmsSources.byKey(a.sourceKey) ?: continue
-                    mapped += AltItem(a.sourceKey, s.name, a.vodId, a.vodName)
+                    mapped += AltItem(
+                        sourceKey = a.sourceKey,
+                        sourceName = s.name,
+                        vodId = a.vodId,
+                        vodName = a.vodName,
+                        epCount = probed[a.sourceKey to a.vodId] ?: -1,
+                    )
                 }
                 if (mapped.isEmpty()) return
                 com.dengying.player.player.PlaybackProbe.note(
                     "alt-batch", "title=$expectedTitle n=${mapped.size}",
                 )
                 state = state.copy(altSources = mapped, altLoading = false)
-                maybeEscapePlayGapSource(mapped)
+                prefetchAltDetails(mapped)
             }
             val alts = repo.findAltSources(repo.allSources(), curSource, title, onBatch = ::onBatch)
             onBatch(alts)
@@ -406,74 +433,119 @@ class DetailViewModel(
     }
 
     /**
-     * playGap 源自动脱困（FR-317 的播放链扩展）。
+     * 候选源详情预拉（FR-635）。
      *
-     * AH 首页条目默认落在 `ah_ap2233`，该源只下发客户端不可解的 token；
-     * 旧行为是等用户点播放 → PlaybackSession 拦截报错 → 前端再花几秒搜跨源换线，
-     * 用户看到的就是「点了播不出来、还特别慢」。
+     * 候选只带 (source, vodId, 名称)，不知道每个源有多少集。换源要「点一下
+     * 立刻换」，就不能等点击那一刻才发现目标源只有 1 集试看线；进详情页后
+     * 直接把候选的详情拉回来，既让 chip 标出「全 24 集」，也让自动选源有依据，
+     * 还顺手把详情写进 [UiDeps.detailCache]——点击换源命中缓存即上屏。
      *
-     * 候选一到就换到第一个可播源，把这次失败和等待提前消化掉。
-     * 每个详情页只自动换一次；用户手动换源后不再干预。
+     * 【限并发】候选一次 12+ 条，全并发会重演 docs/04 §16.34 的带宽争抢
+     * （主详情被拖到 1~3s）。这里闸门 3 路，且排在主详情之后启动。
      */
-    private fun maybeEscapePlayGapSource(cands: List<AltItem>) {
-        if (autoEscapedGapSource) return
-        if (!currentSourceHasPlayGap()) return
-        val pool = cands.filter {
-            it.sourceKey != curSource && CmsSources.byKey(it.sourceKey)?.playGap.isNullOrEmpty()
-        }.take(6)
-        if (pool.isEmpty()) return
-        autoEscapedGapSource = true
-        PlaybackProbe.note("detail-gap-escape-search", "from=$curSource n=${pool.size}")
+    private fun prefetchAltDetails(alts: List<AltItem>) {
+        val targets = alts.filter {
+            it.epCount < 0 && it.sourceKey != curSource &&
+                CmsSources.byKey(it.sourceKey)?.let { s -> capsOf(s).detail } == true
+        }
+        if (targets.isEmpty()) return
         viewModelScope.launch {
-            // 【不能只换「第一个候选」】真机实测：候选第一位是火狐，它的剧集地址
-            // 是第三方分享页，页面不可达 —— 换过去照样播不了。这里按内嵌兜底的
-            // 同一口径先试首集：谁真的解析出可播地址就换谁。
-            val hit = runCatching {
-                kotlinx.coroutines.withContext(ioDispatcher) { firstPlayable(pool) }
-            }.getOrNull()
-            if (hit == null) {
-                PlaybackProbe.note("detail-gap-escape-miss", "from=$curSource")
-                return@launch
+            val gate = Semaphore(ALT_PREFETCH_CONCURRENCY)
+            for (a in targets) {
+                launch { gate.withPermit { prefetchOne(a) } }
             }
-            // 用户已经手动换了源就不再自动跳
-            if (linePickedByUser) return@launch
-            PlaybackProbe.note("detail-gap-escape", "from=$curSource to=${hit.sourceKey}")
-            switchToSource(hit, automatic = true)
         }
     }
 
-    /** 并发试候选源的首集，返回第一个真正解析成功的候选（其余取消）。 */
-    private suspend fun firstPlayable(pool: List<AltItem>): AltItem? =
-        kotlinx.coroutines.coroutineScope {
-            val ds = pool.map { c ->
-                async(ioDispatcher) {
-                    val s = CmsSources.byKey(c.sourceKey) ?: return@async null
-                    val u = repo.fetchAltPlayUrl(s, c.vodId, 0)
-                    if (u.isEmpty()) return@async null
-                    val o = com.dengying.player.data.net.HlsUtil.resolvePlayUrlOrFail(u)
-                    if (o.resolved) c else null
-                }
+    private suspend fun prefetchOne(a: AltItem) {
+        val src = CmsSources.byKey(a.sourceKey) ?: return
+        val key = UiDeps.detailCacheKey(a.sourceKey, a.vodId)
+        val cached = deps.detailCache.get(key)
+        val item = cached ?: runCatching {
+            kotlinx.coroutines.withTimeout(ALT_PREFETCH_TIMEOUT_MS) {
+                kotlinx.coroutines.withContext(ioDispatcher) { repo.fetchDetail(src, a.vodId, "") }
             }
-            val pending = ds.toMutableList()
-            var hit: AltItem? = null
-            while (pending.isNotEmpty() && hit == null) {
-                hit = runCatching {
-                    kotlinx.coroutines.selects.select<AltItem?> {
-                        pending.forEach { d -> d.onAwait { it } }
-                    }
-                }.getOrNull()
-                pending.removeAll { it.isCompleted }
-            }
-            ds.forEach { if (it.isActive) it.cancel() }
-            hit
-        }
+        }.getOrNull() ?: return
+        if (cached == null) deps.detailCache.put(key, item)
+        val eps = maxEpisodesOf(item)
+        if (eps <= 0) return
+        // 页面已经换到别的片/别的源：只落缓存，不写这个页面的状态
+        if (state.item?.vod_name != a.vodName && curName != a.vodName) return
+        state = state.copy(
+            altSources = state.altSources.map {
+                if (it.sourceKey == a.sourceKey && it.vodId == a.vodId) it.copy(epCount = eps) else it
+            },
+        )
+        PlaybackProbe.note("alt-prefetch", "src=${a.sourceKey} eps=$eps cached=${cached != null}")
+        maybeAutoPickBestSource()
+    }
 
-    /** FR-417：换源——跳到目标源的同名影片详情 */
+    /** 详情里「正片最多的一条线路」有多少集；0 = 没有剧集 */
+    private fun maxEpisodesOf(item: VideoItem): Int =
+        parsePlayLines(item.vod_play_from ?: "", item.vod_play_url ?: "")
+            .maxOfOrNull { it.episodes.size } ?: 0
+
+    /** 当前页面所挂源的集数（取最多的一条线路） */
+    private fun currentEpCount(): Int = state.lines.maxOfOrNull { it.episodes.size } ?: 0
+
+    /**
+     * 自动选中「最完整且首集可播」的源（FR-635）。
+     *
+     * 每来一个候选源集数就判一次：判定本身在 [rankedSwitchTargets]（纯函数、
+     * 有单测），这里只负责把候选网络验证一遍再换。
+     *
+     * 【为什么不直接换第一名】候选集数多不等于能播：分享页/失效线路照样
+     * 解析不出 m3u8。按优先级试前 [ALT_AUTO_PICK_TRIES] 名，谁的首集真能
+     * 解析就换谁；失败过的源记进 [autoPickTried]，下一批候选不再重复试。
+     */
+    private suspend fun maybeAutoPickBestSource() {
+        if (linePickedByUser || autoPickedBestSource) return
+        val targets = rankedSwitchTargets(
+            currentKey = curSource,
+            currentEpCount = currentEpCount(),
+            currentHasGap = currentSourceHasPlayGap(),
+            candidates = state.altSources.map { SourceFacts(it.sourceKey, it.epCount) },
+        ).filterNot { it in autoPickTried }
+        if (targets.isEmpty()) return
+        for (k in targets.take(ALT_AUTO_PICK_TRIES)) {
+            autoPickTried += k
+            if (linePickedByUser) return
+            val a = state.altSources.firstOrNull { it.sourceKey == k } ?: continue
+            if (!firstEpPlayable(a)) continue
+            autoPickedBestSource = true
+            PlaybackProbe.note("detail-auto-pick", "from=$curSource to=$k eps=${a.epCount}")
+            switchToSource(a, automatic = true)
+            return
+        }
+    }
+
+    /** 该候选源首集能否解析出可播地址（换源前的一次真实校验） */
+    private suspend fun firstEpPlayable(a: AltItem): Boolean {
+        val s = CmsSources.byKey(a.sourceKey) ?: return false
+        return runCatching {
+            val u = kotlinx.coroutines.withContext(ioDispatcher) { repo.fetchAltPlayUrl(s, a.vodId, 0) }
+            u.isNotEmpty() && com.dengying.player.data.net.HlsUtil.resolvePlayUrlOrFail(u).resolved
+        }.getOrDefault(false)
+    }
+
+    /**
+     * FR-417 / FR-635：换源——跳到目标源的同名影片详情。
+     *
+     * 【不再整页重建 state】旧实现 `state = UiState(loading = true, ...)` 会把
+     * 影片信息、候选源列表一起清空，界面立刻退回骨架屏，用户看到的就是
+     * 「点了个源，然后详情页又加载一遍」。现在只清与播放相关的那部分：
+     * 标题/海报/简介留着（[UiState.item]），选集区等新源详情回来再替换，
+     * 期间 [UiState.switchingTo] 让界面明说"正在切换"。
+     *
+     * 目标源详情若已在 [UiDeps.detailCache]（候选预拉过），[loadDetail] 会
+     * 同步命中缓存，用户感知就是点一下直接换好。
+     */
     fun switchToSource(target: AltItem, automatic: Boolean = false) {
         if (!automatic) {
             // 用户手动换源：清掉自动状态，后续不再自动跳
             linePickedByUser = false
-            autoEscapedGapSource = false
+            autoPickedBestSource = false
+            autoPickTried.clear()
         }
         // 旧源的预解析结果作废
         preResolveSeq++
@@ -484,7 +556,19 @@ class DetailViewModel(
         curName = target.vodName
         curVodUri = ""
         resumeEp = -1
-        state = UiState(loading = true, sourceKey = target.sourceKey)
+        // 同名片才保留旧信息：不同片（跨源同名搜到别的条目）宁可显示骨架，也不能让人看着上一部的海报
+        val keepItem = state.item?.takeIf { it.vod_name == target.vodName }
+        state = state.copy(
+            sourceKey = target.sourceKey,
+            item = keepItem,
+            lines = emptyList(),
+            lineIdx = 0,
+            loading = keepItem == null,
+            errMsg = "",
+            epNotice = "",
+            resumeNotice = "",
+            switchingTo = CmsSources.byKey(target.sourceKey)?.name ?: target.sourceKey,
+        )
         loadDetail()
     }
 
@@ -686,8 +770,16 @@ class DetailViewModel(
     /** 用户手动选过线路：网络刷新不得把选择覆盖回默认线路（FR-316） */
     private var linePickedByUser = false
 
-    /** 已因 playGap 自动换过一次源：同一详情页内不再重复跳，避免来回换源 */
-    private var autoEscapedGapSource = false
+    /**
+     * 已经自动换过一次源：同一详情页内不再重复跳。
+     *
+     * 换源后候选列表会按新源重算（[loadAltSources] 会用新 curSource 再搜一轮），
+     * 不设这个闸门就会在两个「集数相同」的源之间来回跳。
+     */
+    private var autoPickedBestSource = false
+
+    /** 首集校验失败过的候选源（源 key）：下一批候选不再花一次请求重试 */
+    private val autoPickTried = HashSet<String>()
 
     /** 内嵌播放的当前集真实序号（切全屏时带过去） */
     private var inlineEpisodeIndex = 0
@@ -1725,3 +1817,12 @@ internal class ScreenFullscreenState(private val hasSession: () -> Boolean) {
         active = false
     }
 }
+
+/** 候选详情预拉的同时并发数：主详情优先，别重演 docs/04 §16.34 的带宽争抢 */
+private const val ALT_PREFETCH_CONCURRENCY = 3
+
+/** 单条候选预拉超时：超时视为该源不参与自动选源（不影响它作为手动 chip） */
+private const val ALT_PREFETCH_TIMEOUT_MS = 6_000L
+
+/** 自动选源最多验证几个候选的首集（每个一次网络请求） */
+private const val ALT_AUTO_PICK_TRIES = 3

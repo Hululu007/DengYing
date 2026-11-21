@@ -361,6 +361,7 @@ fun DetailScreen(
                             alts = s.altSources,
                             loading = s.altLoading,
                             currentSourceKey = s.sourceKey,
+                            switchingTo = s.switchingTo,
                             onSwitch = { vm.switchToSource(it) },
                         )
                     }
@@ -567,6 +568,7 @@ private fun AltSourceBlock(
     alts: List<AltItem>,
     loading: Boolean,
     currentSourceKey: String,
+    switchingTo: String,
     onSwitch: (AltItem) -> Unit,
 ) {
     GlassSurface(
@@ -595,7 +597,11 @@ private fun AltSourceBlock(
                 color = Palette.TextPrimary,
             )
             Text(
-                text = if (loading) "查找中…" else "另有 ${alts.size} 个",
+                text = when {
+                    switchingTo.isNotEmpty() -> "切换到 $switchingTo…"
+                    loading -> "查找中…"
+                    else -> "另有 ${alts.size} 个"
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(start = 8.dp),
@@ -630,7 +636,7 @@ private fun AltSourceBlock(
             }
             for (a in visible) {
                 GlassChip(
-                    text = a.sourceName,
+                    text = altLabel(a),
                     onClick = { onSwitch(a) },
                 )
             }
@@ -654,6 +660,15 @@ private fun AltSourceBlock(
 
 /** 详情页一次最多展示的播放源条数（含「当前」chip） */
 private const val MAX_VISIBLE_SOURCES = 20
+
+/**
+ * 候选 chip 文案：集数已后台探测到就带上「全 N 集」。
+ *
+ * 换源前用户最想知道的就是"哪条更全"——以前要点进去才发现是 1 集试看线。
+ * [AltItem.epCount] 为 -1 表示还没探测到，只显示源名，不写猜的数字。
+ */
+private fun altLabel(a: AltItem): String =
+    if (a.epCount > 0) "${a.sourceName} · 全${a.epCount}集" else a.sourceName
 
 /**
  * 播放源 chip 切分：返回 (直接铺出的候选数, 折叠进「更多」的候选数)。
@@ -693,7 +708,7 @@ private fun AllSourcesDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = a.sourceName,
+                            text = altLabel(a),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Palette.TextPrimary,
                             maxLines = 1,
