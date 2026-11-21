@@ -30,6 +30,7 @@ import com.dengying.player.player.PlayerEngine
 actual fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier,
+    zoomMode: VideoZoomMode,
     onBind: (bound: Boolean) -> Unit,
 ) {
     // 不回调 onBind(true)：桌面侧从未真正绑上播放器，虚报会让排障信息失真。

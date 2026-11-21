@@ -137,6 +137,8 @@ class PlayerViewModel(
          * 码率变体抓取和自动换线；直接交给引擎。
          */
         val localFile: Boolean = false,
+        /** HLS 直播：短窗口结束不算本集看完，播放器保持待机等待下一段。 */
+        val live: Boolean = false,
     )
 
     data class UiState(
@@ -196,6 +198,28 @@ class PlayerViewModel(
 
     var state by mutableStateOf(UiState())
         private set
+
+    /** 播放画面缩放模式，按「保留比例 → 裁剪铺满 → 拉伸铺满」循环。 */
+    var zoomMode by mutableStateOf(com.dengying.player.ui.platform.VideoZoomMode.FIT)
+        private set
+
+    fun cycleZoomMode() {
+        zoomMode = when (zoomMode) {
+            com.dengying.player.ui.platform.VideoZoomMode.FIT ->
+                com.dengying.player.ui.platform.VideoZoomMode.COVER
+            com.dengying.player.ui.platform.VideoZoomMode.COVER ->
+                com.dengying.player.ui.platform.VideoZoomMode.FILL
+            com.dengying.player.ui.platform.VideoZoomMode.FILL ->
+                com.dengying.player.ui.platform.VideoZoomMode.FIT
+        }
+        scheduleHide()
+    }
+
+    fun zoomLabel(): String = when (zoomMode) {
+        com.dengying.player.ui.platform.VideoZoomMode.FIT -> "保留比例"
+        com.dengying.player.ui.platform.VideoZoomMode.COVER -> "裁剪铺满"
+        com.dengying.player.ui.platform.VideoZoomMode.FILL -> "拉伸铺满"
+    }
 
     /**
      * 播放器窄接口。UI 层只用它，不认识 ExoPlayer。
@@ -285,6 +309,11 @@ class PlayerViewModel(
         override fun onCompleted() {
             progressLoop.stop()
             state = state.copy(isPlaying = false)
+            if (params.live) {
+                // HLS 直播窗口结束不等于点播剧集完结；不写历史、不切集。
+                PlaybackProbe.note("live-window-ended")
+                return
+            }
             // 显式限定接收者：监听器自身也有 onCompleted，隐式解析会递归调用自己。
             viewModelScope.launch { this@PlayerViewModel.onCompleted() }
         }
@@ -1237,6 +1266,7 @@ class PlayerViewModel(
      * @param viewWidth 画面宽度（像素）
      */
     fun onSeekDrag(deltaX: Float, viewWidth: Float) {
+        if (params.live) return
         if (viewWidth <= 0f || state.totalTime <= 0) return
         // 口径与单位换算在 `domain/SeekPreview`：滑过一个屏幕宽度 = 走完整片
         val target = SeekPreview.targetOf(

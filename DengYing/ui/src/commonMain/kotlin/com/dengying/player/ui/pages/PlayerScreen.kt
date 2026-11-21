@@ -346,6 +346,7 @@ fun PlayerScreen(
         VideoSurface(
             engine = vm.engine,
             modifier = Modifier.fillMaxSize(),
+            zoomMode = vm.zoomMode,
             onBind = { bound ->
                 // 【探针】绑定时是否真的拿到了 player —— 黑屏的第一嫌疑点
                 com.dengying.player.player.PlaybackProbe.note(
@@ -483,6 +484,21 @@ fun PlayerScreen(
             )
         }
 
+        // ---- 画面缩放模式切换（直播/全屏常用）----
+        if (s.controlsVisible && s.errMsg.isEmpty() && isLandscape) {
+            Text(
+                text = "画面：${vm.zoomLabel()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                    .clickable { vm.cycleZoomMode() }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            )
+        }
+
         // ---- 控制层 ----
         if (s.controlsVisible && s.errMsg.isEmpty()) {
             ControlOverlay(
@@ -491,6 +507,7 @@ fun PlayerScreen(
                 onBack = onBack,
                 isLandscape = isLandscape,
                 fullscreen = fullscreen,
+                live = params.live,
             )
         }
 
@@ -567,6 +584,7 @@ private fun ControlOverlay(
     onBack: () -> Unit,
     isLandscape: Boolean,
     fullscreen: com.dengying.player.ui.platform.FullscreenState,
+    live: Boolean,
 ) {
     Box(Modifier.fillMaxSize()) {
         // ---- 顶栏 ----
@@ -781,32 +799,54 @@ private fun ControlOverlay(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            // 进度条（细，贴在控制行上方）
-            val duration = if (s.totalTime > 0) s.totalTime else 1L
             val shown = if (s.dragging) s.dragValue else s.curTime
-            Slider(
-                value = shown.coerceIn(0L, duration).toFloat(),
-                onValueChange = { vm.onDrag(it.toLong()) },
-                onValueChangeFinished = { vm.onDragEnd() },
-                valueRange = 0f..duration.toFloat(),
-                colors = SliderDefaults.colors(
-                    thumbColor = Palette.Danger,
-                    activeTrackColor = Palette.Danger,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.3f),
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(16.dp)
-                    .pointerInput(Unit) {
-                        // 拖动开始/结束的显式信号：Slider 自身的回调不足以区分
-                        // "手指按下"与"值变化"，而 FR-409 要求拖动期间不被时间更新覆盖
-                        detectTapGestures(onPress = {
-                            vm.onDragStart()
-                            tryAwaitRelease()
-                            vm.onDragEnd()
-                        })
-                    },
-            )
+            // 进度条：直播没有「已看 / 总时长」，用缓冲指示条表示当前窗口位置。
+            if (live) {
+                val liveWindowMs = if (s.totalTime > 0) s.totalTime else 1L
+                Slider(
+                    value = s.curTime.coerceIn(0L, liveWindowMs).toFloat(),
+                    onValueChange = {},
+                    enabled = false,
+                    valueRange = 0f..liveWindowMs.toFloat(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Palette.Danger,
+                        activeTrackColor = Palette.Danger,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                        disabledThumbColor = Palette.Danger,
+                        disabledActiveTrackColor = Palette.Danger,
+                        disabledInactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp),
+                )
+            } else {
+                // 进度条（细，贴在控制行上方）
+                val duration = if (s.totalTime > 0) s.totalTime else 1L
+                Slider(
+                    value = shown.coerceIn(0L, duration).toFloat(),
+                    onValueChange = { vm.onDrag(it.toLong()) },
+                    onValueChangeFinished = { vm.onDragEnd() },
+                    valueRange = 0f..duration.toFloat(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Palette.Danger,
+                        activeTrackColor = Palette.Danger,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                        .pointerInput(Unit) {
+                            // 拖动开始/结束的显式信号：Slider 自身的回调不足以区分
+                            // "手指按下"与"值变化"，而 FR-409 要求拖动期间不被时间更新覆盖
+                            detectTapGestures(onPress = {
+                                vm.onDragStart()
+                                tryAwaitRelease()
+                                vm.onDragEnd()
+                            })
+                        },
+                )
+            }
 
             // 单行控制行（FR-707 + FR-709：键位放大到 48dp 见方）
             Row(
@@ -814,9 +854,9 @@ private fun ControlOverlay(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = fmt(shown),
+                    text = if (live) "LIVE" else fmt(shown),
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    color = if (live) Palette.Danger else Color.White,
                 )
                 Spacer(Modifier.weight(1f))
 
@@ -868,11 +908,13 @@ private fun ControlOverlay(
                 )
 
                 Spacer(Modifier.weight(1f))
-                Text(
-                    text = if (s.totalTime > 0) fmt(s.totalTime) else "--:--",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.75f),
-                )
+                if (!live) {
+                    Text(
+                        text = if (s.totalTime > 0) fmt(s.totalTime) else "--:--",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.75f),
+                    )
+                }
             }
 
             // 连播 / 清晰度：低频开关，**只在非全屏时显示**，且压到最底部一行小字，

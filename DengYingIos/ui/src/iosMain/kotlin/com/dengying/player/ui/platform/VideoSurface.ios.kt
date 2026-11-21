@@ -13,6 +13,9 @@ import androidx.compose.ui.interop.UIKitView
 import com.dengying.player.player.PlayerEngine
 import com.dengying.player.ui.player.IosPlayerEngineHost
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.AVFoundation.AVLayerVideoGravityResize
+import platform.AVFoundation.AVLayerVideoGravityResizeAspect
+import platform.AVFoundation.AVLayerVideoGravityResizeAspectFill
 import platform.AVFoundation.AVPlayerLayer
 import platform.QuartzCore.CATransaction
 import platform.QuartzCore.kCATransactionDisableActions
@@ -53,6 +56,7 @@ import platform.UIKit.UIColor
 actual fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier,
+    zoomMode: VideoZoomMode,
     onBind: (bound: Boolean) -> Unit,
 ) {
     // 引擎变化 ⇒ 整块重建（契约第 1 条）
@@ -76,6 +80,11 @@ actual fun VideoSurface(
                             UIViewAutoresizingFlexibleHeight
                 }
                 view.layer.addSublayer(layer)
+                layer.videoGravity = when (zoomMode) {
+                    VideoZoomMode.FIT -> AVLayerVideoGravityResizeAspect
+                    VideoZoomMode.COVER -> AVLayerVideoGravityResizeAspectFill
+                    VideoZoomMode.FILL -> AVLayerVideoGravityResize
+                }
                 layer.frame = view.bounds
                 // 图层不参与隐式动画：进全屏/旋转时否则会看到一段「拉伸动画」
                 CATransaction.begin()

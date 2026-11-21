@@ -34,9 +34,13 @@ import com.dengying.player.player.PlayerEngine
  * @param onBind 绑定观测回调，参数为"本次是否绑上了播放器"。
  *        生产环境传空实现即可，排障时用来确认绑定时机。
  */
+/** 画面缩放模式：保留比例 / 裁剪铺满 / 拉伸铺满。 */
+enum class VideoZoomMode { FIT, COVER, FILL }
+
 @Composable
 expect fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier = Modifier,
+    zoomMode: VideoZoomMode = VideoZoomMode.FIT,
     onBind: (bound: Boolean) -> Unit = {},
 )

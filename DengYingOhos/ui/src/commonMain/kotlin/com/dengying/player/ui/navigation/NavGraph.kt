@@ -162,7 +162,7 @@ fun DengYingNavHost(
                 "&vodName={vodName}&vodPic={vodPic}&vodUri={vodUri}&lineFrom={lineFrom}" +
                 "&episodeIndex={episodeIndex}&episodeName={episodeName}" +
                 "&altUrls={altUrls}&epUrls={epUrls}&epNames={epNames}&startAtMs={startAtMs}" +
-                "&headersJson={headersJson}&localFile={localFile}",
+                "&headersJson={headersJson}&localFile={localFile}&live={live}",
             // 【退场用滑动而非淡出】播放画面底层是 SurfaceView——它**不参与**
             // View 层 alpha 动画（打洞渲染）：fade-out 的几百毫秒里视频画面
             // 原样滞留在屏上叠着渐隐的页面框架，转场结束才突然消失——这是
@@ -198,6 +198,7 @@ fun DengYingNavHost(
                 // FR-705：适配器换链产出的请求头（避免播放页重新换链）
                 navArgument("headersJson") { type = NavType.StringType; defaultValue = "" },
                 navArgument("localFile") { type = NavType.BoolType; defaultValue = false },
+                navArgument("live") { type = NavType.BoolType; defaultValue = false },
             ),
         ) { entry ->
             val a = entry.arguments
@@ -220,6 +221,7 @@ fun DengYingNavHost(
                 // FR-705：适配器换链产出的请求头
                 headersJson = dec(a?.stringArg("headersJson")),
                 localFile = a?.boolArg("localFile") ?: false,
+                live = a?.boolArg("live") ?: false,
             )
             PlayerScreen(
                 params = params,

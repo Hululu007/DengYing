@@ -90,6 +90,7 @@ object Routes {
          */
         headersJson: String = "",
         localFile: Boolean = false,
+        live: Boolean = false,
     ): String {
         val sb = StringBuilder("$PLAYER?url=${enc(url)}&title=${enc(title)}&vodId=$vodId")
         sb.append("&source=").append(enc(source))
@@ -105,6 +106,7 @@ object Routes {
         sb.append("&startAtMs=").append(startAtMs)
         sb.append("&headersJson=").append(enc(headersJson))
         sb.append("&localFile=").append(localFile)
+        sb.append("&live=").append(live)
         return sb.toString()
     }
 

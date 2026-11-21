@@ -27,6 +27,7 @@ import com.dengying.player.player.PlayerEngine
 actual fun VideoSurface(
     engine: PlayerEngine?,
     modifier: Modifier,
+    zoomMode: VideoZoomMode,
     onBind: (bound: Boolean) -> Unit,
 ) {
     key(engine) {
@@ -40,7 +41,11 @@ actual fun VideoSurface(
                     val pv = PlayerView(c).apply {
                         useController = false // 控制层全部自绘
                         // 三种宽高比差异大：FIT 保证不裁切（黑边好过切掉字幕）
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        resizeMode = when (zoomMode) {
+                            VideoZoomMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            VideoZoomMode.COVER -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            VideoZoomMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        }
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                         // 透明快门：解绑（player=null）时露出底下的海报，而不是一块纯黑。
                         // 换片残帧靠「引擎置 null → 解绑」清掉，不靠快门涂黑。
@@ -56,6 +61,11 @@ actual fun VideoSurface(
                 val pv = container.getChildAt(0) as PlayerView
                 // 引擎可能在换集/换档后被重建，故每次重组都重绑。
                 // viewHandle() 返回 Any?，这里转型是安全边界：只有 Media3Engine 会返回非空。
+                pv.resizeMode = when (zoomMode) {
+                    VideoZoomMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    VideoZoomMode.COVER -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    VideoZoomMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                }
                 val player = engine?.viewHandle() as? androidx.media3.common.Player
                 if (pv.player !== player) {
                     pv.player = player

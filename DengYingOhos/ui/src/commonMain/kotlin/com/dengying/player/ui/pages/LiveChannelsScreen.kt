@@ -79,6 +79,7 @@ fun LiveChannelsScreen(
                                     altUrls = emptyList(),
                                     epUrls = emptyList(),
                                     epNames = emptyList(),
+                                    live = true,
                                 ),
                             )
                         })
