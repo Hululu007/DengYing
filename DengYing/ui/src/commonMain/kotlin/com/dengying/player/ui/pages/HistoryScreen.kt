@@ -120,6 +120,7 @@ fun HistoryScreen(
                         ) {
                             Poster(
                                 url = item.vod_pic,
+                                title = item.vod_name,
                                 modifier = Modifier
                                     .width(70.dp)
                                     .height(96.dp),

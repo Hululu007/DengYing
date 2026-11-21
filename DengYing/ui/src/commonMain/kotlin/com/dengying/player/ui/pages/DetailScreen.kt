@@ -88,6 +88,10 @@ fun DetailScreen(
      * 默认 true：非导航宿主（预览、测试）调用时不改变既有行为。
      */
     pageActive: Boolean = true,
+    /** 直播直达：跳过详情加载，进入后即全屏，返回直接回频道列表。 */
+    liveMode: Boolean = false,
+    liveUrl: String = "",
+    liveHeaders: String = "",
 ) {
     val vm: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
         key = "detail_$source$vodId",
@@ -105,6 +109,9 @@ fun DetailScreen(
             store = deps.store,
             engineHost = deps.engineHost,
             deps = deps,
+            live = liveMode,
+            liveUrl = liveUrl,
+            liveHeaders = liveHeaders,
         )
     }
     val s = vm.state
@@ -198,7 +205,7 @@ fun DetailScreen(
         // 【为什么仍然 attachInlineSurface】本页仍是引擎的视图宿主，
         // 全屏形态只是布局变化，表面登记语义不变。
         if (vm.screenOnlyFullscreen) {
-            DetailFullscreenView(vm = vm, fullscreen = fullscreen, pageActive = pageActive)
+            DetailFullscreenView(vm = vm, fullscreen = fullscreen, pageActive = pageActive, onBack = onBack, liveMode = liveMode)
         }
 
         // ---- 返回栏 ----
@@ -273,6 +280,11 @@ fun DetailScreen(
                 InlinePlayer(
                     engine = vm.inlineEngine,
                     title = vm.inlineState.title,
+                    episodeName = vm.inlineState.episodeName,
+                    episodeCount = vm.inlineEpisodeCount(),
+                    live = vm.inlineState.live,
+                    zoomMode = vm.inlineState.zoomMode,
+                    onZoomModeChange = { vm.setInlineZoomMode(it) },
                     isPlaying = vm.inlineState.isPlaying,
                     curTime = vm.inlineState.curTime,
                     totalTime = vm.inlineState.totalTime,
@@ -386,6 +398,7 @@ private fun SkeletonInfoBlock(name: String, pic: String) {
         Row {
             Poster(
                 url = pic,
+                title = name,
                 modifier = Modifier
                     .width(110.dp)
                     .height(150.dp),
@@ -436,6 +449,7 @@ private fun InfoBlock(item: VideoItem) {
         Row {
             Poster(
                 url = item.vod_pic,
+                title = item.vod_name,
                 modifier = Modifier
                     .width(110.dp)
                     .height(150.dp),
@@ -869,11 +883,18 @@ private fun DetailFullscreenView(
     vm: DetailViewModel,
     fullscreen: FullscreenState,
     pageActive: Boolean,
+    onBack: () -> Unit,
+    liveMode: Boolean = false,
 ) {
     SideEffect { vm.attachInlineSurface() }
     InlinePlayer(
         engine = vm.inlineEngine,
         title = vm.inlineState.title,
+        episodeName = vm.inlineState.episodeName,
+        episodeCount = vm.inlineEpisodeCount(),
+        live = vm.inlineState.live,
+        zoomMode = vm.inlineState.zoomMode,
+        onZoomModeChange = { vm.setInlineZoomMode(it) },
         isPlaying = vm.inlineState.isPlaying,
         curTime = vm.inlineState.curTime,
         totalTime = vm.inlineState.totalTime,
@@ -896,6 +917,7 @@ private fun DetailFullscreenView(
         onExitFullscreen = {
             vm.exitScreenFullscreen()
             fullscreen.exit()
+            if (liveMode) onBack()
         },
         // FR-711 全屏形态扩展（2026-11-15 用户反馈）：倍速 + 投屏键
         speed = vm.inlineSpeed,
@@ -908,5 +930,6 @@ private fun DetailFullscreenView(
     PlatformBackHandler(enabled = true) {
         vm.exitScreenFullscreen()
         fullscreen.exit()
+        if (liveMode) onBack()
     }
 }

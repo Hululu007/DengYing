@@ -4,7 +4,12 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,8 +42,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.dengying.player.ui.platform.VideoSurface
+import com.dengying.player.ui.platform.VideoZoomMode
 import com.dengying.player.ui.theme.Glass
 import com.dengying.player.domain.playback.GestureRules
 import com.dengying.player.domain.playback.SeekPreview
@@ -146,12 +155,21 @@ fun InlinePlayer(
      * 全量复用。返回详情页时落回竖屏内嵌形态。
      */
     onCast: (() -> Unit)? = null,
+    /** 直播会话：隐藏暂停/上下集/时间，左下显示 LIVE，点击画面不切换播放态。 */
+    live: Boolean = false,
+    /** 影视名与集名分开传入；旧调用未传时回退到 title。 */
+    episodeName: String = "",
+    episodeCount: Int = 0,
+    /** 当前画面缩放；默认 FIT 不影响既有调用。 */
+    zoomMode: VideoZoomMode = VideoZoomMode.FIT,
+    onZoomModeChange: (VideoZoomMode) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var dragValue by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
     // 全屏形态的倍速面板开关（FR-711 扩展）；内嵌形态无倍速键，恒为 false。
     var speedSheet by remember { mutableStateOf(false) }
+    var zoomSheet by remember { mutableStateOf(false) }
     var boosting by remember { mutableStateOf(false) }
 
     // ---- 画面横向滑动 seek（FR-708 / P-02）----
@@ -224,14 +242,35 @@ fun InlinePlayer(
     // 全屏态是播放中 3 秒后淡出、点击画面重新显示——内嵌态初版**常驻**。
     // 现在用同一口径：播放中 3 秒后隐藏，暂停/缓冲/拖动时保持显示。
     var controlsVisible by remember { mutableStateOf(true) }
-    androidx.compose.runtime.LaunchedEffect(isPlaying, buffering, dragging, seeking, errMsg) {
-        if (!isPlaying || buffering || dragging || seeking || errMsg.isNotEmpty()) {
-            // 非播放态（暂停/缓冲/出错/拖动/滑动 seek）保持可见，否则用户找不到按钮
+    // 【controlsVisible 也必须是 key】否则用户点画面唤出控制栏后没有新的计时器：
+    // 上一轮 LaunchedEffect 早已结束并隐藏，点击只是把状态置 true，不会再淡出。
+    // 真机实录（2026-11-21 直播全屏）：点亮后 5 秒仍常驻。
+    LaunchedEffect(
+        controlsVisible,
+        isPlaying,
+        buffering,
+        dragging,
+        seeking,
+        errMsg,
+        speedSheet,
+        zoomSheet,
+    ) {
+        if (!shouldAutoHideControls(
+                playing = isPlaying,
+                buffering = buffering,
+                dragging = dragging,
+                seeking = seeking,
+                hasError = errMsg.isNotEmpty(),
+                dropdownOpen = speedSheet || zoomSheet,
+            )
+        ) {
+            // 非播放态（暂停/缓冲/出错/拖动/滑动 seek）或下拉展开时保持可见，否则用户找不到按钮
             controlsVisible = true
             return@LaunchedEffect
         }
-        controlsVisible = true
-        kotlinx.coroutines.delay(3000)
+        // 已隐藏就等待下一次点击；这里再置 true 会和「3 秒后隐藏」互相触发成死循环。
+        if (!controlsVisible) return@LaunchedEffect
+        delay(3000)
         controlsVisible = false
     }
 
@@ -292,11 +331,17 @@ fun InlinePlayer(
                             )) {
                                 GestureRules.Action.Undecided -> Unit
                                 GestureRules.Action.Seek -> {
+                                    if (live) {
+                                        // 直播无时间轴、无 seek：横向拖动作废，不触发预览/提交。
+                                        change.consume()
+                                        mode = -1
+                                    } else {
                                     change.consume()
                                     mode = 1
                                     seekStartMs = liveCurTime
                                     seekTargetMs = liveCurTime
                                     seeking = true
+                                    }
                                 }
                                 GestureRules.Action.Brightness -> {
                                     if (liveFullscreen && brightnessCtl != null) {
@@ -386,7 +431,7 @@ fun InlinePlayer(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
-                    onDoubleTap = { onTogglePlay() },
+                    onDoubleTap = { if (!live) onTogglePlay() },
                     onLongPress = { offset ->
                         if (!boosting && offset.x >= size.width / 2f) {
                             boosting = true
@@ -418,7 +463,11 @@ fun InlinePlayer(
             // 【P-06】hidden 时整个渲染面都不进组合（不是只不画浮层）——
             // 视图从组合树移除会同时把播放面从窗口上摘下，不留下任何一帧。
             // 会话不动：回详情页/回全屏时重新挂载即可（引擎是全局单例）。
-            VideoSurface(engine = engine, modifier = Modifier.fillMaxSize())
+            VideoSurface(
+                engine = engine,
+                modifier = Modifier.fillMaxSize(),
+                zoomMode = zoomMode,
+            )
         }
 
         // ---- 空态 / 错误态 / 缓冲态 ----
@@ -582,45 +631,71 @@ fun InlinePlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // 仅全屏形态让开横屏左侧挖孔与底部手势条；
+                    // 内嵌位在详情页里本来就贴着内容底边，再加底部 inset 会被顶起来。
+                    .then(
+                        if (fullscreen) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(
+                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
                     .background(Color.Black.copy(alpha = 0.5f))
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = fmtTime(shown),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
-                    modifier = Modifier.width(44.dp),
-                )
-                // 自绘细线进度条（比 Material Slider 更紧凑、更贴合播放器观感）
+                if (live) {
+                    Text(
+                        text = "LIVE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.Danger,
+                        modifier = Modifier.width(44.dp),
+                    )
+                } else {
+                    Text(
+                        text = fmtTime(shown),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier.width(44.dp),
+                    )
+                }
+                // 计划 13 §3.5：直播也画进度条，但只作为状态线，不能点、不能拖
+                // （横滑 seek 在画面手势层已丢弃）。点播照旧可点可拖。
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
                         .height(20.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures { offset ->
-                                // 点进度条直接跳转（按点击位置比例）
-                                val ratio = (offset.x / size.width).coerceIn(0f, 1f)
-                                onSeek((duration * ratio).toLong())
-                            }
-                        }
-                        .pointerInput(Unit) {
-                            detectHorizontalDragGestures(
-                                onDragStart = {
-                                    dragging = true
-                                    dragValue = curTime
+                        .then(
+                            if (live) Modifier else Modifier
+                                .pointerInput(Unit) {
+                                    detectTapGestures { offset ->
+                                        // 点进度条直接跳转（按点击位置比例）
+                                        val ratio = (offset.x / size.width).coerceIn(0f, 1f)
+                                        onSeek((duration * ratio).toLong())
+                                    }
+                                }
+                                .pointerInput(Unit) {
+                                    detectHorizontalDragGestures(
+                                        onDragStart = {
+                                            dragging = true
+                                            dragValue = curTime
+                                        },
+                                        onDragEnd = {
+                                            dragging = false
+                                            onSeek(dragValue)
+                                        },
+                                        onHorizontalDrag = { change, delta ->
+                                            change.consume()
+                                            val ratio = (change.position.x / size.width).coerceIn(0f, 1f)
+                                            dragValue = (duration * ratio).toLong()
+                                        },
+                                    )
                                 },
-                                onDragEnd = {
-                                    dragging = false
-                                    onSeek(dragValue)
-                                },
-                                onHorizontalDrag = { change, delta ->
-                                    change.consume()
-                                    val ratio = (change.position.x / size.width).coerceIn(0f, 1f)
-                                    dragValue = (duration * ratio).toLong()
-                                },
-                            )
-                        },
+                        ),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     val w = maxWidth
@@ -648,47 +723,57 @@ fun InlinePlayer(
                 }
 
                 Spacer(Modifier.width(6.dp))
-                Text(
-                    text = if (totalTime > 0) fmtTime(totalTime) else "--:--",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.width(44.dp),
-                )
+                if (!live) {
+                    Text(
+                        text = if (totalTime > 0) fmtTime(totalTime) else "--:--",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.width(44.dp),
+                    )
+                }
 
-                Spacer(Modifier.width(4.dp))
+                if (!live) Spacer(Modifier.width(4.dp))
                 // FR-711 扩展：全屏形态补倍速键（纯文字，与播放页 :791 同口径——
                 // 「它不是图形，给图标反而看不懂」）。内嵌形态不出现。
-                if (fullscreen) {
+                // 直播不提供倍速：真机反馈（2026-11-21）直播场景倍速无意义且会打乱
+                // 实时进度语义，用户明确要求移除。
+                if (fullscreen && !live) {
                     Text(
                         text = if (speed == 1.0f) "倍速" else if (speed == 2.0f) "2x" else "${speed}x",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (speed == 1.0f) Color.White else Palette.Danger,
                         modifier = Modifier
-                            .clickable { speedSheet = !speedSheet }
+                            .clickable {
+                                val (nextZoom, nextSpeed) = toggleSpeedSheet(speedSheet, zoomSheet)
+                                zoomSheet = nextZoom
+                                speedSheet = nextSpeed
+                            }
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                     )
                     Spacer(Modifier.width(4.dp))
                 }
-                InlineIconButton(
-                    icon = DyIcons.SkipPrevious,
-                    label = "上一集",
-                    enabled = canPrev,
-                    onClick = onPrev,
-                )
-                Spacer(Modifier.width(4.dp))
-                InlineIconButton(
-                    icon = if (isPlaying) DyIcons.Pause else DyIcons.Play,
-                    label = if (isPlaying) "暂停" else "播放",
-                    onClick = onTogglePlay,
-                )
-                Spacer(Modifier.width(4.dp))
-                InlineIconButton(
-                    icon = DyIcons.SkipNext,
-                    label = "下一集",
-                    enabled = canNext,
-                    onClick = onNext,
-                )
-                Spacer(Modifier.width(4.dp))
+                if (!live) {
+                    InlineIconButton(
+                        icon = DyIcons.SkipPrevious,
+                        label = "上一集",
+                        enabled = canPrev,
+                        onClick = onPrev,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    InlineIconButton(
+                        icon = if (isPlaying) DyIcons.Pause else DyIcons.Play,
+                        label = if (isPlaying) "暂停" else "播放",
+                        onClick = onTogglePlay,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    InlineIconButton(
+                        icon = DyIcons.SkipNext,
+                        label = "下一集",
+                        enabled = canNext,
+                        onClick = onNext,
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 InlineIconButton(
                     // FR-711：全屏形态下同一颗键变为「退出全屏」
                     icon = if (fullscreen) DyIcons.FullscreenExit else DyIcons.Fullscreen,
@@ -707,16 +792,35 @@ fun InlinePlayer(
         if (fullscreen) {
             FullscreenTopBar(
                 controlsVisible = controlsVisible,
+                titleText = fullscreenTitleText(title, episodeName, episodeCount, live),
                 onExitFullscreen = onExitFullscreen,
                 onCast = onCast,
+                zoomMode = zoomMode,
+                onZoomClick = {
+                    val (nextZoom, nextSpeed) = toggleZoomSheet(zoomSheet, speedSheet)
+                    zoomSheet = nextZoom
+                    speedSheet = nextSpeed
+                },
             )
 
             // ---- 倍速面板（FR-711 扩展）----
             // 玻璃面板 + 档位列表，与播放页 :669 同一设计语言；档位一致
             // （0.75/1.0/1.25/1.5/2.0），当前档用 Danger 高亮。
             // 随控制栏一起隐藏：点画面收起控制栏时面板不能悬空残留。
+            ZoomSheetPanel(
+                visible = zoomSheet && controlsVisible,
+                zoomMode = zoomMode,
+                onZoomChange = { mode ->
+                    onZoomModeChange(mode)
+                    zoomSheet = false
+                },
+                onDismiss = { zoomSheet = false },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 16.dp, top = 56.dp),
+            )
             SpeedSheetPanel(
-                visible = speedSheet && controlsVisible,
+                visible = speedSheet && controlsVisible && !live,
                 speed = speed,
                 onSpeedChange = onSpeedChange,
                 onDismiss = { speedSheet = false },
@@ -743,8 +847,11 @@ fun InlinePlayer(
 @Composable
 private fun FullscreenTopBar(
     controlsVisible: Boolean,
+    titleText: String,
     onExitFullscreen: () -> Unit,
     onCast: (() -> Unit)?,
+    zoomMode: VideoZoomMode,
+    onZoomClick: () -> Unit,
 ) {
     androidx.compose.animation.AnimatedVisibility(
         visible = controlsVisible,
@@ -755,8 +862,19 @@ private fun FullscreenTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // 【安全区】横屏时挖孔在左侧（vivo V2419A 实测 cutout 占左边 120px），
+                // 原来顶栏从 x=0 起画，「返回」整个压在挖孔下面，看起来像顶栏错位。
+                // 用 safeDrawing 的横向+顶部内边距：隐藏系统栏时顶部为 0，
+                // 挖孔始终让出，控制栏不再钻到摄像头下面。
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Horizontal + WindowInsetsSides.Top,
+                    ),
+                )
                 .background(Color.Black.copy(alpha = 0.35f))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                // 顶部多留 10dp：隐藏系统栏后 statusBars inset 为 0，只靠 safeDrawing
+                // 会让按钮贴着屏幕上边缘，圆角/挖孔机型看着像被裁掉。
+                .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             InlineIconButton(
@@ -764,7 +882,27 @@ private fun FullscreenTopBar(
                 label = "返回",
                 onClick = onExitFullscreen,
             )
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                // 标题吃掉剩余宽度，把「画面 / 投屏」顶到最右边。
+                // 之前用 weight(1f, fill=false) 再加一个 weight(1f) Spacer，
+                // 两个权重各分一半剩余空间，右侧按钮被推到屏幕中间偏右
+                // （真机 2026-11-21：投屏停在 x=1926，离右边还差 700px）。
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${zoomLabel(zoomMode)} ▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .clickable(onClick = onZoomClick)
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+            )
             if (onCast != null) {
                 Text(
                     text = "投屏",
@@ -779,6 +917,40 @@ private fun FullscreenTopBar(
     }
 }
 
+
+/** 全屏画面缩放面板：与倍速面板互斥（由调用点的两个布尔状态保证）。 */
+@Composable
+private fun ZoomSheetPanel(
+    visible: Boolean,
+    zoomMode: VideoZoomMode,
+    onZoomChange: (VideoZoomMode) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!visible) return
+    GlassSurface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        fill = Glass.DarkFill,
+        elevation = 0.dp,
+    ) {
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+            for (mode in VideoZoomMode.entries) {
+                Text(
+                    text = zoomLabel(mode),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (zoomMode == mode) Palette.Danger else Color.White,
+                    modifier = Modifier
+                        .clickable {
+                            onZoomChange(mode)
+                            onDismiss()
+                        }
+                        .padding(horizontal = 22.dp, vertical = 9.dp),
+                )
+            }
+        }
+    }
+}
 /** 全屏形态倍速面板（玻璃 + 档位列表，当前档 Danger 高亮）。抽出动机见 [FullscreenTopBar]。 */
 @Composable
 private fun SpeedSheetPanel(

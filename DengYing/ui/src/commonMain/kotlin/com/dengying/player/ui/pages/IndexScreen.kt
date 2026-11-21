@@ -683,6 +683,7 @@ private fun VideoCard(v: VideoItem, onClick: () -> Unit) {
             Box {
                 Poster(
                     url = v.vod_pic,
+                    title = v.vod_name,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(140.dp),
@@ -1304,6 +1305,7 @@ private fun DiscoverVideoCard(
                         // 销毁，残帧随之消失，只留海报底图；本片 setMedia 成功后再挂新视图出画。
                         com.dengying.player.ui.components.Poster(
                             url = item.vod_pic ?: "",
+                            title = item.vod_name ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
@@ -1317,6 +1319,7 @@ private fun DiscoverVideoCard(
                     } else {
                         com.dengying.player.ui.components.Poster(
                             url = item.vod_pic ?: "",
+                            title = item.vod_name ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit,

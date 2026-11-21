@@ -145,6 +145,7 @@ private fun DownloadRow(
         Row(modifier = Modifier.padding(10.dp)) {
             Poster(
                 url = item.vodPic,
+                title = item.vodName,
                 modifier = Modifier
                     .width(70.dp)
                     .height(96.dp),

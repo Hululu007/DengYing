@@ -66,6 +66,8 @@ object PlaybackSession {
         val errMsg: String = "",
         /** 【v5.6 试看标记】tv189 免登录试看链（end=300）且跨源未救回全片——UI 打"试看"角标 */
         val isPreview: Boolean = false,
+        /** 直播会话：不可暂停/seek，播完/出错不换源。 */
+        val live: Boolean = false,
     ) {
         /** 是否存在可恢复的会话（详情页内嵌位据此决定恢复还是空态） */
         val hasSession: Boolean get() = url.isNotEmpty() && status != Status.Idle
@@ -138,6 +140,7 @@ object PlaybackSession {
         startAtMs: Long = 0L,
         altUrls: List<String> = emptyList(),
         localFile: Boolean = false,
+        live: Boolean = false,
     ) {
         val isLocal = localFile || rawUrl.startsWith("file://", ignoreCase = true)
         // Keep the last settled state before marking this request as Resolving.
@@ -174,9 +177,11 @@ object PlaybackSession {
         // totalTime 必须归 0：InlinePlayer 以 totalTime<=0 判定"还没拿到时长"
         // 并显示缓冲态——这正是换集后应该看到的形态。
         val prev = _state.value
+        val directMedia = live || isLocal
         val switchingEpisode = !prev.hasSession ||
             prev.vodId != vodId || prev.source != source || prev.episodeIndex != episodeIndex
         _state.value = prev.copy(
+            live = live,
             status = Status.Resolving,
             url = rawUrl,
             headers = "",
@@ -196,10 +201,10 @@ object PlaybackSession {
         scope.launch {
             try {
                 // 1) 地址解析：优先用预解析结果；否则走解析链（含换源兜底）
-                var url = if (isLocal) rawUrl else preResolved ?: ""
-                var headers = if (isLocal) "" else preHeaders
+                var url = if (directMedia) rawUrl else preResolved ?: ""
+                var headers = if (directMedia) preHeaders else ""
                 var previewOnly = false
-                if (!isLocal && url.isEmpty()) {
+                if (!directMedia && url.isEmpty()) {
                     val resolved = resolveChain(repo, rawUrl, source, vodId, altUrls)
                     if (resolved == null) {
                         _state.value = _state.value.copy(

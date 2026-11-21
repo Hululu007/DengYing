@@ -194,6 +194,7 @@ private fun HeroCard(v: VideoItem, modifier: Modifier = Modifier, onClick: () ->
     ) {
         Poster(
             url = v.vod_pic,
+            title = v.vod_name,
             modifier = Modifier.fillMaxSize(),
             cornerRadius = 22,
         )
@@ -257,6 +258,7 @@ private fun HotGridCard(v: VideoItem, modifier: Modifier, onClick: () -> Unit) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Poster(
                     url = v.vod_pic,
+                    title = v.vod_name,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(16f / 9f),
@@ -302,6 +304,7 @@ private fun RailCard(v: VideoItem, onClick: () -> Unit) {
     ) {
         Poster(
             url = v.vod_pic,
+            title = v.vod_name,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(156.dp),

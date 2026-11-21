@@ -37,7 +37,7 @@ import com.dengying.player.ui.theme.Palette
 @Composable
 fun LiveChannelsScreen(
     onBack: () -> Unit,
-    onOpenPlayer: (String) -> Unit,
+    onOpenLive: (String) -> Unit,
 ) {
     val channels = CmsSources.DIRECT
     GlassPage(
@@ -64,22 +64,12 @@ fun LiveChannelsScreen(
                 ) {
                     items(channels, key = { it.key }) { channel ->
                         LiveChannelCard(channel = channel, onClick = {
-                            onOpenPlayer(
-                                Routes.player(
+                            onOpenLive(
+                                Routes.livePlayer(
                                     url = channel.url,
-                                    title = channel.name,
-                                    vodId = 0L,
+                                    name = channel.name,
                                     source = channel.key,
-                                    vodName = channel.name,
-                                    vodPic = "",
-                                    vodUri = "",
-                                    lineFrom = "直播频道",
-                                    episodeIndex = 0,
-                                    episodeName = "直播",
-                                    altUrls = emptyList(),
-                                    epUrls = emptyList(),
-                                    epNames = emptyList(),
-                                    live = true,
+                                    headers = channel.headers.entries.joinToString(",") { (k, v) -> "$k=$v" },
                                 ),
                             )
                         })

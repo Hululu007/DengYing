@@ -73,6 +73,9 @@ class DetailViewModel(
      * 缓存跟着没了（真机实测同片进出 3 次、3 次全量重搜）。
      */
     private val deps: UiDeps,
+    private val live: Boolean = false,
+    private val liveUrl: String = "",
+    private val liveHeaders: String = "",
 ) : ViewModel() {
 
     data class UiState(
@@ -156,7 +159,24 @@ class DetailViewModel(
         private set
 
     init {
-        loadDetail()
+        if (live) {
+            // 直播直达：编译期预置地址，不过详情接口、不解析、不换源。
+            // 先建立会话再切全屏形态：ScreenFullscreenState.enter() 要求 hasSession。
+            com.dengying.player.playback.PlaybackSession.play(
+                repo = repo,
+                rawUrl = liveUrl,
+                title = name,
+                vodName = name,
+                vodId = vodId,
+                source = source,
+                vodUri = "",
+                episodeIndex = 0,
+                episodeName = "",
+                preHeaders = liveHeaders,
+                live = true,
+            )
+            enterScreenFullscreen()
+        } else loadDetail()
         viewModelScope.launch {
             while (true) {
                 refreshDownloadsNow()
@@ -181,6 +201,8 @@ class DetailViewModel(
                 inlineState = inlineState.copy(
                     active = true,
                     title = s.title,
+                    episodeName = s.episodeName,
+                    live = s.live,
                     isPlaying = s.status == com.dengying.player.playback.PlaybackSession.Status.Playing,
                     curTime = s.curTime,
                     totalTime = s.totalTime,
@@ -560,6 +582,9 @@ class DetailViewModel(
         val status: String = "",
         /** 页面正在退出：只留黑底，不画占位图形（修"返回后残留"） */
         val hidden: Boolean = false,
+        val episodeName: String = "",
+        val live: Boolean = false,
+        val zoomMode: com.dengying.player.ui.platform.VideoZoomMode = com.dengying.player.ui.platform.VideoZoomMode.FIT,
     )
 
     /**
@@ -752,7 +777,9 @@ class DetailViewModel(
         com.dengying.player.playback.PlaybackSession.play(
             repo = repo,
             rawUrl = if (isLocal) localUrl else ep.url,
-            title = "${it.vod_name} ${ep.name}",
+            // 新全屏顶栏自己拼「片名 + 集名」，这里只留片名，否则真机出现
+            // 「恶魔纹章 第01集 第01集」双份集名。旧播放页/投屏仍用 vodName。
+            title = it.vod_name,
             vodName = it.vod_name,
             vodId = curVodId,
             source = curSource,
@@ -1100,12 +1127,20 @@ class DetailViewModel(
         store.saveHistory(item)
     }
 
+    fun inlineEpisodeCount(): Int = if (live) 1 else state.lines.getOrNull(state.lineIdx)?.episodes?.size ?: 0
+
+    fun setInlineZoomMode(mode: com.dengying.player.ui.platform.VideoZoomMode) {
+        inlineState = inlineState.copy(zoomMode = mode)
+    }
+
     fun toggleInlinePlay() {
+        if (inlineState.live) return // 直播不可暂停（计划红线）
         val e = inlineEngine ?: return
         if (inlineState.isPlaying) e.pause() else e.play()
     }
 
     fun seekInline(positionMs: Long) {
+        if (inlineState.live) return // 直播不可 seek
         inlineEngine?.seekTo(positionMs)
         inlineState = inlineState.copy(curTime = positionMs)
     }

@@ -135,6 +135,33 @@ fun DengYingNavHost(
         }
 
         composable(
+            route = "${Routes.LIVE_PLAYER}?url={url}&name={name}&source={source}&headers={headers}",
+            arguments = listOf(
+                navArgument("url") { type = NavType.StringType; defaultValue = "" },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                navArgument("source") { type = NavType.StringType; defaultValue = "" },
+                navArgument("headers") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            val a = entry.arguments
+            DetailScreen(
+                vodId = 0L,
+                source = dec(a?.stringArg("source")),
+                name = dec(a?.stringArg("name")),
+                pic = "",
+                vodUri = "",
+                resumeEpisode = -1,
+                autoPlay = true,
+                onBack = { nav.popBackStack() },
+                onOpenPlayer = {},
+                pageActive = backStackEntry?.id == entry.id,
+                liveMode = true,
+                liveUrl = dec(a?.stringArg("url")),
+                liveHeaders = dec(a?.stringArg("headers")),
+            )
+        }
+
+        composable(
             route = "${Routes.DETAIL}?vodId={vodId}&source={source}&name={name}&pic={pic}" +
                 "&vodUri={vodUri}&resumeEpisode={resumeEpisode}&autoPlay={autoPlay}",
             arguments = listOf(
@@ -288,7 +315,7 @@ fun DengYingNavHost(
         composable(Routes.LIVE_CHANNELS) {
             LiveChannelsScreen(
                 onBack = { nav.popBackStack() },
-                onOpenPlayer = { route -> nav.navigate(route) },
+                onOpenLive = { route -> nav.navigate(route) },
             )
         }
 

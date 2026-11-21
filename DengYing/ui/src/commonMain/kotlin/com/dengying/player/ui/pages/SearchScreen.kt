@@ -368,6 +368,7 @@ private fun ResultRow(item: VideoItem, onClick: () -> Unit) {
         ) {
         Poster(
             url = item.vod_pic,
+            title = item.vod_name,
             modifier = Modifier
                 .width(80.dp)
                 .height(110.dp),
