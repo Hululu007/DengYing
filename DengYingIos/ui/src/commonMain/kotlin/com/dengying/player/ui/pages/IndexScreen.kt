@@ -1380,10 +1380,17 @@ private fun DiscoverVideoCard(
                         .fillMaxWidth()
                         .aspectRatio(16f / 9f)
                         .clickable {
+                            // 详情页会先读进程级 detailCache。发现页已拿到完整 VideoItem，
+                            // 这里同步注入，避免「视频已经看到了还要再转一圈正在获取详情」。
+                            val source = item._source ?: ""
+                            com.dengying.player.ui.UiDepsHolder.get().detailCache.put(
+                                com.dengying.player.ui.UiDeps.detailCacheKey(source, item.vod_id),
+                                item,
+                            )
                             onOpenDetail(
                                 com.dengying.player.ui.navigation.Routes.detail(
                                     vodId = item.vod_id,
-                                    source = item._source ?: "",
+                                    source = source,
                                     name = item.vod_name ?: "",
                                     pic = item.vod_pic ?: "",
                                     vodUri = item.vod_uri ?: "",
@@ -1401,6 +1408,7 @@ private fun DiscoverVideoCard(
                             url = item.vod_pic ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         )
                         if (mediaReady) {
                             VideoSurface(
@@ -1413,6 +1421,7 @@ private fun DiscoverVideoCard(
                             url = item.vod_pic ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
                         )
                     }
                     if (resolving) {

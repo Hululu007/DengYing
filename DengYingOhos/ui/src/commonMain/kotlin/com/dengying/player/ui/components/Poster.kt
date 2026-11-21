@@ -144,6 +144,7 @@ fun Poster(
     url: String,
     modifier: Modifier = Modifier,
     cornerRadius: Int = 6,
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
     var bitmap by remember(url) { mutableStateOf(PosterCache.get(url)) }
 
@@ -164,7 +165,7 @@ fun Poster(
             Image(
                 bitmap = b,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
             )
         }
