@@ -10,94 +10,152 @@ on:
         description: "Existing release tag, e.g. v1.3.24"
         required: true
         type: string
+      dry_run:
+        description: "Only inspect release and attachments, do not upload"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
 
+concurrency:
+  group: gitee-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   mirror-assets:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GITEE_OWNER: han-xiaos-whisper
+      GITEE_REPO: DengYing
     steps:
-      - name: Resolve tag
-        id: tag
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install Gitee CLI tools
+      - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Ensure Gitee release exists
+      - name: Resolve and validate tag
+        id: tag
         env:
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-          TAG: ${{ steps.tag.outputs.name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          test -n "$GITEE_TOKEN" || { echo "GITEE_TOKEN is not configured"; exit 1; }
-          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
-          CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$API")
-          if [ "$CODE" = "200" ]; then
-            echo "Gitee release $TAG already exists"
-          elif [ "$CODE" = "404" ]; then
-            curl -fSs -X POST 'https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases' \
-              -H 'Content-Type: application/json;charset=UTF-8' \
-              -d "{\"access_token\":\"$GITEE_TOKEN\",\"tag_name\":\"$TAG\",\"name\":\"$TAG\",\"body\":\"Release assets mirrored from GitHub Actions.\",\"draft\":false,\"prerelease\":false}"
-          else
-            echo "Unexpected Gitee release lookup status: $CODE"
-            cat /tmp/gitee-release.json
+          TAG="${INPUT_TAG:-$REF_NAME}"
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid tag: $TAG" >&2
             exit 1
           fi
+          echo "name=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Download GitHub release assets
+      - name: Wait for GitHub release assets
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.name }}
         run: |
-          mkdir -p release-assets
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release-assets --clobber
-          ls -lh release-assets
+          for i in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              if gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release-assets --clobber; then
+                APK=$(find release-assets -maxdepth 1 -type f -name '*.apk' 2>/dev/null | wc -l)
+                IPA=$(find release-assets -maxdepth 1 -type f -name '*.ipa' 2>/dev/null | wc -l)
+                if [ "$APK" -gt 0 ] && [ "$IPA" -gt 0 ]; then
+                  echo "GitHub release $TAG has APK and IPA"
+                  exit 0
+                fi
+              fi
+            fi
+            echo "Waiting for GitHub release $TAG assets ($i/60)"
+            sleep 30
+          done
+          echo "Timed out waiting for APK and IPA on GitHub release $TAG" >&2
+          exit 1
 
-      - name: Find or upload Gitee asset
+      - name: Ensure Gitee release exists
+        id: release
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           TAG: ${{ steps.tag.outputs.name }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          test -f release-assets/app-release.apk || { echo "app-release.apk missing from GitHub release"; exit 1; }
-          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
-          EXISTING=$(curl -fSs -H 'Accept: application/json;charset=UTF-8' "$API" \
-            | jq -r --arg name 'app-release.apk' '.assets[]? | select(.name == $name) | .id // empty')
-          if [ -n "$EXISTING" ]; then
-            curl -fSs -X PATCH "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets/$EXISTING" \
-              -H 'Content-Type: application/json;charset=UTF-8' \
-              -d "{\"access_token\":\"$GITEE_TOKEN\",\"name\":\"app-release.apk\"}"
+          test -n "$GITEE_TOKEN" || { echo "GITEE_TOKEN is not configured" >&2; exit 1; }
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          TAG_ENC=$(printf '%s' "$TAG" | jq -sRr @uri)
+          CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$BASE/releases/tags/$TAG_ENC")
+          if [ "$CODE" = "200" ]; then
+            ID=$(jq -r '.id' /tmp/gitee-release.json)
+            echo "Found Gitee release $TAG with id $ID"
+          elif [ "$CODE" = "404" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "DRY RUN: would create Gitee release $TAG"
+              ID=""
+            else
+              jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" \
+                '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false}' \
+                > /tmp/gitee-create.json
+              curl -fSs -X POST "$BASE/releases" \
+                -H 'Content-Type: application/json;charset=UTF-8' \
+                --data-binary @/tmp/gitee-create.json \
+                -o /tmp/gitee-release.json
+              ID=$(jq -r '.id' /tmp/gitee-release.json)
+              echo "Created Gitee release $TAG with id $ID"
+            fi
           else
-            curl -fSs -X POST "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets" \
-              -F "access_token=$GITEE_TOKEN" \
-              -F "file=@release-assets/app-release.apk" \
-              -F "name=app-release.apk"
+            echo "Unexpected Gitee release lookup status: $CODE" >&2
+            cat /tmp/gitee-release.json
+            exit 1
           fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
 
-      - name: Upload IPA to Gitee when available
+      - name: List existing Gitee attachments
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-          TAG: ${{ steps.tag.outputs.name }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
         run: |
-          if [ ! -f release-assets/DengYing-unsigned.ipa ]; then
-            echo "DengYing-unsigned.ipa not attached to GitHub release; skipping"
+          if [ -z "$RELEASE_ID" ]; then
+            echo "No release id in dry run"
             exit 0
           fi
-          API="https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/tags/$TAG"
-          EXISTING=$(curl -fSs -H 'Accept: application/json;charset=UTF-8' "$API" \
-            | jq -r --arg name 'DengYing-unsigned.ipa' '.assets[]? | select(.name == $name) | .id // empty')
-          if [ -n "$EXISTING" ]; then
-            curl -fSs -X PATCH "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets/$EXISTING" \
-              -H 'Content-Type: application/json;charset=UTF-8' \
-              -d "{\"access_token\":\"$GITEE_TOKEN\",\"name\":\"DengYing-unsigned.ipa\"}"
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          curl -fSs "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN&per_page=100" \
+            -o /tmp/gitee-attachments.json
+          jq -r '.[] | "\(.id)\t\(.name)\t\(.size)"' /tmp/gitee-attachments.json
+
+      - name: Mirror GitHub assets to Gitee
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          test -n "$RELEASE_ID" || { echo "Missing Gitee release id" >&2; exit 1; }
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          curl -fSs "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN&per_page=100" \
+            -o /tmp/gitee-attachments.json
+          for FILE in release-assets/*; do
+            [ -f "$FILE" ] || continue
+            NAME=$(basename "$FILE")
+            SIZE=$(stat -c %s "$FILE")
+            EXISTING_ID=$(jq -r --arg name "$NAME" '.[] | select(.name == $name and .size == ($size|tonumber)) | .id' --argjson size "$SIZE" /tmp/gitee-attachments.json | head -n1)
+            if [ -z "$EXISTING_ID" ]; then
+              EXISTING_ID=$(jq -r --arg name "$NAME" '.[] | select(.name == $name) | .id' /tmp/gitee-attachments.json | head -n1)
+              if [ -n "$EXISTING_ID" ]; then
+                echo "Replacing stale attachment $NAME (id $EXISTING_ID)"
+                curl -fSs -X DELETE "$BASE/releases/$RELEASE_ID/attach_files/$EXISTING_ID?access_token=$GITEE_TOKEN"
+              fi
+              echo "Uploading $NAME ($SIZE bytes)"
+              curl -fSs -X POST "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN" \
+                -F "file=@$FILE"
+            else
+              echo "Asset $NAME already present with matching size"
+            fi
+          done
+
+      - name: Report HAP availability
+        if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          if find release-assets -maxdepth 1 -type f -name '*.hap' | grep -q .; then
+            echo "HAP asset mirrored"
           else
-            curl -fSs -X POST "https://gitee.com/api/v5/repos/han-xiaos-whisper/DengYing/releases/assets" \
-              -F "access_token=$GITEE_TOKEN" \
-              -F "file=@release-assets/DengYing-unsigned.ipa" \
-              -F "name=DengYing-unsigned.ipa"
+            echo "No HAP asset on GitHub release; skipped"
           fi

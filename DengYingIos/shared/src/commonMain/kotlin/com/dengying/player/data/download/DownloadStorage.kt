@@ -18,14 +18,22 @@ expect object DownloadStorage {
 
     /** 写入字节；父目录不存在时自动创建 */
     fun writeBytes(relPath: String, bytes: ByteArray): Boolean
+    /** 追加写入一块字节；不支持返回 false，上层回退整段写入 */
+    fun appendBytes(relPath: String, bytes: ByteArray): Boolean
 
     fun exists(relPath: String): Boolean
 
+    /** 已下载字节数；不存在返回 -1 */
+    fun sizeOf(relPath: String): Long
+    /** 原子改名（用于 .part 落盘）；失败返回 false */
+    fun rename(from: String, to: String): Boolean
     /** 删除单个文件，失败返回 false */
     fun delete(relPath: String): Boolean
 
     /** 删除任务目录（递归），失败返回 false */
     fun deleteTree(relPath: String): Boolean
+    /** 列出任务目录下以 .part 结尾的文件名（启动清理用）；默认空列表，平台可覆盖 */
+    fun listParts(relPath: String): List<String>
 
     /** 清空根目录下的全部下载内容 */
     fun deleteAll(): Boolean

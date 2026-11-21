@@ -1,6 +1,7 @@
 package com.dengying.player.data.download
 
 import java.io.File
+import java.io.FileOutputStream
 
 actual object DownloadStorage {
 
@@ -33,6 +34,29 @@ actual object DownloadStorage {
         }
     }
 
+    actual fun appendBytes(relPath: String, bytes: ByteArray): Boolean {
+        val f = fileOf(relPath) ?: return false
+        return try {
+            f.parentFile?.mkdirs()
+            FileOutputStream(f, true).use { it.write(bytes) }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+    actual fun sizeOf(relPath: String): Long =
+        fileOf(relPath)?.takeIf { it.isFile }?.length() ?: -1L
+    actual fun rename(from: String, to: String): Boolean {
+        val src = fileOf(from) ?: return false
+        val dst = fileOf(to) ?: return false
+        return try {
+            dst.parentFile?.mkdirs()
+            if (dst.exists() && !dst.delete()) return false
+            src.renameTo(dst)
+        } catch (e: Exception) {
+            false
+        }
+    }
     actual fun exists(relPath: String): Boolean =
         fileOf(relPath)?.isFile == true
 
@@ -54,6 +78,11 @@ actual object DownloadStorage {
         }
     }
 
+    actual fun listParts(relPath: String): List<String> {
+        val f = fileOf(relPath) ?: return emptyList()
+        return f.listFiles { it -> it.isFile && it.name.endsWith(".part") }
+            ?.map { "$relPath/${it.name}" } ?: emptyList()
+    }
     actual fun deleteAll(): Boolean {
         val base = root ?: return false
         val f = File(base)

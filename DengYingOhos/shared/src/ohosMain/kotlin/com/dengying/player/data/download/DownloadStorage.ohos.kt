@@ -10,12 +10,17 @@ import kotlinx.cinterop.plus
 import kotlinx.cinterop.pointed
 import kotlinx.cinterop.set
 import kotlinx.cinterop.toKString
+import platform.posix.O_APPEND
 import platform.posix.O_CREAT
+import platform.posix.O_RDONLY
 import platform.posix.O_TRUNC
 import platform.posix.O_WRONLY
 import platform.posix.close
+import platform.posix.lseek
+import platform.posix.SEEK_END
 import platform.posix.mkdir
 import platform.posix.open
+import platform.posix.read
 import platform.posix.opendir
 import platform.posix.readdir
 import platform.posix.closedir
@@ -56,6 +61,25 @@ actual object DownloadStorage {
         mkdir(path, 495.convert<UInt>())
     }
 
+    private fun appendAll(path: String, bytes: ByteArray): Boolean = memScoped {
+        val fd = open(path, O_WRONLY or O_CREAT or O_APPEND, 420.convert<UInt>())
+        if (fd < 0) return false
+        try {
+            if (bytes.isEmpty()) return true
+            val buf = allocArray<ByteVar>(bytes.size)
+            for (i in bytes.indices) buf[i] = bytes[i]
+            var off = 0
+            while (off < bytes.size) {
+                val n = write(fd, buf.plus(off), (bytes.size - off).convert<ULong>()).convert<Int>()
+                if (n <= 0) return@memScoped false
+                off += n
+            }
+            true
+        } finally {
+            close(fd)
+        }
+    }
+
     private fun writeAll(path: String, bytes: ByteArray): Boolean = memScoped {
         val fd = open(path, O_WRONLY or O_CREAT or O_TRUNC, 420.convert<UInt>())
         if (fd < 0) return false
@@ -80,6 +104,73 @@ actual object DownloadStorage {
         val parent = path.substringBeforeLast('/', "")
         if (parent.isNotEmpty()) ensureDir(parent)
         return writeAll(path, bytes)
+    }
+
+
+    actual fun appendBytes(relPath: String, bytes: ByteArray): Boolean {
+        val path = pathOf(relPath) ?: return false
+        val parent = path.substringBeforeLast('/', "")
+        if (parent.isNotEmpty()) ensureDir(parent)
+        return appendAll(path, bytes)
+    }
+
+    actual fun sizeOf(relPath: String): Long {
+        val path = pathOf(relPath) ?: return -1L
+        val fd = open(path, O_RDONLY)
+        if (fd < 0) return -1L
+        return try {
+            lseek(fd, 0, SEEK_END).convert<Long>()
+        } finally {
+            close(fd)
+        }
+    }
+
+    actual fun rename(from: String, to: String): Boolean = memScoped {
+        val src = pathOf(from) ?: return@memScoped false
+        val dst = pathOf(to) ?: return@memScoped false
+        val parent = dst.substringBeforeLast('/', "")
+        if (parent.isNotEmpty()) ensureDir(parent)
+        if (exists(to)) remove(dst)
+        // OHOS C 库无 rename 绑定时退回 拷贝+删除
+        val inFd = open(src, O_RDONLY)
+        if (inFd < 0) return@memScoped false
+        val outFd = open(dst, O_CREAT or O_WRONLY or O_TRUNC, 420.convert<UInt>())
+        if (outFd < 0) { close(inFd); return@memScoped false }
+        val ok = try {
+            val buf = allocArray<ByteVar>(8192)
+            while (true) {
+                val n = read(inFd, buf, 8192.convert<ULong>()).convert<Int>()
+                if (n <= 0) break
+                var off = 0
+                while (off < n) {
+                    val w = write(outFd, buf.plus(off), (n - off).convert<ULong>()).convert<Int>()
+                    if (w <= 0) return@memScoped false
+                    off += w
+                }
+            }
+            true
+        } finally {
+            close(inFd)
+            close(outFd)
+        }
+        ok && remove(src) == 0
+    }
+
+    actual fun listParts(relPath: String): List<String> {
+        val dirPath = pathOf(relPath) ?: return emptyList()
+        val handle = opendir(dirPath) ?: return emptyList()
+        val out = mutableListOf<String>()
+        try {
+            while (true) {
+                val entry = readdir(handle) ?: break
+                val name = entry.pointed?.d_name?.toKString() ?: continue
+                if (name == "." || name == ".." || !name.endsWith(".part")) continue
+                out += "$relPath/$name"
+            }
+        } finally {
+            closedir(handle)
+        }
+        return out
     }
 
     actual fun exists(relPath: String): Boolean {

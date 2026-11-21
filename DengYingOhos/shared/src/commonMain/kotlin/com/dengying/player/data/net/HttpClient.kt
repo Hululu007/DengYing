@@ -42,6 +42,28 @@ import kotlinx.serialization.json.JsonObject
  * 落到 actual 的只有「真发请求 + 读流 + 失败排障日志」。
  */
 object HttpClient {
+    /** 仅测试注入：伪造整段二进制请求，生产恒为 null */
+    internal var binaryForTest: (suspend (
+        url: String,
+        headers: Map<String, String>?,
+        connectMs: Int,
+        readMs: Int,
+    ) -> HttpBinaryResult)? = null
+    /** 仅测试注入：伪造文本请求，生产恒为 null */
+    internal var textForTest: (suspend (
+        url: String,
+        headers: Map<String, String>?,
+        connectMs: Int,
+        readMs: Int,
+    ) -> HttpResult)? = null
+    /** 仅测试注入：伪造流式请求，生产恒为 null */
+    internal var streamingForTest: (suspend (
+        url: String,
+        headers: Map<String, String>,
+        connectMs: Int,
+        readMs: Int,
+        onChunk: (ByteArray) -> Unit,
+    ) -> HttpBinaryResult)? = null
 
     /** 系统 UA（默认） */
     const val UA_SYSTEM: String = "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36"
@@ -62,6 +84,8 @@ object HttpClient {
         val status: Int,
         val bytes: ByteArray,
         val elapsedMs: Long,
+        /** 响应头里的 content-length；未知时为 -1（按分片估算进度的兜底） */
+        val contentLength: Long = -1L,
     ) {
         // data class 里含 ByteArray 必须手写 equals/hashCode，否则是引用比较。
         override fun equals(other: Any?): Boolean {
@@ -153,7 +177,7 @@ object HttpClient {
         val raw = pair.first
         val elapsed = pair.second
         return if (binary) {
-            HttpBinaryResult(raw.status, raw.bytes, elapsed)
+            HttpBinaryResult(raw.status, raw.bytes, elapsed, contentLengthOf(raw.headers))
         } else {
             HttpResult(raw.status, raw.text, elapsed, raw.headers)
         }
@@ -171,6 +195,7 @@ object HttpClient {
         connectMs: Int = 8000,
         readMs: Int = 10000,
     ): HttpResult {
+        textForTest?.let { return it(url, headers, connectMs, readMs) }
         val r = send("GET", url, null, mergeHeaders(headers), connectMs, readMs, false)
         return (r as? HttpResult) ?: HttpResult(0, "", 0)
     }
@@ -187,9 +212,52 @@ object HttpClient {
         connectMs: Int = 8000,
         readMs: Int = 30000,
     ): HttpBinaryResult {
+        binaryForTest?.let { return it(url, headers, connectMs, readMs) }
         val r = send("GET", url, null, mergeHeaders(headers), connectMs, readMs, true)
         return (r as? HttpBinaryResult) ?: HttpBinaryResult(0, ByteArray(0), 0)
     }
+
+    /**
+     * 流式 GET：响应体分块回调，不把整个文件装进堆内存。
+     *
+     * 传输层不支持流式（返回 status = -1）时自动回退整段 [getBinary]，
+     * 再把整段字节作为一块回调；调用方无需分支。
+     * 所有请求仍经统一闸门，后台优先级沿用 [NetPriority]。
+     */
+    suspend fun sendStreaming(
+        url: String,
+        headers: Map<String, String>? = null,
+        connectMs: Int = 8000,
+        readMs: Int = 30000,
+        onChunk: (ByteArray) -> Unit,
+    ): HttpBinaryResult {
+        streamingForTest?.let {
+            return it(url, mergeHeaders(headers), connectMs, readMs, onChunk)
+        }
+        // 测试缝设了但没有自定义流：走真实 sendStreaming 需要平台 actual，
+        // jvmTest 没有可注入的传输，故此路径保持原契约，由测试使用 hook 提供数据。
+        val t0 = Clock.elapsedMs()
+        val isBg = currentCoroutineContext()[NetPriority]?.background == true
+        val merged = mergeHeaders(headers)
+        val pair = ConcurrencyGate.outbound.run(background = isBg) {
+            val raw = HttpTransport.streamGet(url, merged, connectMs, readMs, onChunk)
+            raw to (Clock.elapsedMs() - t0)
+        } ?: return HttpBinaryResult(0, ByteArray(0), 0)
+        val raw = pair.first
+        if (raw.status != -1) {
+            return HttpBinaryResult(raw.status, ByteArray(0), pair.second, contentLengthOf(raw.headers))
+        }
+        // 平台无流式：回退整段下载。注意回退发生在同一个闸门空位内，
+        // 不额外占一个槽；回调拿到的是整个 ByteArray，调用方按一块写盘即可。
+        val bytes = HttpTransport.send("GET", url, null, merged, connectMs, readMs, true)
+        if (bytes.status != 0) onChunk(bytes.bytes)
+        return HttpBinaryResult(
+            bytes.status, ByteArray(0), Clock.elapsedMs() - t0, contentLengthOf(bytes.headers),
+        )
+    }
+
+    private fun contentLengthOf(headers: Map<String, String>): Long =
+        headers["content-length"]?.trim()?.toLongOrNull()?.takeIf { it >= 0 } ?: -1L
 
     /** POST（body 为字符串；调用方自行序列化） */
     suspend fun post(

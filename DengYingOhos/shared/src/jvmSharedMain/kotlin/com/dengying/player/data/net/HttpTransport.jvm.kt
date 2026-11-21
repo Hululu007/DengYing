@@ -141,6 +141,64 @@ actual object HttpTransport {
     }
 
     /**
+     * JVM/Android 的流式 GET。连接与超时策略与 [send] 一致，响应体不落地成
+     * 一个大 ByteArray，而是按 IO_BUFFER 逐块交给调用方。
+     */
+    actual suspend fun streamGet(
+        url: String,
+        headers: Map<String, String>,
+        connectMs: Int,
+        readMs: Int,
+        onChunk: (ByteArray) -> Unit,
+    ): RawResponse = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        var status = 0
+        var respHeaders: Map<String, String> = emptyMap()
+        try {
+            conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = connectMs
+                readTimeout = readMs
+                instanceFollowRedirects = false
+                useCaches = false
+                for ((k, v) in headers) setRequestProperty(k, v)
+            }
+            status = conn.responseCode
+            respHeaders = try {
+                conn.headerFields.orEmpty()
+                    .filterKeys { it != null }
+                    .mapKeys { (k, _) -> k.lowercase() }
+                    .mapValues { (_, v) -> v.filterNotNull().joinToString("; ") }
+            } catch (e: Exception) {
+                emptyMap()
+            }
+            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
+            if (stream != null) {
+                val buffer = ByteArray(IO_BUFFER)
+                stream.use { input ->
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        // 只传有效字节，且每次都是新数组——调用方可以安全保留到写完，
+                        // 不受下一轮 read 复用缓冲区影响。
+                        onChunk(buffer.copyOf(read))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            status = 0
+            logNetFail("STREAM", url, e)
+        } finally {
+            try {
+                conn?.disconnect()
+            } catch (e: Exception) {
+                // 忽略：断开失败不影响已读到的结果
+            }
+        }
+        RawResponse(status, "", ByteArray(0), respHeaders)
+    }
+
+    /**
      * 失败路径的排障日志（DY/Net）。
      *
      * 【为什么必须有】网络失败此前在 `status = 0` 处被静默吞掉，DNS / 握手 /

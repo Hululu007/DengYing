@@ -8,7 +8,9 @@ import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.plus
 import kotlinx.cinterop.set
+import kotlinx.cinterop.toKString
 import platform.Foundation.NSFileManager
+import platform.posix.O_APPEND
 import platform.posix.O_CREAT
 import platform.posix.O_TRUNC
 import platform.posix.O_WRONLY
@@ -62,6 +64,56 @@ actual object DownloadStorage {
         return writeAll(path, bytes)
     }
 
+
+    actual fun appendBytes(relPath: String, bytes: ByteArray): Boolean {
+        val path = pathOf(relPath) ?: return false
+        val parent = path.substringBeforeLast('/', "")
+        if (parent.isNotEmpty()) {
+            NSFileManager.defaultManager.createDirectoryAtPath(
+                path = parent,
+                withIntermediateDirectories = true,
+                attributes = null,
+                error = null,
+            )
+        }
+        return appendAll(path, bytes)
+    }
+
+    actual fun sizeOf(relPath: String): Long {
+        val path = pathOf(relPath) ?: return -1L
+        val attrs = NSFileManager.defaultManager.attributesOfItemAtPath(path, error = null)
+            ?: return -1L
+        val size = attrs[platform.Foundation.NSFileSize] as? Number ?: return -1L
+        return size.toLong()
+    }
+
+    actual fun rename(from: String, to: String): Boolean {
+        val src = pathOf(from) ?: return false
+        val dst = pathOf(to) ?: return false
+        val parent = dst.substringBeforeLast('/', "")
+        if (parent.isNotEmpty()) {
+            NSFileManager.defaultManager.createDirectoryAtPath(
+                path = parent,
+                withIntermediateDirectories = true,
+                attributes = null,
+                error = null,
+            )
+        }
+        if (NSFileManager.defaultManager.fileExistsAtPath(dst)) {
+            if (!NSFileManager.defaultManager.removeItemAtPath(dst, error = null)) return false
+        }
+        return NSFileManager.defaultManager.moveItemAtPath(src, toPath = dst, error = null)
+    }
+
+    actual fun listParts(relPath: String): List<String> {
+        val dirPath = pathOf(relPath) ?: return emptyList()
+        val names = NSFileManager.defaultManager.contentsOfDirectoryAtPath(dirPath, error = null)
+            ?: return emptyList()
+        return names.mapNotNull { it as? String }
+            .filter { it.endsWith(".part") }
+            .map { "$relPath/$it" }
+    }
+
     actual fun exists(relPath: String): Boolean {
         val path = pathOf(relPath) ?: return false
         return NSFileManager.defaultManager.fileExistsAtPath(path)
@@ -92,6 +144,25 @@ actual object DownloadStorage {
     actual fun fileUrl(relPath: String): String {
         val path = pathOf(relPath) ?: return ""
         return "file://$path"
+    }
+
+    private fun appendAll(path: String, bytes: ByteArray): Boolean = memScoped {
+        val fd = open(path, O_WRONLY or O_CREAT or O_APPEND, 420.convert<UInt>())
+        if (fd < 0) return false
+        try {
+            if (bytes.isEmpty()) return true
+            val buf = allocArray<ByteVar>(bytes.size)
+            for (i in bytes.indices) buf[i] = bytes[i]
+            var off = 0
+            while (off < bytes.size) {
+                val n = write(fd, buf.plus(off), (bytes.size - off).convert<ULong>()).convert<Int>()
+                if (n <= 0) return@memScoped false
+                off += n
+            }
+            true
+        } finally {
+            close(fd)
+        }
     }
 
     private fun writeAll(path: String, bytes: ByteArray): Boolean = memScoped {

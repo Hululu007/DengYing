@@ -9,12 +9,16 @@ import com.dengying.player.platform.KeyValueStore
 import com.dengying.player.platform.PlatformLock
 import com.dengying.player.platform.ioDispatcher
 import com.dengying.player.player.PlaybackProbe
+import com.dengying.player.data.net.NetPriority
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlin.coroutines.coroutineContext
 
@@ -31,6 +35,13 @@ import kotlin.coroutines.coroutineContext
 object DownloadCenter {
 
     const val KEY_ITEMS = "downloads_v1"
+    /** 全局同时运行的下载任务数：1 个前台下载，避免占满 API 并发预算 */
+    private const val MAX_ACTIVE_JOBS = 1
+    /** HLS 分片并行度：3 路，沿用 API 后台档，不抢前台槽位 */
+    private const val MAX_HLS_CONCURRENCY = 3
+    /** 进度更新节流：100ms 或 0.5%，避免每片/每块都写磁盘 */
+    private const val PROGRESS_INTERVAL_MS = 100L
+    private const val PROGRESS_MIN_DELTA = 0.005f
 
     enum class Status { QUEUED, RUNNING, DONE, FAILED }
 
@@ -64,9 +75,12 @@ object DownloadCenter {
     }
 
     private val lock = PlatformLock()
-    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    internal var scope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val items = ArrayList<Item>()
     private val jobs = HashMap<String, Job>()
+    private data class Pending(val id: String, val req: Request)
+    private val pending = ArrayDeque<Pending>()
+    private var activeJobs = 0
     private var store: KeyValueStore? = null
     private var loaded = false
 
@@ -87,6 +101,11 @@ object DownloadCenter {
                     )
                     changed = true
                 }
+            }
+            // 上次中断留下的 .part 文件不可播放，启动时清掉，避免误当完整文件
+            for (item in items) {
+                val dir = safeDownloadDir(item.id)
+                for (part in DownloadStorage.listParts(dir)) DownloadStorage.delete(part)
             }
             if (changed) persistLocked()
         }
@@ -143,12 +162,12 @@ object DownloadCenter {
             }
             items.add(fresh)
             persistLocked()
-            val job = scope.launch { runJob(id, req) }
-            jobs[id] = job
+            pending.addLast(Pending(id, req))
             accepted = true
         }
         if (!accepted) return false
-        PlaybackProbe.note("download-enqueue", "id=$id ep=${req.episodeIndex}")
+        drain()
+        DownloadProbe.note("enqueue", "id=$id ep=${req.episodeIndex}")
         return true
     }
 
@@ -195,7 +214,35 @@ object DownloadCenter {
             head.trimStart().startsWith("<?xml")
     }
 
+    /** 队列调度：同时最多 MAX_ACTIVE_JOBS 个任务在跑 */
+    private fun drain() {
+        while (true) {
+            val next = lock.withLock {
+                if (activeJobs >= MAX_ACTIVE_JOBS || pending.isEmpty()) return@withLock null
+                activeJobs++
+                pending.removeFirst()
+            } ?: return
+            launchJob(next)
+        }
+    }
+    private fun launchJob(next: Pending) {
+        val job = scope.launch {
+            try {
+                withContext(NetPriority.Background) { runJob(next.id, next.req) }
+            } finally {
+                lock.withLock {
+                    activeJobs--
+                    jobs.remove(next.id)
+                }
+                drain()
+            }
+        }
+        lock.withLock { jobs[next.id] = job }
+    }
     private suspend fun runJob(id: String, req: Request) {
+        val t0 = Clock.elapsedMs()
+        lastProgress.remove(id)
+        segmentCalls = 0
         update(id) { it.copy(status = Status.RUNNING, progress = 0f, error = "") }
         try {
             val result = if (HlsUtil.isM3u8(req.url) || req.url.contains(".m3u8", ignoreCase = true)) {
@@ -213,9 +260,9 @@ object DownloadCenter {
                     error = "",
                 )
             }
-            PlaybackProbe.note("download-done", "id=$id bytes=${result.bytes}")
+            DownloadProbe.note("done", "id=$id bytes=${result.bytes} ${Clock.elapsedMs() - t0}ms")
         } catch (e: CancellationException) {
-            PlaybackProbe.note("download-cancel", "id=$id")
+            DownloadProbe.note("cancel", "id=$id")
             coroutineContext.ensureActive()
             throw e
         } catch (e: Exception) {
@@ -223,36 +270,57 @@ object DownloadCenter {
             update(id) {
                 it.copy(status = Status.FAILED, progress = 0f, error = message)
             }
-            PlaybackProbe.note("download-failed", "id=$id reason=$message")
+            DownloadProbe.note("failed", "id=$id reason=$message ${Clock.elapsedMs() - t0}ms")
         } finally {
-            lock.withLock { jobs.remove(id) }
+            lock.withLock { lastProgress.remove(id) }
         }
     }
 
     private data class Result(val relPath: String, val bytes: Long)
 
     private suspend fun downloadFile(id: String, req: Request): Result {
-        val bytes = HttpClient.getBinary(
-            req.url,
-            req.headers,
-            connectMs = 12000,
-            readMs = 120000,
-        )
-        if (bytes.status !in 200..299 || bytes.bytes.isEmpty()) {
-            error("文件请求失败（${bytes.status}）")
-        }
-        // 【别把网页当视频存下来】token 源换链失败时会返回站点播放页，HTTP 是
-        // 200、体积也不小，直接落盘就是 195KB 的 HTML；真机离线播放表现为
-        // ExoPlayer 3003 Source error，且下载列表还显示「已下载」。这里按内容
-        // 头判一次，宁可失败让用户换源，也不要产出播不了的假文件。
-        if (looksLikeHtmlPage(bytes.bytes)) error("下载到的是网页而不是视频，请换源重试")
         val ext = extensionOf(req.url, "mp4")
-        val rel = "${safeDownloadDir(id)}/video.$ext"
-        if (!DownloadStorage.writeBytes(rel, bytes.bytes)) error("写入下载文件失败")
-        update(id) { it.copy(progress = 0.9f, bytes = bytes.bytes.size.toLong()) }
-        return Result(rel, bytes.bytes.size.toLong())
+        val dir = safeDownloadDir(id)
+        val finalRel = "$dir/video.$ext"
+        val partRel = "$dir/video.$ext.part"
+        DownloadStorage.delete(partRel)
+        var written = 0L
+        var checkedHead = false
+        var status = 0
+        var elapsed = 0L
+        try {
+            val r = HttpClient.sendStreaming(
+                req.url, req.headers, connectMs = 12000, readMs = 120000,
+            ) { chunk ->
+                if (chunk.isEmpty()) return@sendStreaming
+                if (!checkedHead) {
+                    checkedHead = true
+                    if (looksLikeHtmlPage(chunk.copyOf(minOf(1024, chunk.size)))) {
+                        error("下载到的是网页而不是视频，请换源重试")
+                    }
+                }
+                if (!DownloadStorage.appendBytes(partRel, chunk)) error("写入下载文件失败")
+                written += chunk.size
+                // 总长在响应头里，回调发生在请求返回前：用 0 先记字节，
+                // 响应返回后再按 content-length 补报一次精确进度。
+                reportProgress(id, written, null)
+            }
+            status = r.status
+            elapsed = r.elapsedMs
+            if (r.contentLength > 0) reportProgress(id, written, r.contentLength)
+            coroutineContext.ensureActive()
+            if (status !in 200..299 || written == 0L) error("文件请求失败（$status）")
+            if (!checkedHead) error("下载到的是网页而不是视频，请换源重试")
+            if (!DownloadStorage.rename(partRel, finalRel)) error("写入下载文件失败")
+            DownloadProbe.note("file", "bytes=$written status=$status ${elapsed}ms")
+            return Result(finalRel, written)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            DownloadStorage.delete(partRel)
+            throw e
+        }
     }
-
     private suspend fun downloadHls(id: String, req: Request): Result {
         var playlistUrl = req.url
         var text = fetchText(playlistUrl, req.headers)
@@ -265,44 +333,110 @@ object DownloadCenter {
             }
         }
         if (!text.contains("#EXTM3U")) error("播放列表为空或格式不支持")
-
         val plan = HlsOffline.plan(text, playlistUrl)
         if (plan.resources.isEmpty()) error("播放列表里没有可下载的分片")
         val dir = safeDownloadDir(id)
+        val lockBytes = PlatformLock()
         var doneBytes = 0L
-        var doneCount = 0
-        for (res in plan.resources) {
-            coroutineContext.ensureActive()
-            val bytes = HttpClient.getBinary(
-                res.url,
-                req.headers,
-                connectMs = 12000,
-                readMs = 60000,
-            )
-            if (bytes.status !in 200..299 || bytes.bytes.isEmpty()) {
-                error("分片下载失败（${bytes.status}）")
+        var doneUnits = 0
+        var firstError: Exception? = null
+        // 限流 3 路：用信号量挂在统一并发闸门之外——闸门外只管 API 前台优先，
+        // 分片自身最多 3 个并行，避免一次下载占满系统连接。
+        val permits = kotlinx.coroutines.sync.Semaphore(MAX_HLS_CONCURRENCY)
+        val jobs = plan.resources.map { res ->
+            scope.async {
+                permits.acquire()
+                try {
+                    withContext(NetPriority.Background) {
+                        if (segmentDelayMs > 0) kotlinx.coroutines.delay(segmentDelayMs)
+                        val callNo = lockBytes.withLock { ++segmentCalls }
+                        if (failSegmentAt == callNo) error("分片下载注入失败")
+                        val partRel = "$dir/${res.localName}.part"
+                        DownloadStorage.delete(partRel)
+                        val r = HttpClient.sendStreaming(
+                            res.url, req.headers, connectMs = 12000, readMs = 60000,
+                        ) { chunk -> DownloadStorage.appendBytes(partRel, chunk) }
+                        coroutineContext.ensureActive()
+                        if (r.status !in 200..299) error("分片下载失败（${r.status}）")
+                        val size = if (r.contentLength >= 0) r.contentLength else
+                            DownloadStorage.sizeOf(partRel)
+                        if (size <= 0) error("分片下载失败（空分片）")
+                        if (!DownloadStorage.rename(partRel, "$dir/${res.localName}")) {
+                            error("写入分片失败")
+                        }
+                        val (bytes, units) = lockBytes.withLock {
+                            doneBytes += size
+                            doneUnits++
+                            doneBytes to doneUnits
+                        }
+                        reportProgress(id, bytes, total = null, units = units,
+                            totalUnits = plan.resources.size)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lockBytes.withLock { if (firstError == null) firstError = e }
+                    DownloadStorage.delete("$dir/${res.localName}.part")
+                    throw e
+                } finally {
+                    permits.release()
+                }
             }
-            if (!DownloadStorage.writeBytes("$dir/${res.localName}", bytes.bytes)) {
-                error("写入分片失败")
-            }
-            doneCount++
-            doneBytes += bytes.bytes.size
-            val p = (doneCount.toFloat() / plan.resources.size.toFloat()) * 0.95f
-            update(id) { it.copy(progress = p, bytes = doneBytes) }
         }
+        try {
+            jobs.awaitAll()
+        } catch (e: Exception) {
+            jobs.forEach { it.cancel() }
+            throw (lockBytes.withLock { firstError } ?: e)
+        }
+        firstError?.let { throw it }
         val playlistRel = "$dir/index.m3u8"
         if (!DownloadStorage.writeText(playlistRel, plan.localPlaylist)) {
             error("写入本地播放列表失败")
         }
-        return Result(playlistRel, doneBytes)
+        val total = lockBytes.withLock { doneBytes }
+        DownloadProbe.note("hls", "segments=${plan.resources.size} bytes=$total")
+        return Result(playlistRel, total)
     }
-
     private suspend fun fetchText(url: String, headers: Map<String, String>): String {
         val r = HttpClient.get(url, headers, connectMs = 12000, readMs = 20000)
         if (r.status !in 200..299 || r.body.isEmpty()) error("播放列表请求失败（${r.status}）")
         return r.body
     }
 
+    private val lastProgress = HashMap<String, Pair<Long, Float>>()
+    /** 仅测试注入：记录每次写入的进度值，生产恒为 null */
+    internal var onProgress: ((String, Float) -> Unit)? = null
+    /** 仅测试注入：延迟分片完成，用于验证并发上限，生产恒为 0 */
+    internal var segmentDelayMs: Long = 0L
+    /** 仅测试注入：让第 N 个分片请求失败（1 起算），生产恒为 0 */
+    internal var failSegmentAt: Int = 0
+    private var segmentCalls = 0
+    /** 统一进度节流：字节模式按 100ms/0.5% 更新，分片未知总长按等分估算 */
+    private fun reportProgress(
+        id: String,
+        bytes: Long,
+        total: Long? = null,
+        units: Int = 0,
+        totalUnits: Int = 0,
+    ) {
+        val now = Clock.elapsedMs()
+        val p = if (total != null && total > 0) {
+            (bytes.toFloat() / total.toFloat()).coerceIn(0f, 0.99f)
+        } else if (totalUnits > 0) {
+            (units.toFloat() / totalUnits.toFloat()).coerceIn(0f, 0.99f)
+        } else {
+            // 总长未知又不是分片模式时，沿用旧的每片估算口径的兜底
+            0f
+        }
+        val (lastAt, lastP) = lastProgress[id] ?: (0L to -1f)
+        if (p - lastP < PROGRESS_MIN_DELTA &&
+            (lastP >= 0f && now - lastAt < PROGRESS_INTERVAL_MS)) return
+        if (p < lastP) return // 单调：多片乱序完成不能让进度倒退
+        lastProgress[id] = now to p
+        onProgress?.invoke(id, p)
+        update(id) { it.copy(progress = p, bytes = bytes) }
+    }
     private fun update(id: String, block: (Item) -> Item) {
         lock.withLock {
             val idx = items.indexOfFirst { it.id == id }
@@ -319,6 +453,7 @@ object DownloadCenter {
             raw.contains("分片") -> raw
             raw.contains("文件请求") -> raw
             raw.contains("写入") -> raw
+            raw.contains("网页") -> raw
             else -> "下载失败，请稍后重试"
         }
     }
@@ -392,6 +527,10 @@ object DownloadCenter {
     }
 }
 
+/** 下载链路探针：只写状态/字节/耗时，不写 URL（SEC-004） */
+private object DownloadProbe {
+    fun note(tag: String, detail: String) = PlaybackProbe.note("dload-$tag", detail)
+}
 /**
  * HLS 本地化：把媒体播放列表改写成同目录下的本地文件名，并给出需要下载的资源。
  *

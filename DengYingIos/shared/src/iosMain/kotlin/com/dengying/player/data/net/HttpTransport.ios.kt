@@ -142,4 +142,17 @@ actual object HttpTransport {
             completionHandler(null)
         }
     }
+
+
+    /**
+     * 本期 iOS/OHOS 不做流式下载，显式返回 -1 让 HttpClient 回退到整段下载。
+     * 回退仍走原平台传输与统一闸门，行为与提速前一致。
+     */
+    actual suspend fun streamGet(
+        url: String,
+        headers: Map<String, String>,
+        connectMs: Int,
+        readMs: Int,
+        onChunk: (ByteArray) -> Unit,
+    ): RawResponse = RawResponse(-1, "", ByteArray(0))
 }
