@@ -7,6 +7,8 @@ import com.dengying.player.data.store.Store
 import com.dengying.player.platform.UserDefaultsStore
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.player.PlayerEngineHost
+import com.dengying.player.playback.cast.CastController
+import com.dengying.player.playback.cast.NoopCastController
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.platform.configureAudioSession
 import com.dengying.player.ui.player.IosPlayerEngineHost
@@ -67,6 +69,11 @@ class IosAppDeps : UiDeps {
      * （单例引擎、surface 计数归零只暂停不释放、`peek()` 不创建）。
      */
     override val engineHost: PlayerEngineHost = IosPlayerEngineHost
+
+    /**
+     * iOS 侧无 Google Cast：保留投屏入口但不可用，与鸿蒙无 GMS 口径一致。
+     */
+    override val castController: CastController = NoopCastController
 
     /**
      * 是否 debug 构建。

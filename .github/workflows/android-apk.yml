@@ -1,0 +1,50 @@
+name: Android APK (release)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/android-apk.yml"
+      - "DengYing/**"
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK 36
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Make gradlew executable
+        run: chmod +x DengYing/gradlew
+
+      - name: Verify and build release APK
+        working-directory: DengYing
+        run: |
+          ./gradlew --no-daemon \
+            :shared:jvmTest \
+            :ui:jvmTest \
+            :app:testDebugUnitTest \
+            :app:assembleRelease
+
+      - name: Verify APK is signed
+        run: |
+          APK=DengYing/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DengYing-release-apk
+          path: DengYing/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
