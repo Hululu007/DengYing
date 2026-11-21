@@ -14,6 +14,7 @@ import com.dengying.player.core.CmsSources
 import com.dengying.player.core.capsOf
 import com.dengying.player.domain.playback.CastUtil
 import com.dengying.player.domain.playback.HlsVariants
+import com.dengying.player.domain.playback.HistoryWritePolicy
 import com.dengying.player.domain.playback.ResumeRestore
 import com.dengying.player.domain.playback.SeekPreview
 import com.dengying.player.domain.ui.UrlGuard
@@ -300,6 +301,8 @@ class PlayerViewModel(
         override fun onPaused() {
             progressLoop.stop()
             state = state.copy(isPlaying = false)
+            // FR-408：暂停补写一次——5 秒周期可能还没轮到，用户已经离页
+            saveHistoryOnPause()
         }
 
         override fun onBuffering(active: Boolean) {
@@ -390,8 +393,10 @@ class PlayerViewModel(
         }
         state = state.copy(curTime = pos)
         if (pendingSeekTargetMs > 0L) pendingSeekTargetMs = 0L
+        // 3 秒门槛前不写（误触/片头不算看过）；过门槛后先立刻写一次，再每 5 tick 一次
+        if (!HistoryWritePolicy.shouldWrite(pos)) return
         lastSaveTick++
-        if (lastSaveTick % 5 == 0) persistHistory()
+        if (lastSavedPositionMs < 0L || lastSaveTick % 5 == 0) persistHistory()
     }
 
     private var resolvedUrl = params.url
@@ -407,6 +412,8 @@ class PlayerViewModel(
     private var urlReady = false
     private var starting = false
     private var lastSaveTick = 0
+    /** 上次成功落盘的位置；`-1` = 当前集还没写过。换集/播完/seek 后重置 */
+    private var lastSavedPositionMs = -1L
     private var hideTimerJob: kotlinx.coroutines.Job? = null
 
     /** 缓存的变体清单判据（`shouldShowPicker` 每次重组都算一遍没必要） */
@@ -522,7 +529,7 @@ class PlayerViewModel(
             // 提前拦会掐掉本可播的线路（两个BT 就是这种形态）。
             if (src != null && !capsOf(src).token && !src.playGap.isNullOrEmpty()) {
                 PlaybackProbe.note("playGap-hit", "source=${src.key}")
-                state = state.copy(errMsg = "该源暂不可播：${src.playGap}", status = "")
+                state = state.copy(errMsg = PLAYBACK_UNAVAILABLE_TEXT, status = "")
                 return@launch
             }
             val tokenNeedsSwap = src != null && capsOf(src).token &&
@@ -606,7 +613,7 @@ class PlayerViewModel(
                     } else {
                         // 换链为空：若是已知播放链缺口，显式说明而不是静默失败
                         if (!src.playGap.isNullOrEmpty()) {
-                            state = state.copy(errMsg = "该源暂不可播：${src.playGap}", status = "")
+                            state = state.copy(errMsg = PLAYBACK_UNAVAILABLE_TEXT, status = "")
                             return@launch
                         }
                     }
@@ -1173,6 +1180,9 @@ class PlayerViewModel(
     /** FR-507：续播点未落盘必须可见（否则用户以为"接着看"生效，实际回到片头） */
     private suspend fun persistHistory() {
         if (params.vodId == 0L || params.source.isEmpty()) return
+        val pos = state.curTime
+        // 3 秒门槛内不写；同一位置重复回调也不重复写
+        if (!HistoryWritePolicy.shouldWrite(pos, lastSavedPositionMs)) return
         val item = HistoryItem(
             vod_id = params.vodId,
             vod_name = params.vodName.ifEmpty { state.title },
@@ -1181,13 +1191,27 @@ class PlayerViewModel(
             vod_uri = params.vodUri,
             episodeIndex = state.curEpIndex,
             episodeName = currentEpName,
-            position = state.curTime,
+            position = pos,
             duration = state.totalTime,
             updateTime = Clock.nowMs(),
         )
-        if (!store.saveHistory(item)) {
+        val ok = store.saveHistory(item)
+        if (ok) {
+            lastSavedPositionMs = pos
+        } else {
             state = state.copy(errMsg = state.errMsg.ifEmpty { "本地存储不可用，观看记录未保存" })
         }
+        // 写没写是历史问题的唯一可观测证据；读取探针（resume-restore）不能当写入证据
+        PlaybackProbe.note(
+            "history-save",
+            "vod=${params.vodId} source=${params.source} ep=${state.curEpIndex} pos=$pos result=${if (ok) "ok" else "fail"}",
+        )
+    }
+
+    /** 暂停时补写一次（FR-408）：3 秒门槛内或位置未变则不写 */
+    private fun saveHistoryOnPause() {
+        if (!HistoryWritePolicy.shouldWrite(state.curTime, lastSavedPositionMs)) return
+        viewModelScope.launch { persistHistory() }
     }
 
     // ---------------- 控制 ----------------
@@ -1591,6 +1615,9 @@ class PlayerViewModel(
                 showQualitySheet = false,
             )
             showQualityEntry = false
+            // 新集是新条目：旧集的 "5 tick / 已落盘位置" 不能带过来
+            lastSaveTick = 0
+            lastSavedPositionMs = -1L
             // variantsEpIndex 故意保留：它标记"旧清单属于哪一集"，
             // applyQuality 靠它拒绝换集后残留的旧档位点击。
             resolvedUrl = epUrl
@@ -1872,13 +1899,14 @@ class PlayerViewModel(
         // 【先停进度循环与监听】否则循环会在 viewModelScope 取消前再写一次状态，
         // 且旧 VM 可能继续响应单例引擎的回调（B-6 / B-7）。
         progressLoop.stop()
-        // FR-408：离开页面立即落盘位置并释放引擎
+        // FR-408：离开页面立即落盘位置并释放引擎。
+        // 只作兜底：正常路径已由 3 秒首写、5 tick 周期和 onPaused 补写覆盖；
+        // 仍遵守 3 秒门槛，不让误触留下一行 0:00 记录。
         val pos = state.curTime
         val snap = state
-        val vmScope = viewModelScope
-        // onCleared 里 viewModelScope 已取消，用 runBlocking 的廉价替代：
-        // 直接同步写（SharedPreferences.commit 是同步的），不依赖协程
-        if (params.vodId != 0L && params.source.isNotEmpty()) {
+        if (params.vodId != 0L && params.source.isNotEmpty() &&
+            HistoryWritePolicy.shouldWrite(pos, lastSavedPositionMs)
+        ) {
             val item = HistoryItem(
                 vod_id = params.vodId,
                 vod_name = params.vodName.ifEmpty { snap.title },
@@ -1895,7 +1923,11 @@ class PlayerViewModel(
             // 不用 Thread（Kotlin/Native 上没有 java.lang.Thread），改用 ioDispatcher 上的
             // 一次性 CoroutineScope：语义与「起一个后台线程写盘」等价，且跨平台。
             kotlinx.coroutines.CoroutineScope(ioDispatcher).launch {
-                store.saveHistoryBlocking(item)
+                val ok = store.saveHistoryBlocking(item)
+                PlaybackProbe.note(
+                    "history-save",
+                    "vod=${params.vodId} source=${params.source} ep=${snap.curEpIndex} pos=$pos result=${if (ok) "ok" else "fail"} via=onCleared",
+                )
             }
         }
         // `onCleared` 由 ViewModel 框架在**主线程**调用，故直接释放即可，

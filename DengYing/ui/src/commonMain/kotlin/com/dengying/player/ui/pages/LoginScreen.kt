@@ -56,8 +56,10 @@ import kotlinx.coroutines.launch
  * 与错误提示都需要比窗格更完整的纵向空间，且返回后「我的」页能重新读取
  * 登录态快照。全页沿用玻璃浮层 + Palette + DyIcons，不引第三方 SDK。
  *
- * 【签名未取得】页面会真实调用 [AhAuth.login]（统一 HttpClient），服务端按
- * 文档返回 `403 Invalid app_auth_token` 时给出明确提示，绝不本地伪造成功。
+ * 【release 无令牌】登录服务要求客户端持有编译期签名令牌（`app_auth_token`），
+ * 目前只有 debug 通道带令牌。release 不渲染注定失败的账号密码表单，也不展示
+ * 令牌说明/入口，直接告知「登录暂不可用」——与其让用户白填一遍再看报错，
+ * 不如一开始就说清楚。表单与令牌设置只在 debug 构建渲染（`UiDeps.isDebug`）。
  */
 @Composable
 fun LoginScreen(
@@ -65,6 +67,7 @@ fun LoginScreen(
     onOpenRegister: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val isDebug = com.dengying.player.ui.UiDepsHolder.get().isDebug
     var account by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
@@ -136,7 +139,7 @@ fun LoginScreen(
                     color = Palette.TextPrimary,
                 )
                 Text(
-                    text = "登录以继续探索精彩内容",
+                    text = if (isDebug) "登录以继续探索精彩内容" else "现在不用登录也能看片",
                     style = MaterialTheme.typography.labelMedium,
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(top = 4.dp),
@@ -145,78 +148,114 @@ fun LoginScreen(
         }
 
         Spacer(Modifier.height(12.dp))
-        // ---- 登录表单 ----
-        GlassSurface(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-        ) {
-            Column(
+        if (isDebug) {
+            // ---- 登录表单 ----
+            GlassSurface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
             ) {
-                GlassTextField(
-                    value = account,
-                    onValueChange = { account = it; feedback = "" },
-                    placeholder = "请输入账号",
-                    modifier = Modifier.fillMaxWidth(),
-                    imeAction = ImeAction.Next,
-                )
-                Spacer(Modifier.height(10.dp))
-                GlassTextField(
-                    value = password,
-                    onValueChange = { password = it; feedback = "" },
-                    placeholder = "请输入密码",
-                    modifier = Modifier.fillMaxWidth(),
-                    password = !showPassword,
-                    imeAction = ImeAction.Done,
-                    trailingIcon = if (showPassword) DyIcons.EyeOff else DyIcons.Eye,
-                    onTrailingClick = { showPassword = !showPassword },
-                )
-                if (feedback.isNotEmpty()) {
-                    Text(
-                        text = feedback,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (success) Palette.BrandSecondary else Palette.Danger,
-                        modifier = Modifier.padding(top = 10.dp),
-                    )
-                }
-                Spacer(Modifier.height(14.dp))
-                GlassActionButton(
-                    text = "登 录",
-                    onClick = {
-                            scope.launch {
-                                busy = true
-                                feedback = "登录中.."
-                                success = false
-                                when (val outcome = AhAuth.login(account, password)) {
-                                    is AhAuth.Outcome.Ok -> {
-                                        feedback = outcome.message
-                                        success = true
-                                    }
-                                    is AhAuth.Outcome.Error -> feedback = outcome.message
-                                }
-                                busy = false
-                            }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !busy,
-                    busy = busy,
-                )
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                 ) {
-                    GlassChip(text = "忘记密码", quiet = true, onClick = {
-                        feedback = "暂不支持找回，请牢记你的账号与密码"
-                        success = false
-                    })
-                    GlassChip(text = "注册", onClick = onOpenRegister)
+                    GlassTextField(
+                        value = account,
+                        onValueChange = { account = it; feedback = "" },
+                        placeholder = "请输入账号",
+                        modifier = Modifier.fillMaxWidth(),
+                        imeAction = ImeAction.Next,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    GlassTextField(
+                        value = password,
+                        onValueChange = { password = it; feedback = "" },
+                        placeholder = "请输入密码",
+                        modifier = Modifier.fillMaxWidth(),
+                        password = !showPassword,
+                        imeAction = ImeAction.Done,
+                        trailingIcon = if (showPassword) DyIcons.EyeOff else DyIcons.Eye,
+                        onTrailingClick = { showPassword = !showPassword },
+                    )
+                    if (feedback.isNotEmpty()) {
+                        Text(
+                            text = feedback,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (success) Palette.BrandSecondary else Palette.Danger,
+                            modifier = Modifier.padding(top = 10.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    GlassActionButton(
+                        text = "登 录",
+                        onClick = {
+                                scope.launch {
+                                    busy = true
+                                    feedback = "登录中.."
+                                    success = false
+                                    when (val outcome = AhAuth.login(account, password)) {
+                                        is AhAuth.Outcome.Ok -> {
+                                            feedback = outcome.message
+                                            success = true
+                                        }
+                                        is AhAuth.Outcome.Error -> {
+                                        // 原始消息含令牌/HTTP 码等内部信息，只进日志
+                                        com.dengying.player.platform.Log.w(
+                                            "DY/Auth",
+                                            "auth failed: ${outcome.message}",
+                                        )
+                                        feedback = com.dengying.player.ui.account.authErrorMessage(outcome.message)
+                                    }
+                                    }
+                                    busy = false
+                                }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        busy = busy,
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlassChip(text = "忘记密码", quiet = true, onClick = {
+                            feedback = "暂不支持找回，请牢记你的账号与密码"
+                            success = false
+                        })
+                        GlassChip(text = "注册", onClick = onOpenRegister)
+                    }
+                }
+            }
+        } else {
+            // ---- release：登录通道未接通，别让用户白填一遍 ----
+            GlassSurface(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = com.dengying.player.ui.account.AUTH_UNAVAILABLE_TEXT,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = "不用登录也能搜索和播放。",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextSecondary,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
         }
@@ -251,10 +290,9 @@ fun LoginScreen(
                     Row(
                         modifier = Modifier
                             .clickable {
-                                when (val qq = AhAuth.qqLoginNotReady()) {
-                                    is AhAuth.Outcome.Ok -> feedback = qq.message
-                                    is AhAuth.Outcome.Error -> feedback = qq.message
-                                }
+                                // FR-615/617：入口和图标保留，但 QQ 授权这一步还没接，
+                                // 只说结论；接口路径与 appid 不进界面。
+                                feedback = "QQ 登录暂未开放"
                                 success = false
                             }
                             .padding(horizontal = 18.dp, vertical = 10.dp),
@@ -274,39 +312,37 @@ fun LoginScreen(
                         )
                     }
                 }
-                Text(
-                    text = "QQ 登录直接提交 /auth/login（is_third_party=true，appid 101983842）；缺的是 QQ SDK 授权取 32 位标识这一步",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
             }
         }
 
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = if (!hasSavedToken) {
-                "登录服务要求签名令牌（app_auth_token），未取得时无法登录或注册；已登录设备可用会话令牌（refresh_token）直接恢复"
-            } else {
-                "已保存签名令牌（只在 300 秒内有效，过期需重新获取）"
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = Palette.TextSecondary,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
-        Spacer(Modifier.height(8.dp))
-        GlassChip(
-            text = "令牌设置",
-            quiet = true,
-            onClick = {
-                tokenDraft = AhAuth.savedAppAuthToken()
-                sessionDraft = ""
-                showTokenSheet = true
-            },
-        )
+        // 令牌说明与「令牌设置」只在 debug 出现：release 没有构建期令牌，
+        // 让用户填一个注定无效的令牌只会换来一串看不懂的报错。
+        if (isDebug) {
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = if (!hasSavedToken) {
+                    "登录服务要求签名令牌（app_auth_token），未取得时无法登录或注册；已登录设备可用会话令牌（refresh_token）直接恢复"
+                } else {
+                    "已保存签名令牌（只在 300 秒内有效，过期需重新获取）"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = Palette.TextSecondary,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            GlassChip(
+                text = "令牌设置",
+                quiet = true,
+                onClick = {
+                    tokenDraft = AhAuth.savedAppAuthToken()
+                    sessionDraft = ""
+                    showTokenSheet = true
+                },
+            )
+        }
     }
 
-    if (showTokenSheet) {
+    if (showTokenSheet && isDebug) {
         AlertDialog(
             onDismissRequest = { showTokenSheet = false },
             containerColor = Palette.CardBg,
@@ -357,7 +393,14 @@ fun LoginScreen(
                                         feedback = outcome.message
                                         success = true
                                     }
-                                    is AhAuth.Outcome.Error -> feedback = outcome.message
+                                    is AhAuth.Outcome.Error -> {
+                                        // 原始消息含令牌/HTTP 码等内部信息，只进日志
+                                        com.dengying.player.platform.Log.w(
+                                            "DY/Auth",
+                                            "auth failed: ${outcome.message}",
+                                        )
+                                        feedback = com.dengying.player.ui.account.authErrorMessage(outcome.message)
+                                    }
                                 }
                                 busy = false
                             }

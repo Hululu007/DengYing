@@ -620,7 +620,7 @@ class IndexViewModel(
                     started = true,
                     loading = false,
                     hasMore = false,
-                    errMsg = "推荐内容需要「蓝光4k」或「天翼视讯」源，当前都未启用——可在「源状态」里开启",
+                    errMsg = "推荐暂时没有内容。去“我的”打开更多片源后下拉重试。",
                 )
             }
             return
@@ -744,7 +744,7 @@ class IndexViewModel(
         val seq = beginReq(idx)
         val src = homeSource()
         if (src == null) {
-            setCat(idx) { it.copy(refining = false, errMsg = "推荐内容需要「蓝光4k」或「天翼视讯」源，当前都未启用") }
+            setCat(idx) { it.copy(refining = false, errMsg = "推荐暂时没有内容。去“我的”打开更多片源后下拉重试。") }
             return
         }
         setCat(idx) { it.copy(refining = true, errMsg = "") }

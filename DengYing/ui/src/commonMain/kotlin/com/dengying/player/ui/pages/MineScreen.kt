@@ -73,7 +73,7 @@ fun MineScreen(
     onOpenSettings: () -> Unit,
     /** 源状态：源的启用与探测，独立于设置页 */
     onOpenSourceStatus: () -> Unit,
-    /** 直播频道：Hululu007 编译期频道清单 */
+    /** 直播频道：编译期内置的公开频道清单 */
     onOpenLiveChannels: () -> Unit,
     /** 个人信息卡 / 登录胶囊：跳独立登录页 */
     onOpenLogin: () -> Unit,
@@ -454,7 +454,7 @@ fun MineScreen(
                         color = Palette.TextPrimary,
                     )
                     Text(
-                        text = "Hululu007 公开频道清单",
+                        text = "电视台与公开直播",
                         style = MaterialTheme.typography.labelSmall,
                         color = Palette.TextSecondary,
                     )

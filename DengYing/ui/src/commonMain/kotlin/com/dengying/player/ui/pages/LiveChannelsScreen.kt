@@ -50,7 +50,7 @@ fun LiveChannelsScreen(
             ) {
                 Spacer(Modifier.height(56.dp))
                 Text(
-                    text = "Hululu007 live.m3u 抽样频道，点击直接播放；频道可用性以当前线路为准。",
+                    text = "点一个频道就播放。播不了就换一个。",
                     style = MaterialTheme.typography.labelSmall,
                     color = Palette.TextSecondary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),

@@ -24,6 +24,10 @@ class HistoryViewModel(
         val newerNotice: String = "",
         val tip: String = "",
         val showClearConfirm: Boolean = false,
+        /** 首次读取尚未结束：空列表时不能直接说「暂无记录」 */
+        val loading: Boolean = false,
+        /** 读取失败：与「确无记录」区分，给可重试的提示 */
+        val error: String = "",
     )
 
     var state by mutableStateOf(UiState())
@@ -31,10 +35,17 @@ class HistoryViewModel(
 
     fun reload() {
         viewModelScope.launch {
-            state = state.copy(
-                list = store.getHistory(),
-                newerNotice = store.newerVersionNotice(),
-            )
+            state = state.copy(loading = true, error = "")
+            try {
+                val list = store.getHistory()
+                state = state.copy(
+                    list = list,
+                    newerNotice = store.newerVersionNotice(),
+                    loading = false,
+                )
+            } catch (e: Exception) {
+                state = state.copy(loading = false, error = "本地记录暂时读不出来，请稍后再试")
+            }
         }
     }
 

@@ -40,19 +40,24 @@ import kotlinx.coroutines.launch
 /**
  * AH 账号体系注册页（文档 §4 / §5）。
  *
- * 字段与文案按接口文档落地：账号、密码（不少于 6 位）、重复密码、可选邀请码；
- * 请求体由 [AhAuth.register] 统一构造，附带稳定的 16 位 hex `device_id`。
- * 邀请码规则文案只作说明，不实现「分享 / 累计进度」这类尚未有端点的功能。
+ * 字段按接口文档落地：账号、密码（不少于 6 位）、重复密码；请求体由
+ * [AhAuth.register] 统一构造，附带稳定的 16 位 hex `device_id`。
+ *
+ * 【暂无邀请码 UI】`AhAuth.register` 仍保留 `inviteCode` 参数（服务端字段存在、
+ * 以后要用），但当前不渲染输入框和邀请进度规则——没有端点支撑的规则文案
+ * 只会让人以为有积分可攒。
+ *
+ * 【release 无令牌】与登录页同理：release 显示「登录暂不可用」，不渲染表单。
  */
 @Composable
 fun RegisterScreen(
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val isDebug = com.dengying.player.ui.UiDepsHolder.get().isDebug
     var account by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
-    var inviteCode by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var busy by rememberSaveable { mutableStateOf(false) }
     var feedback by rememberSaveable { mutableStateOf("") }
@@ -84,150 +89,135 @@ fun RegisterScreen(
         }
 
         Spacer(Modifier.height(10.dp))
-        GlassSurface(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-        ) {
-            Column(
+        if (isDebug) {
+            GlassSurface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
             ) {
-                Text(
-                    text = "注册后可畅享记录云同步",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Palette.TextPrimary,
-                )
-                Text(
-                    text = "暂不支持找回，请牢记你的账号与密码",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Spacer(Modifier.height(14.dp))
-                GlassTextField(
-                    value = account,
-                    onValueChange = { account = it; feedback = "" },
-                    placeholder = "请输入账号",
-                    modifier = Modifier.fillMaxWidth(),
-                    imeAction = ImeAction.Next,
-                )
-                Spacer(Modifier.height(10.dp))
-                GlassTextField(
-                    value = password,
-                    onValueChange = { password = it; feedback = "" },
-                    placeholder = "密码（不少于6位）",
-                    modifier = Modifier.fillMaxWidth(),
-                    password = !showPassword,
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Next,
-                    trailingIcon = if (showPassword) DyIcons.EyeOff else DyIcons.Eye,
-                    onTrailingClick = { showPassword = !showPassword },
-                )
-                Spacer(Modifier.height(10.dp))
-                GlassTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it; feedback = "" },
-                    placeholder = "重复新密码",
-                    modifier = Modifier.fillMaxWidth(),
-                    password = !showPassword,
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Next,
-                )
-                Spacer(Modifier.height(10.dp))
-                GlassTextField(
-                    value = inviteCode,
-                    onValueChange = { inviteCode = it; feedback = "" },
-                    placeholder = "邀请码（选填）",
-                    modifier = Modifier.fillMaxWidth(),
-                    imeAction = ImeAction.Done,
-                )
-                if (feedback.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                ) {
                     Text(
-                        text = feedback,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (success) Palette.BrandSecondary else Palette.Danger,
-                        modifier = Modifier.padding(top = 10.dp),
+                        text = "账号用于登录",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
                     )
-                }
-                Spacer(Modifier.height(14.dp))
-                GlassActionButton(
-                    text = "注 册",
-                    onClick = {
-                            scope.launch {
-                                busy = true
-                                feedback = ""
-                                success = false
-                                when (val outcome = AhAuth.register(account, password, confirmPassword, inviteCode)) {
-                                    is AhAuth.Outcome.Ok -> {
-                                        feedback = outcome.message
-                                        success = true
-                                    }
-                                    is AhAuth.Outcome.Error -> feedback = outcome.message
-                                }
-                                busy = false
-                            }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !busy,
-                    busy = busy,
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        // ---- 邀请码规则（文档 §5 的规则文案，仅展示，不实现未文档化的端点） ----
-        GlassSurface(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-            ) {
-                Text(
-                    text = "分享我的邀请码",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Palette.TextPrimary,
-                )
-                Text(
-                    text = "邀请新用户完成注册并验证即可累计进度",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Palette.TextSecondary,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                listOf(
-                    "同一账号只计算 1 次",
-                    "新用户需在注册 3 天内完成验证",
-                    "新用户必须使用不同的设备登录",
-                ).forEach { line ->
-                    Row(modifier = Modifier.padding(top = 6.dp)) {
+                    Text(
+                        text = "本机保存登录状态和观看记录，暂不支持找回密码",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextSecondary,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    GlassTextField(
+                        value = account,
+                        onValueChange = { account = it; feedback = "" },
+                        placeholder = "请输入账号",
+                        modifier = Modifier.fillMaxWidth(),
+                        imeAction = ImeAction.Next,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    GlassTextField(
+                        value = password,
+                        onValueChange = { password = it; feedback = "" },
+                        placeholder = "密码（不少于6位）",
+                        modifier = Modifier.fillMaxWidth(),
+                        password = !showPassword,
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next,
+                        trailingIcon = if (showPassword) DyIcons.EyeOff else DyIcons.Eye,
+                        onTrailingClick = { showPassword = !showPassword },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    GlassTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it; feedback = "" },
+                        placeholder = "重复新密码",
+                        modifier = Modifier.fillMaxWidth(),
+                        password = !showPassword,
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    if (feedback.isNotEmpty()) {
                         Text(
-                            text = "· ",
+                            text = feedback,
                             style = MaterialTheme.typography.labelMedium,
-                            color = Palette.TextSecondary,
-                        )
-                        Text(
-                            text = line,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Palette.TextSecondary,
+                            color = if (success) Palette.BrandSecondary else Palette.Danger,
+                            modifier = Modifier.padding(top = 10.dp),
                         )
                     }
+                    Spacer(Modifier.height(14.dp))
+                    GlassActionButton(
+                        text = "注 册",
+                        onClick = {
+                                scope.launch {
+                                    busy = true
+                                    feedback = ""
+                                    success = false
+                                    // 邀请码字段暂不展示，服务端字段保留：传空串＝请求体不附带
+                                    when (
+                                        val outcome = AhAuth.register(
+                                            account,
+                                            password,
+                                            confirmPassword,
+                                            "",
+                                        )
+                                    ) {
+                                        is AhAuth.Outcome.Ok -> {
+                                            feedback = outcome.message
+                                            success = true
+                                        }
+                                        is AhAuth.Outcome.Error -> {
+                                            // 原始消息含令牌/HTTP 码等内部信息，只进日志
+                                            com.dengying.player.platform.Log.w(
+                                                "DY/Auth",
+                                                "register failed: ${outcome.message}",
+                                            )
+                                            feedback = com.dengying.player.ui.account.authErrorMessage(outcome.message)
+                                        }
+                                    }
+                                    busy = false
+                                }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        busy = busy,
+                    )
+                }
+            }
+
+        } else {
+            // ---- release：登录通道未接通，别让用户白填一遍 ----
+            GlassSurface(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = com.dengying.player.ui.account.AUTH_UNAVAILABLE_TEXT,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Palette.TextPrimary,
+                    )
+                    Text(
+                        text = "不用登录也能搜索和播放。",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Palette.TextSecondary,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
                 }
             }
         }
-
-        Spacer(Modifier.height(14.dp))
-        Text(
-            text = "登录服务签名令牌（app_auth_token）尚未取得；当前请求会如实返回服务端校验结果",
-            style = MaterialTheme.typography.labelSmall,
-            color = Palette.TextSecondary,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
     }
 }

@@ -20,6 +20,7 @@ import com.dengying.player.core.VideoItem
 import com.dengying.player.core.capsOf
 import com.dengying.player.core.chooseDefaultLineIndex
 import com.dengying.player.core.parsePlayLines
+import com.dengying.player.domain.playback.HistoryWritePolicy
 import com.dengying.player.domain.playback.ResumeDecide
 import com.dengying.player.domain.search.SearchNotice
 import com.dengying.player.player.PlayerEngineHost
@@ -636,7 +637,7 @@ class DetailViewModel(
         if (!s.hasSession) return
         val e = engineHost.peek() ?: return
         if (inlineEngine === e) return
-        inlineEngine = e
+        bindInlineEngine(e)
         if (!surfaceRegistered) {
             surfaceRegistered = true
             engineHost.surfaceActive()
@@ -696,6 +697,8 @@ class DetailViewModel(
     private var inlineHeaders = ""
 
     private var inlineSaveTick = 0
+    /** 内嵌播放上次成功落盘的位置；`-1` = 当前集还没写过 */
+    private var inlineLastSavedPositionMs = -1L
 
     /**
      * 进度上报循环的 Job。
@@ -704,6 +707,9 @@ class DetailViewModel(
      * 初版每次 `onPlaying` 都启一个新循环，在状态抖动时无限累积。
      */
     private var progressJob: kotlinx.coroutines.Job? = null
+
+    /** VM 已销毁：销毁后不得再往单例引擎上挂监听器（B-7 回归形态） */
+    private var cleared = false
 
     /**
      * 本媒体会话是否已恢复过续播位置。
@@ -773,6 +779,11 @@ class DetailViewModel(
 
         // 会话重置续播恢复标志（新集新会话语义）
         inlinePositionRestored = false
+        // 【历史条目按集记账】这里曾漏赋值，导致内嵌播放无论点哪集都写 episodeIndex=0；
+        // 续播/alt 拉流也同用一个序号，必须与本次点击的集一致。
+        inlineEpisodeIndex = realIdx
+        inlineSaveTick = 0
+        inlineLastSavedPositionMs = -1L
 
         com.dengying.player.playback.PlaybackSession.play(
             repo = repo,
@@ -1033,68 +1044,115 @@ class DetailViewModel(
         }
     }
 
-    private fun bindInlineListener(eng: com.dengying.player.player.PlayerEngine) {
-        eng.addListener(object : com.dengying.player.player.PlayerListener {
-            override fun onReady(durationMs: Long) {
-                inlineState = inlineState.copy(
-                    totalTime = durationMs,
-                    buffering = false,
-                    errMsg = "",
-                )
-                viewModelScope.launch { restoreInlinePosition() }
-            }
+    /**
+     * 内嵌位引擎监听器。
+     *
+     * **必须是字段、只创建一次**：[bindInlineEngine] 切换/注销时按同一实例调
+     * [com.dengying.player.player.PlayerEngine.removeListener]。引擎是进程级单例，
+     * 若每次绑定都新建匿名对象，旧监听器会永久留在引擎的列表里——离页后仍收到
+     * `onPlaying/onCompleted`，触发换集或历史落盘（与 `PlayerViewModel.engineListener`
+     * 同一坑，B-7）。
+     *
+     * 【为什么它曾经是"死代码"】本监听器原以匿名对象形式写在 `bindInlineListener(eng)`
+     * 里，而该函数**没有任何调用点**：内嵌位的 `inlineState` 只由会话 collect 镜像，
+     * `onReady/onPlaying/onPaused` 从未回调 → 进度循环永不启动 → `saveInlineHistory`
+     * 与 `onCleared` 兜底全部在 3 秒门槛前早退 → **内嵌播放从不写观看历史**，
+     * 续播位置也从不恢复（模拟器探针 `history-save` / `inline-restore-pos` 恒无输出）。
+     * 现在由 [attachInlineSurface] / [resumeInlineIfPlaying] 经 [bindInlineEngine] 统一挂上。
+     */
+    private val inlineListener = object : com.dengying.player.player.PlayerListener {
+        override fun onReady(durationMs: Long) {
+            inlineState = inlineState.copy(
+                totalTime = durationMs,
+                buffering = false,
+                errMsg = "",
+            )
+            viewModelScope.launch { restoreInlinePosition() }
+        }
 
-            override fun onPlaying() {
-                inlineState = inlineState.copy(isPlaying = true, buffering = false)
-                // 【进度循环只能启动一次】真机踩坑：`onPlaying` 在播放状态抖动时
-                // （`BUFFERING ↔ READY` 振荡导致 `isPlaying` 反复变化）会被反复调用，
-                // 而初版每次都 `launch { while(true) {...} }` ——
-                // **每触发一次就多一个永不退出的循环**，形成正反馈：
-                // 更多循环 → 更多 `currentPosition` 读取 → 更多状态更新 → 更多抖动。
-                //
-                // 用 `progressJob` 保证只有一个循环在跑：已存在就不重复启动。
-                if (progressJob?.isActive == true) return
-                progressJob = viewModelScope.launch {
-                    while (true) {
-                        kotlinx.coroutines.delay(1000)
-                        val e = inlineEngine ?: break
-                        if (!e.isPlaying) continue
-                        inlineState = inlineState.copy(curTime = e.currentPosition)
-                        inlineSaveTick++
-                        if (inlineSaveTick % 5 == 0) saveInlineHistory()
+        override fun onPlaying() {
+            inlineState = inlineState.copy(isPlaying = true, buffering = false)
+            // 【进度循环只能启动一次】真机踩坑：`onPlaying` 在播放状态抖动时
+            // （`BUFFERING ↔ READY` 振荡导致 `isPlaying` 反复变化）会被反复调用，
+            // 而初版每次都 `launch { while(true) {...} }` ——
+            // **每触发一次就多一个永不退出的循环**，形成正反馈：
+            // 更多循环 → 更多 `currentPosition` 读取 → 更多状态更新 → 更多抖动。
+            //
+            // 用 `progressJob` 保证只有一个循环在跑：已存在就不重复启动。
+            if (progressJob?.isActive == true) return
+            progressJob = viewModelScope.launch {
+                while (true) {
+                    kotlinx.coroutines.delay(1000)
+                    val e = inlineEngine ?: break
+                    if (!e.isPlaying) continue
+                    val pos = e.currentPosition
+                    inlineState = inlineState.copy(curTime = pos)
+                    // 3 秒门槛前不写；过门槛后先立刻写一次，再每 5 tick 一次
+                    if (!HistoryWritePolicy.shouldWrite(pos)) continue
+                    inlineSaveTick++
+                    if (inlineLastSavedPositionMs < 0L || inlineSaveTick % 5 == 0) {
+                        saveInlineHistory()
                     }
                 }
             }
+        }
 
-            override fun onPaused() {
-                inlineState = inlineState.copy(isPlaying = false)
-            }
-
-            override fun onBuffering(active: Boolean) {
-                inlineState = inlineState.copy(buffering = active)
-            }
-
-            override fun onCompleted() {
-                inlineState = inlineState.copy(isPlaying = false)
+        override fun onPaused() {
+            inlineState = inlineState.copy(isPlaying = false)
+            // FR-408：暂停补写一次，别等 5 秒周期
+            if (HistoryWritePolicy.shouldWrite(
+                    inlineState.curTime,
+                    inlineLastSavedPositionMs,
+                )
+            ) {
                 viewModelScope.launch { saveInlineHistory() }
             }
+        }
 
-            override fun onError(
-                kind: com.dengying.player.player.PlaybackErrorKind,
-                code: Int,
-                message: String,
-            ) {
-                PlaybackProbe.note("inline-error", "kind=$kind code=$code msg=${message.take(80)}")
-                inlineState = inlineState.copy(
-                    buffering = false,
-                    errMsg = "播放失败，可换线路或全屏播放",
-                )
-            }
+        override fun onBuffering(active: Boolean) {
+            inlineState = inlineState.copy(buffering = active)
+        }
 
-            override fun onVideoSize(width: Int, height: Int) {
-                // 内嵌位固定 16:9，尺寸变化不影响布局，无需处理
-            }
-        })
+        override fun onCompleted() {
+            inlineState = inlineState.copy(isPlaying = false)
+            viewModelScope.launch { saveInlineHistory() }
+        }
+
+        override fun onError(
+            kind: com.dengying.player.player.PlaybackErrorKind,
+            code: Int,
+            message: String,
+        ) {
+            PlaybackProbe.note("inline-error", "kind=$kind code=$code msg=${message.take(80)}")
+            inlineState = inlineState.copy(
+                buffering = false,
+                errMsg = "播放失败，可换线路或全屏播放",
+            )
+        }
+
+        override fun onVideoSize(width: Int, height: Int) {
+            // 内嵌位固定 16:9，尺寸变化不影响布局，无需处理
+        }
+    }
+
+    /**
+     * 绑定 / 解绑内嵌位引擎（`eng == null` 表示解绑）。
+     *
+     * 【解绑必须放行】[releaseInline] 与 [onCleared] 靠它注销监听器；已销毁的 VM
+     * 则不得再往单例引擎上挂（否则页面销毁后仍会被重新 addListener，B-7 回归）。
+     * 解绑时顺手停掉进度循环，避免离页后仍每秒读引擎、每 5 tick 写历史。
+     */
+    private fun bindInlineEngine(eng: com.dengying.player.player.PlayerEngine?) {
+        if (cleared && eng != null) return
+        val prev = inlineEngine
+        if (prev === eng) return
+        if (prev != null) {
+            prev.removeListener(inlineListener)
+            progressJob?.cancel()
+            progressJob = null
+        }
+        inlineEngine = eng
+        if (eng != null) eng.addListener(inlineListener)
     }
 
     /** FR-405 同一口径：小于 3 秒视为从头。**每次媒体会话只执行一次**（守卫见字段说明） */
@@ -1102,14 +1160,72 @@ class DetailViewModel(
         if (inlinePositionRestored) return
         inlinePositionRestored = true
         if (curVodId == 0L || curSource.isEmpty()) return
+        // 【只认自己这一集】引擎与监听器都是进程级单例：全屏播放页在本页之上继续播时，
+        // 本页同样会收到 `onReady`（会话换集/preview 升级都会重新就绪）。此时把位置
+        // 拉回本页记的续播点，用户看到的就是"播放中画面突然跳回上次的位置"
+        // （ResumeRestore 记录过同一现象）。会话已经指向别的集、或引擎已播到
+        // 3 秒之后，都视为"不是本次内嵌起播"，不插手。
+        val s = com.dengying.player.playback.PlaybackSession.currentState()
+        val cur = inlineEngine?.currentPosition ?: 0L
+        val owns = com.dengying.player.domain.playback.InlineSessionGate.ownsEpisode(
+            vodId = curVodId,
+            source = curSource,
+            episodeIndex = inlineEpisodeIndex,
+            sessionVodId = s.vodId,
+            sessionSource = s.source,
+            sessionEpisodeIndex = s.episodeIndex,
+        )
+        if (!com.dengying.player.domain.playback.InlineSessionGate.canRestoreInline(
+                hasSession = s.hasSession,
+                ownsEpisode = owns,
+                enginePositionMs = cur,
+            )
+        ) {
+            PlaybackProbe.note(
+                "inline-restore-skip",
+                "pos=$cur vod=${s.vodId} ep=${s.episodeIndex} mine=$inlineEpisodeIndex",
+            )
+            return
+        }
         val pos = store.getEpisodePosition(curVodId, curSource, inlineEpisodeIndex)
-        PlaybackProbe.note("inline-restore-pos", "pos=$pos applied=${pos > 3000}")
-        if (pos > 3000) inlineEngine?.seekTo(pos)
+        val apply = com.dengying.player.domain.playback.ResumeRestore.apply(
+            storedMs = pos,
+            manualSeekOccurred = false,
+        )
+        PlaybackProbe.note("inline-restore-pos", "pos=$pos applied=${apply.shouldSeek} why=${apply.reason}")
+        if (apply.shouldSeek) inlineEngine?.seekTo(apply.targetMs)
     }
 
     /** FR-507：内嵌播放同样落盘观看记录 */
     private suspend fun saveInlineHistory() {
         if (curVodId == 0L || curSource.isEmpty()) return
+        // 【只写自己这一集】引擎与监听器都是进程级单例：播放页在本页之上继续播时，
+        // 本页的进度循环同样被驱动（读的是同一个引擎）。会话已经切到别的 vod/集号时
+        // 再写，历史条目就会变成「旧集号 + 别集进度」。会话已结束（hasSession=false）
+        // 不拦——离页前的最后一次补写往往发生在 stop 之后。
+        val s = com.dengying.player.playback.PlaybackSession.currentState()
+        val owns = com.dengying.player.domain.playback.InlineSessionGate.ownsEpisode(
+            vodId = curVodId,
+            source = curSource,
+            episodeIndex = inlineEpisodeIndex,
+            sessionVodId = s.vodId,
+            sessionSource = s.source,
+            sessionEpisodeIndex = s.episodeIndex,
+        )
+        if (!com.dengying.player.domain.playback.InlineSessionGate.canWriteHistory(
+                hasSession = s.hasSession,
+                ownsEpisode = owns,
+            )
+        ) {
+            PlaybackProbe.note(
+                "history-skip",
+                "reason=session-other-ep vod=${s.vodId} source=${s.source} " +
+                    "ep=${s.episodeIndex} mine=$inlineEpisodeIndex",
+            )
+            return
+        }
+        val pos = inlineState.curTime
+        if (!HistoryWritePolicy.shouldWrite(pos, inlineLastSavedPositionMs)) return
         val eps = currentEps()
         val epName = eps.getOrNull(inlineEpisodeIndex)?.name ?: ""
         val item = HistoryItem(
@@ -1120,11 +1236,16 @@ class DetailViewModel(
             vod_uri = curVodUri,
             episodeIndex = inlineEpisodeIndex,
             episodeName = epName,
-            position = inlineState.curTime,
+            position = pos,
             duration = inlineState.totalTime,
             updateTime = Clock.nowMs(),
         )
-        store.saveHistory(item)
+        val ok = store.saveHistory(item)
+        if (ok) inlineLastSavedPositionMs = pos
+        PlaybackProbe.note(
+            "history-save",
+            "vod=$curVodId source=$curSource ep=$inlineEpisodeIndex pos=$pos result=${if (ok) "ok" else "fail"} via=inline",
+        )
     }
 
     fun inlineEpisodeCount(): Int = if (live) 1 else state.lines.getOrNull(state.lineIdx)?.episodes?.size ?: 0
@@ -1324,7 +1445,7 @@ class DetailViewModel(
             PlaybackProbe.note("inline-resume-skip", "reason=engine-null")
             return
         }
-        inlineEngine = e
+        bindInlineEngine(e)
         if (!surfaceRegistered) {
             surfaceRegistered = true
             engineHost.surfaceActive()
@@ -1381,7 +1502,7 @@ class DetailViewModel(
      * 现在不再依赖任何"引擎引用是否为空"的推断，直接问会话："全屏页接管了吗？"
      */
     fun releaseInline() {
-        inlineEngine = null
+        bindInlineEngine(null)
         preResolved = null
         preResolveIdx = -1
 
@@ -1527,6 +1648,51 @@ class DetailViewModel(
 
     fun consumeNotice() {
         if (state.resumeNotice.isNotEmpty()) state = state.copy(resumeNotice = "")
+    }
+
+    /**
+     * FR-408：离开详情页时兜底落盘内嵌进度。
+     *
+     * 内嵌播放没有独立播放页，`onCleared` 是「离页」唯一稳定时机；
+     * 正常路径的 3 秒首写 / 5 tick / onPaused 补写已经覆盖大部分场景，
+     * 这里只补最后一段。仍遵守 3 秒门槛，且写失败只进探针不弹错。
+     */
+    override fun onCleared() {
+        super.onCleared()
+        cleared = true
+        if (curVodId == 0L || curSource.isEmpty()) {
+            bindInlineEngine(null)
+            return
+        }
+        val pos = inlineState.curTime
+        if (!HistoryWritePolicy.shouldWrite(pos, inlineLastSavedPositionMs)) {
+            bindInlineEngine(null)
+            return
+        }
+        // 【先快照再解绑】解绑会停掉进度循环，但不改 inlineState；这里用快照写最后一段。
+        bindInlineEngine(null)
+        val vodId = curVodId
+        val source = curSource
+        val epIndex = inlineEpisodeIndex
+        val item = HistoryItem(
+            vod_id = vodId,
+            vod_name = state.item?.vod_name ?: curName,
+            vod_pic = state.item?.vod_pic ?: curPic,
+            source = source,
+            vod_uri = curVodUri,
+            episodeIndex = epIndex,
+            episodeName = currentEps().getOrNull(epIndex)?.name ?: "",
+            position = pos,
+            duration = inlineState.totalTime,
+            updateTime = Clock.nowMs(),
+        )
+        kotlinx.coroutines.CoroutineScope(ioDispatcher).launch {
+            val ok = store.saveHistoryBlocking(item)
+            PlaybackProbe.note(
+                "history-save",
+                "vod=$vodId source=$source ep=$epIndex pos=$pos result=${if (ok) "ok" else "fail"} via=detail-onCleared",
+            )
+        }
     }
 }
 

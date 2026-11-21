@@ -371,6 +371,8 @@ NSUserDefaults 冒烟（M-12）、签名与 `DEVELOPMENT_TEAM`（M-26）。
 `platform.Foundation.setValue` import），补 1 行回绿；klib 四任务 `--rerun-tasks`
 强制全量 0 `e:`、测试 775 例 0 失败，详见 `docs/04` §16.40。上方边界声明不变。
 
+**2026-11-21 计划 14 未跨端同步**：本轮改动只在 `DengYing/`（Android 侧 `shared` + `ui` + `app`）落盘，包括 `domain/playback/HistoryWritePolicy.kt`、`Store` 写返回 Boolean、`PlayerViewModel`/`DetailViewModel` 历史写入策略、发现页 `DiscoverFeed.kt` 与 `playableInDiscover`、`Theme.kt` 波纹关闭、`AuthErrorText.kt`、`ForegroundResumePolicy.kt` 与 `MainActivity` 生命周期判定。`DengYingIos/` 与 `DengYingOhos/` 的共享源码是各自副本，**尚未同步**，两端的观看历史、发现页无限流、文案与波纹行为仍是旧口径；同步时要逐文件比对 `Store`/`DetailViewModel`/`IndexScreen` 的对应副本，并按各端 `actual` 检查 `LocalIndication`/`LocalRippleConfiguration` 是否可用（CMP 1.9.2 的鸿蒙线 Material3 API 需先确认存在 `LocalRippleConfiguration`）。iOS/鸿蒙的运行验证仍按 `docs/11` 与 `DengYingOhos/harmony/README.md` 的口径，不得用本轮的 Android 编译结果代替。
+
 ## 参考
 
 - [Compose Multiplatform 1.10 发布说明（Navigation 3 支持）](https://blog.jetbrains.com/kotlin/2026/01/compose-multiplatform-1-10-0)

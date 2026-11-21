@@ -62,6 +62,8 @@ import com.dengying.player.ui.viewmodel.PlayerViewModel
 fun DengYingNavHost(
     debugRoute: String? = null,
     onDebugRouteConsumed: () -> Unit = {},
+    /** 进程级冷启动（非重建/非转屏）才自动查更新；壳按 savedInstanceState 判定 */
+    coldStartAutoCheck: Boolean = false,
 ) {
     val nav = rememberNavController()
 
@@ -100,8 +102,9 @@ fun DengYingNavHost(
     CompositionLocalProvider(LocalGlassBackdrop provides glassBackdrop) {
     val deps = remember { UiDepsHolder.get() }
     // 自动检查不阻塞首帧：请求在 IO 上发出，失败只更新「我的」页状态。
-    LaunchedEffect(Unit) {
-        UpdateNoticeController.autoCheck(deps)
+    // 只认冷启动：转屏/重建会让 NavHost 重组，但不应周期性再弹更新提示。
+    LaunchedEffect(coldStartAutoCheck) {
+        if (coldStartAutoCheck) UpdateNoticeController.autoCheckOnColdStart(deps)
     }
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Routes.INDEX) {

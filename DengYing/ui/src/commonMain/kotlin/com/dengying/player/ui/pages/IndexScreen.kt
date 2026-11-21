@@ -252,10 +252,14 @@ fun IndexScreen(
         }
     }
     val poolReady = allWarm || warmTimeout
-    val picks = remember(poolReady, discoSeed) {
+    // 【池子扩容只追加】分类分页会让 items 变多；这里把条目总数并进 remember key，
+    // 池子变大时重新生成 picks（DiscoverPane 只用来补后续轮次，不重建已显示卡片）。
+    val catItemCount = (0..6).sumOf { s.cat(it).items.size }
+    val picks = remember(poolReady, discoSeed, catItemCount) {
         if (!poolReady) {
             emptyList()
         } else {
+            val repo = UiDepsHolder.get().sources
             val cms = (1..6)
                 .flatMap { s.cat(it).items }
                 .distinctBy { it.vod_name ?: it.vod_id.toString() }
@@ -271,6 +275,10 @@ fun IndexScreen(
             val tvLimit = (cms.size / 3).coerceAtLeast(20)
             (cms.shuffled(Random(discoSeed + 7)) + tv.take(tvLimit))
                 .distinctBy { it.vod_name ?: it.vod_id.toString() }
+                // 【源优选】发现页是「刷到即看」，必须只留能直接播的源：
+                // 用户关掉的源 + playGap 非空（要登录/要会员）的源都不进池。
+                // 池子因此变小也不放宽——进了池却播不了比少一张卡更伤。
+                .filter { playableInDiscover(it, repo) }
         }
     }
     // 【透射源】拆成「内容层（被采样）+ 玻璃浮层（去采样）」两个兄弟层：
@@ -371,6 +379,20 @@ fun IndexScreen(
                     preparing = !poolReady,
                     // v5.7：发现页下滑同样收起 chrome（监听在窗格自己的 listState 上）
                     onScrollDir = { down -> chromeVisible = !down },
+                    // 换批代号：只有下拉刷新才重建列表（池子扩容不重建）
+                    feedKey = discoSeed,
+                    onNeedMore = {
+                        // 滑到这批尾部：顺便给还有分页的分类续拉（最多两个，防同时
+                        // 六路出网把中心项挤在队列里）。新条目进后续轮次，不动当前列表。
+                        val more = (1..6)
+                            .filter { idx ->
+                                val c = s.cat(idx)
+                                c.hasMore && !c.loadingMore && !c.loading
+                            }
+                            .shuffled()
+                            .take(2)
+                        more.forEach { vm.loadMore(it) }
+                    },
                 )
                 // ---- 我的：个人信息聚合（v5；共享顶栏在本页隐藏，自带页头） ----
                 3 -> MineScreen(
@@ -547,9 +569,9 @@ private fun RecommendPage(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text("首页版块暂时没有内容", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
+            Text("首页暂时没有内容", style = MaterialTheme.typography.bodyLarge, color = Palette.TextSecondary)
             Text(
-                "可在「我的-源状态」里启用「蓝光4k」或「天翼视讯」后下拉重试",
+                "下拉刷新再试一次。还是没有，去“我的”里打开更多片源。",
                 style = MaterialTheme.typography.labelSmall,
                 color = Palette.TextSecondary,
                 modifier = Modifier.padding(top = 6.dp),
@@ -863,8 +885,7 @@ private fun CategoryPane(
     }
 }
 
-/** 发现页无限流：每批追加的条数（滚近尾部 +1 批） */
-private const val DISCOVER_BATCH = 9
+/** 发现页无限流：每批追加的条数（滚近尾部 +1 批）——常量与取片器见 [DiscoverFeed.kt] */
 
 /**
  * 滚动方向监视（v5.7 chrome 自动隐藏）：把 Lazy 列表/网格的 (首可见项下标, 偏移)
@@ -908,24 +929,12 @@ private fun ScrollDirWatcher(
     }
 }
 
-/** 池子前 [n] 个不重复项的数量（首批游标初值：首批同步填充消耗掉的池子长度） */
-private fun countFirstUnique(pool: List<VideoItem>, n: Int): Int {
-    if (pool.isEmpty()) return 0
-    val seen = HashSet<Long>()
-    var i = 0
-    while (i < pool.size && seen.size < n) {
-        seen.add(pool[i].vod_id)
-        i++
-    }
-    return i
-}
-
 /**
  * 发现窗格（v5.3）：随机推荐 + 内嵌自动播放的**无限流**列表。
  *
  * 【片池】[IndexScreen] 把首页 tv189 版块条目全量洗牌成 [pool]（下拉刷新重洗，
  * [onShuffle]）；本窗格按批（[DISCOVER_BATCH]）从池里追加显示——滚近尾部自动续批，
- * 池子取尽就取模循环（洗过一轮的顺序重来），观感上无限。
+ * 一轮取尽就换轮重洗（[DiscoverFeedSource]），观感上无限。
  *
  * 【自动播放判定（主流口径）】滚动停止后，取视口中心最近、可见面积过半的
  * 项解析起播；拖动中不播。单引擎天然保证同屏只有一个声音。
@@ -975,6 +984,10 @@ private fun DiscoverPane(
     preparing: Boolean,
     // 【v5.7 chrome 自动隐藏】滚动方向回调：true=下滑（收起顶栏/Dock），false=上滑。
     onScrollDir: (Boolean) -> Unit = {},
+    // 换批代号（discoSeed）：变了才重建列表并清缓存；池子扩容不重建。
+    feedKey: Long = 0L,
+    // 滚近尾部时向调用方要更多片（分类分页），让池子继续变大。
+    onNeedMore: () -> Unit = {},
 ) {
     // 滚动位置跨页重建：从持有者恢复初值，滚动时回写（切到首页再回来仍在原处）
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
@@ -1001,58 +1014,49 @@ private fun DiscoverPane(
         runCatching { deps.engineHost.engine() }
             .getOrElse { com.dengying.player.player.NullPlayerEngine }
     }
-    // 【无限流】显示列表 = 池子按批追加；cursor 记住池子消费到哪（取模循环）。
+    // 【无限流】显示列表 = 按轮追加：一轮内洗牌遍历当前池，取尽后轮次 +1 重洗。
+    // 只在换批（[feedKey] = discoSeed）时重建；池子扩容只影响后续轮次，
+    // 已有卡片、解析缓存和滚动位置都不动。
     // 首批在 remember 初始化里同步填好（之后追加都在协程里做，不在组合期改状态）。
-    val items = remember(pool) {
-        mutableStateListOf<VideoItem>().also { list ->
-            var tries = 0
-            while (list.size < DISCOVER_BATCH && tries < pool.size * 2) {
-                val v = pool[tries % pool.size]
-                if (list.none { it.vod_id == v.vod_id }) list.add(v)
-                tries++
-            }
-        }
+    val feedSource = remember(feedKey) { DiscoverFeedSource() }
+    val feed = remember(feedKey) {
+        mutableStateListOf<DiscoverEntry>().also { it.addAll(feedSource.nextBatch(pool)) }
     }
-    // 池子消费游标：首批占了前 DISCOVER_BATCH 个不重复项，从池头继续数
-    val cursor = remember(pool) { androidx.compose.runtime.mutableIntStateOf(countFirstUnique(pool, DISCOVER_BATCH)) }
-    // 追加一批：从游标处取不重复的项，池子取尽取模循环（观感无限）
-    fun addBatch() {
-        if (pool.isEmpty()) return
-        var added = 0
-        var tries = 0
-        while (added < DISCOVER_BATCH && tries < pool.size * 2) {
-            val v = pool[cursor.intValue % pool.size]
-            cursor.intValue++
-            tries++
-            if (items.none { it.vod_id == v.vod_id }) {
-                items.add(v)
-                added++
-            }
-        }
+    // 池子是每次取批时传入的「最新值」：分类分页可在浏览中陆续到货
+    val currentPool by androidx.compose.runtime.rememberUpdatedState(pool)
+    fun appendBatch() {
+        val more = feedSource.nextBatch(currentPool)
+        if (more.isNotEmpty()) feed.addAll(more)
+    }
+    // 首次进入/预热中池子还是空的：成型后补首批（不重置已有卡片）
+    LaunchedEffect(pool) {
+        if (feed.isEmpty() && pool.isNotEmpty()) feed.addAll(feedSource.nextBatch(pool))
     }
     // 解析结果缓存：下标 -> (直链, headers json, 是否试看链)；url 为空串 = 解析失败
     // （换源也救不回）。只缓存成功项会永久转圈——失败也要落袋。试看标记给角标
     // （v5.6：tv189 免登录片跨源救不回时不再默默只给 5 分钟）。
-    // 跨页重建复用（持有者里，池子换了由 IndexScreen 的 pick 变化自然作废——
-    // 池子变化时下面 inFlight/slots 重建，resolved 的下标语义与 items 一致，
-    // 而 items 只取决于 pool，故同 pool 重建后下标仍然对齐）
+    // 跨页重建复用（持有者里）；下标语义只随 [feedKey] 变化作废——列表只追加，
+    // 池子扩容/换批都不改已有下标（换批会重建 feed，见下面的清理）。
     val resolved = resume.resolved
     // 解析在飞标记：防同一项被「可见即解析」重复发起（SnapshotStateList 主线程读写）
-    val inFlight = remember(pool) { mutableStateListOf<Int>() }
+    val inFlight = remember(feedKey) { mutableStateListOf<Int>() }
     // 解析并发闸：同时只放 2 条全链解析。可见 2.5 项全并发时每项要发 6-10 个
     // 请求（详情+换链+跨源搜索/候选），20+ 请求挤 6 个出网位 → 排队 13s（实测
     // probe net-queue），中心项反而最后就绪。限流 + 中心近的先入闸。
-    val resolveSlots = remember(pool) { kotlinx.coroutines.sync.Semaphore(2) }
-    // 池子换了（下拉换一批）：旧下标语义全部作废，清掉缓存与断点，
+    val resolveSlots = remember(feedKey) { kotlinx.coroutines.sync.Semaphore(2) }
+    // 下拉换一批（[feedKey] 变）：旧下标语义全部作废，清掉缓存与断点并回到首批，
     // 否则会把上一批的直链/断点套到新一批的卡上（同下标不同片）。
-    var seenPool by remember { mutableStateOf(pool) }
-    LaunchedEffect(pool) {
-        if (seenPool !== pool) {
-            seenPool = pool
+    // 用「记住上一次 key」而不是直接清：DiscoverPane 跨页重建时会重跑效果，
+    // 无条件清会把跨页保活的滚动位置与断点一起抹掉。
+    var seenFeedKey by remember { mutableStateOf(feedKey) }
+    LaunchedEffect(feedKey) {
+        if (seenFeedKey != feedKey) {
+            seenFeedKey = feedKey
             resume.resolved.clear()
             resume.paused.clear()
             resume.startedIdx.intValue = -1
             resume.playingIdx.intValue = -1
+            listState.scrollToItem(0)
         }
     }
 
@@ -1067,12 +1071,13 @@ private fun DiscoverPane(
         }
     }
     suspend fun resolveChainOf(idx: Int) = runCatching {
+        val vod = feed[idx].vod
         com.dengying.player.playback.resolvePlayChain(
             repo = deps.sources,
-            raw = discoverRawUrl(deps, items[idx]),
-            source = items[idx]._source ?: "",
-            vodId = items[idx].vod_id,
-            vodName = items[idx].vod_name ?: "",
+            raw = discoverRawUrl(deps, vod),
+            source = vod._source ?: "",
+            vodId = vod.vod_id,
+            vodName = vod.vod_name ?: "",
             episodeIndex = 0,
             ioDispatcher = com.dengying.player.platform.ioDispatcher,
             altLimit = 3, // 发现页批量预解析：候选只试 3 个，防出网闸拥塞
@@ -1085,8 +1090,8 @@ private fun DiscoverPane(
     // 【可见即解析】v5.4 核心：别等中心项落定才开始解析——跨源兜底一条就要
     // 1-3s，落定再解析用户要干等 10s（实测 probe：net-queue 排队 5.5s）。
     // 可见项（一屏 ~2.5 部）提前全链解析，中心项落定时结果多半已在袋里 → 即刻起播。
-    LaunchedEffect(pool) {
-        if (pool.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(feedKey, feed.isNotEmpty()) {
+        if (feed.isEmpty()) return@LaunchedEffect
         snapshotFlow {
             listState.layoutInfo.visibleItemsInfo.map { it.index }.sorted()
         }.collect { visible ->
@@ -1097,7 +1102,7 @@ private fun DiscoverPane(
                 .map { idx -> idx to (listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }?.let { kotlin.math.abs(it.offset + it.size / 2 - center) } ?: Int.MAX_VALUE) }
                 .sortedBy { it.second }
                 .forEach { (idx, _) ->
-                    if (idx < items.size && resolved[idx] == null && idx !in inFlight) {
+                    if (idx < feed.size && resolved[idx] == null && idx !in inFlight) {
                         inFlight.add(idx)
                         launch {
                             resolveSlots.withPermit {
@@ -1134,7 +1139,7 @@ private fun DiscoverPane(
             pausedPositions[startedIdx] = engine.currentPosition
         }
         engine.pause()
-        if (!active || idx < 0 || idx >= items.size) return@LaunchedEffect
+        if (!active || idx < 0 || idx >= feed.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
         // 【无缝续播】媒体还是本片的（只是 Dock 切页暂停过）→ play() 直接续。
@@ -1151,8 +1156,8 @@ private fun DiscoverPane(
 
     // 【中心判定（主流口径：B 站/微博内嵌视频流）】滚动**停止**后才动作：
     // 取视口中心最近的项，且可见面积 >= 55%（防边缘半张卡误播）。
-    LaunchedEffect(pool) {
-        if (pool.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(feedKey, feed.isNotEmpty()) {
+        if (feed.isEmpty()) return@LaunchedEffect
         fun visibleFraction(info: androidx.compose.foundation.lazy.LazyListItemInfo): Float {
             val li = listState.layoutInfo
             val top = maxOf(info.offset, li.viewportStartOffset)
@@ -1169,19 +1174,24 @@ private fun DiscoverPane(
             playingIdx = if (best != null && visibleFraction(best) >= 0.55f) best.index else -1
         }
     }
-    // 【无限流追加】滚近尾部（倒数第 4 项进入视口）就再追加一批
-    LaunchedEffect(pool) {
-        if (pool.isEmpty()) return@LaunchedEffect
+    // 【无限流追加】滚近尾部（倒数第 4 项进入视口）就再追加一批，
+    // 顺便向调用方要更多分类分页，让池子继续变大（换轮时才会用上）。
+    // 一轮取尽由 [DiscoverFeedSource] 自动换轮重洗，列表不会触底停住。
+    LaunchedEffect(feedKey, feed.isNotEmpty()) {
+        if (feed.isEmpty()) return@LaunchedEffect
         snapshotFlow {
             listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
         }.collect { last ->
-            if (last >= items.size - 4) addBatch()
+            if (last >= feed.size - 4) {
+                appendBatch()
+                onNeedMore()
+            }
         }
     }
     // 离开发现页（切 Dock/退出）：记断点 + 释放 surface 引用。
     // 页面被销毁（切到首页/分类 → 超出 pager 预组合范围）时，断点写进
     // [DiscoverResume]，切回来才能从原位续播（原先状态随页面一起丢，从头播）。
-    DisposableEffect(pool) {
+    DisposableEffect(feedKey) {
         onDispose {
             if (startedIdx >= 0) pausedPositions[startedIdx] = engine.currentPosition
             setSurface(false)
@@ -1222,8 +1232,8 @@ private fun DiscoverPane(
             contentPadding = PaddingValues(start = 12.dp, top = topPadding, end = 12.dp, bottom = bottomPadding),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            items(items.size) { idx ->
-                val item = items[idx]
+            items(count = feed.size, key = { feed[it].key }) { idx ->
+                val item = feed[idx].vod
                 val hit = resolved[idx]
                 DiscoverVideoCard(
                     item = item,
@@ -1308,7 +1318,7 @@ private fun DiscoverVideoCard(
                             title = item.vod_name ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         )
                         if (mediaReady) {
                             VideoSurface(
@@ -1322,7 +1332,7 @@ private fun DiscoverVideoCard(
                             title = item.vod_name ?: "",
                             modifier = Modifier.fillMaxSize(),
                             cornerRadius = 0,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         )
                     }
                     if (resolving) {
@@ -1397,10 +1407,7 @@ private fun DiscoverVideoCard(
 }
 
 /**
- * 发现页取原始集地址：详情 → vod_play_url 第一条线路的第一集（"线路A$$$线路B"、
- * "集名$url#集名$url"）。后续解析统一走 [resolvePlayChain]（全链含跨源换线
- * 兜底）——「解析只有一个入口」，发现页不再自写解析：§16.45 实录，自写解析
- * （只换链不兜底）导致「详情能播、发现页却说看不了」。
+ * 发现页取原始集地址：详情 → 默认线路的第一集。
  */
 private suspend fun discoverRawUrl(
     deps: com.dengying.player.ui.UiDeps,
@@ -1411,7 +1418,20 @@ private suspend fun discoverRawUrl(
     val detail = runCatching {
         deps.sources.fetchDetail(src, item.vod_id)
     }.getOrNull() ?: return ""
-    return detail.vod_play_url
+    // 【默认线路】第一条线路不保证是正片（部分源把预告/花絮排前面，或先给一条
+    // 只有几集的试看线）。与详情页同一口径：优先非预告、集数最多的线路，
+    // 再取该线路第一集；手动选线与此无关（发现页没有选线 UI）。
+    val lines = runCatching {
+        com.dengying.player.core.parsePlayLines(detail.vod_play_from, detail.vod_play_url)
+    }.getOrElse { emptyList() }
+    val picked = lines
+        .getOrNull(com.dengying.player.core.chooseDefaultLineIndex(lines))
+        ?.episodes?.firstOrNull()?.url
+        ?.takeIf { it.isNotBlank() && it.contains("://") }
+    if (picked != null) return picked
+    // 解析不出线路（协议变体）：退回旧口径——第一条线路的第一集，并留探针，
+    // 免得这种源静默走老路没人发现。
+    val fallback = detail.vod_play_url
         ?.split("$$$")
         ?.firstOrNull()
         ?.split("#")
@@ -1419,4 +1439,11 @@ private suspend fun discoverRawUrl(
         ?.substringAfter('$')
         ?.takeIf { it.isNotBlank() && it.contains("://") }
         ?: ""
+    if (fallback.isNotEmpty()) {
+        com.dengying.player.player.PlaybackProbe.note(
+            "line-fallback",
+            "vod=${item.vod_id} source=$key",
+        )
+    }
+    return fallback
 }

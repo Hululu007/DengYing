@@ -81,8 +81,14 @@ fun HistoryScreen(
         }
 
         if (s.list.isEmpty()) {
-            // FR-508：区分「确无记录」与「数据在，但由更高版本写入」
-            EmptyView(s.newerNotice.ifEmpty { "暂无播放记录" })
+            // FR-508：区分「读取中」「读失败」「确无记录」「数据由更高版本写入」
+            EmptyView(
+                when {
+                    s.loading -> "读取中"
+                    s.error.isNotEmpty() -> s.error
+                    else -> s.newerNotice.ifEmpty { "暂无播放记录" }
+                }
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

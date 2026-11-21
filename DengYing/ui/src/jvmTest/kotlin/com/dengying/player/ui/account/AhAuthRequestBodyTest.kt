@@ -36,6 +36,23 @@ class AhAuthRequestBodyTest {
         val login = AhAuth.buildLoginBody("a@b.com", "secret1", "1794755442", token)
         val register = AhAuth.buildRegisterBody("a@b.com", "secret1", "1794755442", token, "   ")
         assertEquals(login, register)
+        // 注册页已去掉邀请码输入框，调用方固定传空串：请求体不得残留 invite_code 字段
+        assertFalse(register.contains("invite_code"), register)
+    }
+
+    @Test
+    fun authErrorMessageHidesTokensAndEndpoints() {
+        // 客户可见文案不出现令牌/接口/appid 等内部术语
+        assertEquals(AUTH_UNAVAILABLE_TEXT, authErrorMessage("Invalid app_auth_token"))
+        assertEquals(AUTH_UNAVAILABLE_TEXT, authErrorMessage("403 /auth/login 101983842"))
+        assertEquals("网络不可用，稍后再试", authErrorMessage("网络连接失败"))
+        assertEquals("注册太频繁，稍后再试", authErrorMessage("同一 IP 注册次数已达上限"))
+        // 表单校验类文案原样给用户，说明该改哪里
+        assertEquals("密码长度不能少于6位", authErrorMessage("密码长度不能少于6位"))
+        assertEquals("请输入账号", authErrorMessage("请输入账号"))
+        // 其余（账号密码错、未知服务端错误）收敛成一句，不泄露服务端原文
+        assertEquals("账号或密码不对", authErrorMessage("Unauthorized"))
+        assertEquals("账号或密码不对", authErrorMessage("Invalid JSON body"))
     }
 
     @Test

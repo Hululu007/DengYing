@@ -13,7 +13,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.dengying.player.playback.PlaybackEngineHolder
-import com.dengying.player.playback.PlaybackSession
+import com.dengying.player.playback.shouldResumeAfterStop
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.theme.DengYingTheme
@@ -53,6 +53,12 @@ class MainActivity : ComponentActivity() {
     /** 待消费的调试路由；由 `onCreate`/`onNewIntent` 写入，Composable 读后清空 */
     private val pendingDebugRoute = mutableStateOf<String?>(null)
 
+    /**
+     * 退后台那一刻引擎是否在播（且仍有播放表面）。
+     * `onStop` 写、`onStart` 读后清零——这是「亮屏不自动续播」的判定依据。
+     */
+    private var resumeAfterStop = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -68,18 +74,29 @@ class MainActivity : ComponentActivity() {
                 // 注意转型坑：Media3Engine 实现的是 PlayerEngine，不是
                 // androidx.media3.common.Player，`as? Player` 恒 null（真机
                 // 实测退后台声不停）——直接走 PlayerEngine.pause()。
-                PlaybackEngineHolder.peek()?.pause()
+                val engine = PlaybackEngineHolder.peek()
+                // 【回前台只恢复「本来在播」的】旧实现 onStart 无条件 play()，
+                // 用户手动暂停后锁屏/亮屏会被强行续播。这里先记录意图再暂停。
+                resumeAfterStop = engine?.isPlaying == true &&
+                    PlaybackEngineHolder.surfaceCount() > 0
+                engine?.pause()
+                PlaybackProbe.note(
+                    "foreground-stop",
+                    "wasPlaying=$resumeAfterStop surfaces=${PlaybackEngineHolder.surfaceCount()}",
+                )
             }
 
             override fun onStart(owner: LifecycleOwner) {
-                // 【回前台续播】ON_STOP 统一 pause 后，发现页预览不会自己恢复：
-                // active 仍为 true → LaunchedEffect(active) 不重跑。详情/全屏
-                // 有 PlaybackSession 会话时由各自 resumeInlineIfPlaying 接管，
-                // 这里只在**无会话**时恢复发现页预览引擎，避免与详情抢播。
-                if (!PlaybackSession.currentState().hasSession) {
-                    PlaybackEngineHolder.peek()?.play()
-                    PlaybackProbe.note("foreground-resume")
-                }
+                // 只有退后台时确实在播、且播放表面仍在，才恢复；
+                // 无会话/已暂停/离开播放位一律不动引擎。
+                val resume = shouldResumeAfterStop(
+                    resumeAfterStop,
+                    PlaybackEngineHolder.surfaceCount(),
+                )
+                resumeAfterStop = false
+                if (!resume) return
+                PlaybackEngineHolder.peek()?.play()
+                PlaybackProbe.note("foreground-resume")
             }
         })
         setContent {
@@ -105,6 +122,9 @@ class MainActivity : ComponentActivity() {
                 DengYingNavHost(
                     debugRoute = pendingDebugRoute.value,
                     onDebugRouteConsumed = { pendingDebugRoute.value = null },
+                    // 只有进程级冷启动（onCreate 没有恢复状态）才自动查更新；
+                    // 转屏/重建/从后台回来的组合重建都不该再弹一次
+                    coldStartAutoCheck = savedInstanceState == null,
                 )
             }
         }

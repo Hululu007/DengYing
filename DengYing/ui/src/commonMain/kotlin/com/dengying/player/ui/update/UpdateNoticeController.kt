@@ -27,9 +27,24 @@ object UpdateNoticeController {
 
     private var inFlight = false
 
+    /**
+     * 进程级「冷启动自动检查」闸门：进程内只放行一次。
+     *
+     * NavHost 会在转屏/重建/返回前台时重组，`LaunchedEffect` 因此可能重跑；
+     * 没有闸门就会反复请求并反复弹窗。闸门是进程级（object 字段），
+     * 与组合生命周期无关——这正是「仅冷启动」的语义。
+     */
+    internal val coldStartGate = ColdStartGate()
+
     /** 让页面重新读取持久化的忽略状态（进入「我的」页时调用）。 */
     fun refresh(deps: UiDeps) {
         ignoredTag = UpdatePrefs(deps.keyValueStore).ignoredTag()
+    }
+
+    /** 冷启动入口：本次进程只查一次；手动检查 [manualCheck] 不受此闸门限制。 */
+    suspend fun autoCheckOnColdStart(deps: UiDeps) {
+        if (!coldStartGate.tryConsume()) return
+        autoCheck(deps)
     }
 
     suspend fun autoCheck(deps: UiDeps) {
@@ -106,5 +121,17 @@ object UpdateNoticeController {
         UpdateCheckState.Failed -> "检查失败，点此重试"
         UpdateCheckState.Disabled -> "当前平台不提供版本信息"
         is UpdateCheckState.Available -> "发现新版本 ${current.info.version}"
+    }
+}
+
+/** 冷启动自动检查的一次性闸门（纯逻辑，单独可测） */
+internal class ColdStartGate {
+    private var consumed = false
+
+    /** 首次返回 true 并记住；之后一律 false */
+    fun tryConsume(): Boolean {
+        if (consumed) return false
+        consumed = true
+        return true
     }
 }

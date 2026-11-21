@@ -35,9 +35,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.core.CmsSources
 import com.dengying.player.core.Episode
@@ -61,6 +66,32 @@ import com.dengying.player.ui.theme.Palette
 import com.dengying.player.ui.viewmodel.AltItem
 import com.dengying.player.ui.viewmodel.DetailViewModel
 import com.dengying.player.data.download.DownloadCenter
+
+/**
+ * 固定宽度按钮里的单行标签样式：量出超过可用宽度就按 0.5sp 步进缩小。
+ *
+ * 【为什么需要这一步】选集区两枚按钮改成等宽 76dp 后，`maxLines = 1` +
+ * `softWrap = false` 只保证不换行，不保证放得下。真机（MuMu，1080×1920，280dpi）
+ * 把字体放大到 2.0x 时，「正序 ↑」实测宽 133px = 76dp，正好顶满按钮，箭头右半边
+ * 被裁掉。用 `TextMeasurer` 先量后定字号，比「把按钮改宽」更能守住等宽这条需求。
+ */
+@Composable
+private fun fittedLabelStyle(text: String, maxWidth: Dp): TextStyle {
+    val measurer = rememberTextMeasurer()
+    val base = MaterialTheme.typography.labelMedium
+    val density = LocalDensity.current
+    val maxPx = with(density) { maxWidth.toPx() }
+    return remember(text, base, maxPx, density.fontScale) {
+        var style = base
+        var guard = 0
+        while (guard++ < 24 && style.fontSize.value > 8f &&
+            measurer.measure(text, style).size.width > maxPx
+        ) {
+            style = style.copy(fontSize = (style.fontSize.value - 0.5f).sp)
+        }
+        style
+    }
+}
 
 @Composable
 fun DetailScreen(
@@ -638,9 +669,10 @@ private fun EpisodeBlock(
         if (s.resumeNotice.isNotEmpty()) {
             InlineNotice("⚠ ${s.resumeNotice}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
         }
-        // 源播放链缺口：显式提示不可播，避免点进去才静默失败
+        // 源播放链缺口：显式提示不可播，避免点进去才静默失败。
+        // 文案走统一用语——playGap 原文是维护者视角的内部描述，不给用户看。
         if (s.playGap.isNotEmpty()) {
-            InlineNotice("⚠ ${s.playGap}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
+            InlineNotice("⚠ ${com.dengying.player.ui.viewmodel.PLAYBACK_UNAVAILABLE_TEXT}", Modifier.fillMaxWidth().padding(bottom = 12.dp))
         }
         if (s.downloadMsg.isNotEmpty()) {
             Text(
@@ -702,6 +734,7 @@ private fun EpisodeBlock(
                 // 下载模式开关：比长按手势可见，也让「点了就下载」有明确的进入/退出
                 Box(
                     modifier = Modifier
+                        .width(76.dp)
                         .height(36.dp)
                         .background(
                             if (downloadMode) Palette.Brand else Palette.SearchBg,
@@ -712,33 +745,38 @@ private fun EpisodeBlock(
                             PlaybackProbe.note(
                                 "ui-download-mode", "on=$downloadMode",
                             )
-                        }
-                        .padding(horizontal = 12.dp),
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
+                    val downloadLabel = if (downloadMode) "完成" else "下载"
                     Text(
-                        text = if (downloadMode) "完成" else "下载",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = downloadLabel,
+                        style = fittedLabelStyle(downloadLabel, 74.dp),
                         color = if (downloadMode) Color.White else Palette.TextSecondary,
+                        maxLines = 1,
+                        softWrap = false,
                     )
                 }
                 Spacer(Modifier.width(8.dp))
                 if (displayEps.size > 1) {
                     Box(
                         modifier = Modifier
+                            .width(76.dp)
                             .height(36.dp)
                             .background(
                                 if (s.descOrder) Palette.Brand else Palette.SearchBg,
                                 RoundedCornerShape(18.dp),
                             )
-                            .clickable(onClick = onToggleOrder)
-                            .padding(horizontal = 12.dp),
+                            .clickable(onClick = onToggleOrder),
                         contentAlignment = Alignment.Center,
                     ) {
+                        val orderLabel = if (s.descOrder) "倒序 ↓" else "正序 ↑"
                         Text(
-                            text = if (s.descOrder) "倒序 ↓" else "正序 ↑",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = orderLabel,
+                            style = fittedLabelStyle(orderLabel, 74.dp),
                             color = if (s.descOrder) Color.White else Palette.TextSecondary,
+                            maxLines = 1,
+                            softWrap = false,
                         )
                     }
                 }
