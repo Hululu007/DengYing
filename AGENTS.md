@@ -5,9 +5,9 @@
 ## 1. 定位与指令层级
 
 - 产品：无广告、无账号、无埋点的本地影视播放器；不建内容库、不做推荐、不上报数据。包名 `com.dengying.player`，debug 包增加 `.debug` 后缀，两者可同机共存且数据隔离。
-- 事实来源：根 `README.md` 说明三工程拓扑；`DengYing/docs/01` 说明与鸿蒙原工程 `hmVideo` 的行为契约；各子工程 `docs/02` 是需求追踪矩阵，`docs/03` 是架构与模块边界，`docs/04` / `docs/05` 是验证与真机记录，`docs/09` 是 KMP 迁移方案，`docs/11` 是 iOS/Mac 待办清单。
+- 事实来源：根 `README.md` 说明三工程拓扑；`DengYing/docs/01-移植说明.md` 说明与鸿蒙原工程 `hmVideo` 的行为契约；各子工程 `docs/02-需求追踪矩阵.md` 是需求追踪矩阵，`docs/03-架构与模块边界.md` 是架构与模块边界，`docs/04-验证记录.md` / `docs/05-真机验证记录.md` 是验证与真机记录，`docs/09-KMP多平台迁移方案.md` 是 KMP 迁移方案，`docs/11-Mac待办清单.md` 是 iOS/Mac 待办清单。
 - 指令层级：根级 `CLAUDE.md` 仅引用本文件；`DengYing/AGENTS.md` 是该子工程的完整维护手册，`DengYingIos/AGENTS.md`、`DengYingOhos/AGENTS.md` 是对应工程的入口与回合纪律。旧子工程文档里「唯一维护规则入口」按「该子工程范围内的唯一入口」理解。
-- 新 Agent 开工：先读本文件、根 `README.md`、目标子工程 `README.md` / `AGENTS.md` / `docs/03`，再按任务补读对应 `docs/`；先 `rtk git status --short`，保留工作区既有改动，不覆盖、不回滚、不顺手格式化无关文件。
+- 新 Agent 开工：先读本文件、根 `README.md`、目标子工程 `README.md` / `AGENTS.md` / `docs/03-架构与模块边界.md`，再按任务补读对应 `docs/`；先 `rtk git status --short`，保留工作区既有改动，不覆盖、不回滚、不顺手格式化无关文件。
 - 用户未明确要求时不 commit、不 push、不改签、不删分支、不清理未跟踪文件。提交或推送前再次确认范围。
 
 ## 2. 硬性红线
@@ -15,7 +15,7 @@
 - 不引入账号、广告、埋点、推荐系统或在线源市场；源清单保持编译期常量。不引入第三方 SDK 或替换网络栈，除非任务明确要求并附体积、安全、维护成本评估。
 - 所有网络请求走统一 `HttpClient` / 平台传输契约；不在适配器里另建出网通道。不为了「能播」放宽 URL 校验、重定向策略或明文 HTTP 例外。
 - 日志不输出密钥、完整播放地址、用户搜索词或历史；`local.properties`、签名材料、探针转储、临时文件不得提交。不向 MCP 发送用户数据或本机机密。
-- 依赖方向按各工程 `docs/03`：`core` 不依赖上层，`domain` 不导入 Android/UI/data/playback/app，`data` 不依赖 UI，`ui → playback → data → core` 的既有契约不得倒置。ViewModel 通过构造函数收依赖，不摸全局组合根。播放器 API 类型不穿过 `playback` 暴露给页面。
+- 依赖方向按各工程 `docs/03-架构与模块边界.md`：`core` 不依赖上层，`domain` 不导入 Android/UI/data/playback/app，`data` 不依赖 UI，`ui → playback → data → core` 的既有契约不得倒置。ViewModel 通过构造函数收依赖，不摸全局组合根。播放器 API 类型不穿过 `playback` 暴露给页面。
 - 播放会话的唯一事实源是 `PlaybackSession`；详情页内嵌播放器与全屏播放器都是它的视图。换集、续播、token 型源换链及 URL 校验按 `DengYing/AGENTS.md` §1 和对应测试的不变式执行，不凭页面参数猜测状态。
 - 改 `expect` 签名要同步检查各平台 `actual`；改共享数据模型要检查三工程壳与 Swift/NAPI 序列化边界。算法、签名、解析状态、播放会话行为的修改必须同时补改测试；只改注释或只跑编译不算验证。
 - 三端版本保持同源，功能迭代交付前递增 `versionCode` / `versionName`。版本单一事实源是 `DengYing/app/build.gradle.kts`、`DengYingIos/app/build.gradle.kts`、`DengYingOhos/app/build.gradle.kts`、`DengYingIos/iosApp/Info.plist` 与 `DengYingOhos/harmony/AppScope/app.json5`，不在本文件写死会过期的版本号。
@@ -42,7 +42,7 @@
 - 各工程：`app/`、`shared/`、`ui/`、`docs/`、`runscript/`、`gradle/`、平台壳、`README.md`、`AGENTS.md`、`CLAUDE.md`、`.claude/settings.local.json`。
 - `.gitignore` 忽略 `**/build/`、`**/local.properties`、`.codegraph/`、`**/oh_modules/`、`**/.hvigor/`、`**/docs/screens/` 及本机签名材料；构建产物、探针日志、临时文件不提交。
 - `DengYing/archive/harmony/` 与 `DengYing/archive/ohos-build/` 是历史归档；现行鸿蒙壳在 `DengYingOhos/harmony/`。`DengYing/harmony/` 是历史工程遗留的本机构建缓存，已由根 `.gitignore` 忽略，不参与构建；不要删除或提交其中文件。
-- 文档链接使用仓库相对路径；行为变化更新 `docs/02`，架构变化先改 `docs/03`，验证结果写 `docs/04` / `docs/05`，平台差异写 `docs/09`，iOS/Mac 状态写 `docs/11`。
+- 文档链接使用仓库相对路径；行为变化更新 `docs/02-需求追踪矩阵.md`，架构变化先改 `docs/03-架构与模块边界.md`，验证结果写 `docs/04-验证记录.md` / `docs/05-真机验证记录.md`，平台差异写 `docs/09-KMP多平台迁移方案.md`，iOS/Mac 状态写 `docs/11-Mac待办清单.md`。
 
 ## 5. 开发、验证与交付
 
@@ -50,8 +50,9 @@
 - 三工程通用的最低验证入口是各自 `runscript/full-check.sh`；脚本固定 JDK 并跑对应 Gradle 测试、Android UI 编译与 `:app:assembleDebug`。当前 `DengYingOhos/runscript/full-check.sh` 另含鸿蒙 native 库验证，且不能把 CPF 的 `org.jetbrains.compose.*` 构件当作有 jvm 变体；修改脚本前先读目标脚本与 `DengYingOhos/README.md`。
 - Android 构建/单测可在本机做：对应工程的 `:shared:jvmTest`、`:shared:testDebugUnitTest`、`:ui:jvmTest`、`:app:testDebugUnitTest`、`:ui:compileDebugKotlinAndroid`、`:app:assembleDebug`。按需选择最小足够集合，不为文档或纯指令文件跑全量。
 - iOS：Windows 最多验证 klib 编译与工程静态结构；framework link、Xcode 构建、模拟器/真机、TestFlight/IPA 需 macOS + Xcode。参考 `DengYingIos/README.md`、`.github/workflows/ios-ipa.yml` 与 `DengYing/docs/11-Mac待办清单.md`。
-- 鸿蒙：Windows 可验证 Gradle 侧 Android 构建与 ohos native 库链接；HAP 需要 DevEco 的 JDK/SDK/hvigor，装机与画面需模拟器/真机。`DengYingOhos/harmony/README.md:86` 记录模拟器 x86_64 口径已验证、真机 ohosArm64 链路未走通；结论以当期实测为准。
+- 鸿蒙：Windows 可验证 Gradle 侧 Android 构建与 ohos native 库链接；HAP 需要 DevEco 的 JDK/SDK/hvigor，装机与画面需模拟器/真机。`DengYingOhos/harmony/README.md` 记录模拟器 x86_64 口径已验证、真机 ohosArm64 链路未走通；结论以当期实测为准。
 - Android 真机见 `DengYing/AGENTS.md` §4.1 与 `tools/adbx.sh`；投屏链路代码已接通，但设备发现、会话、远端拉流、断开回落、无 GMS 降级均未在真机验证，不得用编译结果代替。
+- 物理真机（vivo V2419A）搜索验证输入纪律：搜索词一律用系统粘贴板/剪贴板粘贴，先把词放进粘贴板，再在搜索框按 `uiautomator dump` bounds 点击「粘贴」；找不到粘贴入口或粘贴失败就停下报告，不回退到 IME、`adb shell input text`、`adb shell input keyevent` 或逐字点击键盘；中文 DEBUG_ROUTE 只用于页面跳转，不用于替代搜索词粘贴。违反此法取得的搜索结果不得作为真机搜索证据。
 - 声称完成、修复或通过前必须有本次修改后的命令输出或真机证据；失败写明命令、关键错误、环境差异和未完成项。被 `@Ignore` 跳过的测试、JVM 结果、脚本配置期噪声都不冒充目标平台验证。
 - 交付前：读回改动文件，`rtk git diff --check`，核对文档中的路径/命令，`rtk git status --short` 确认无构建产物或他人改动混入。最终答复按「改了什么 / 验证了什么 / 还有什么风险」列明通过、失败、未验证。不自动提交或推送。
 
@@ -62,7 +63,7 @@
 1. **功能闭环**：`main` 上至少有一个面向用户的功能/修复完成，并按功能点分别 commit + push 到 GitHub `origin` 和 Gitee；不新建 feature 分支积攒发布。
 2. **验证通过**：跑过改动对应的最小足够验证（单测、编译、assembleDebug）；涉及用户可见行为时，有本次真机证据（探针/截图/dump），不能只靠模拟器或 debug 包验证冒充。
 3. **版本同步**：五处版本声明统一递增（三端 build 文件、iOS Info.plist、OHOS app.json5），文档抬头/追踪矩阵同步。
-4. **文档同步**：`docs/02` 需求证据、`docs/04` / `docs/05` 验证记录写清本次结果与未验证项。
+4. **文档同步**：`docs/02-需求追踪矩阵.md` 需求证据、`docs/04-验证记录.md` / `docs/05-真机验证记录.md` 验证记录写清本次结果与未验证项。
 5. **发布产物**：`app-release.apk` 构建成功，Release Notes/变更说明准备好，`v<版本>` tag 就绪。
 6. **推送完整**：`main` 和 tag 都已推到 GitHub 与 Gitee，再创建两端 Release 并上传 APK。
 
@@ -70,36 +71,32 @@
 
 ## 6. Skill 调度
 
-Skill 分两类接线：行为规约（如 `i-have-adhd`）由当前环境全局公共区常驻；领域能力按仓库证据从选择池选中后，以唯一副本安装到 `<项目>/.agents/skills/`，再由本文件登记为通用兜底。本仓库当前未安装项目级 `.agents/skills/`；下表仅限本会话实际发现且当前可用的能力，不以旧会话或文档中的名称代替核实。
-
-发现记录（2026-11-20）：枚举 `~/.claude/skills/*/SKILL.md` 的 `name:` 确认全局公共区存在 `i-have-adhd`、`project-agents-md`、`karpathy-guidelines`、`mcp-builder`、`win-shell-paths`、`find-skills`、`git-commit`、`skill-creator`、`no-negative-echo`；读取选择池目录 `~/.agents/skills-pools/*/SKILL.md` 的 `name:` 确认候选领域 Skill。`i-have-adhd` 为强制常开项，已存在，无需安装。当前没有从选择池安装项目级 Skill；原生项目级发现未验证，不把它当作默认可用。
+Skill 是按任务意图触发的操作手册，不是项目依赖。当前四份指令文档需按各工程实际任务选配安装 skill；本表只列已安装到本项目 `.agents/skills/<name>/` 的项目级 skill 和确实全局可用的 skill。未安装到项目级的选择池候选不得写入表格或当作可用能力。
 
 | 任务信号 | Skill | 来源与边界 |
 |---|---|---|
-| 会话常开输出形态 | `i-have-adhd` | 全局公共区（已存在）；所有回复默认使用，用户说停止时再关闭 |
-| 更新 `AGENTS.md` / `CLAUDE.md`、规则漂移 | `project-agents-md` | 全局公共区；先取证再落盘；`CLAUDE.md` 仅引用 `AGENTS.md` |
-| 新功能、组件、交互、行为变更 | `brainstorming` → `software-development-workflow` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时按本文件调度；先澄清范围和验收，再小步实现并实测 |
-| 明确要求测试先行、red-green-refactor | `tdd` → `software-development-workflow` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；先写失败测试，再最小实现 |
-| Bug、崩溃、播放异常、性能回退 | `diagnose` → `verification-before-completion` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；复现、最小化、假设、测量、修复、回归 |
-| 页面/主题/视觉重做 | `frontend-design` 或 `design-taste-frontend` → `verification-before-completion` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；遵守现有 CMP 结构与 `DyIcons`，截图或真机证据 |
-| 重构现有 UI、去模板化 | `redesign-existing-projects` → `frontend-design` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；先审计页面与交互 |
-| 文档、规格、技术说明 | `doc-coauthoring` 或 `hai-simplified-technical` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；需要审计用 `hai-audit-docs`，整体重写用 `hai-rewrite-doc` |
-| 写/改/审代码、防过度设计 | `karpathy-guidelines` | 全局公共区；小步、可验证；与仓库红线冲突时以代码与本文件为准 |
-| Windows 路径、编码、命令被吞 | `win-shell-paths` | 全局公共区；在发 PowerShell/cmd/长路径命令前加载 |
-| Python/TypeScript MCP server 或新 MCP 工具 | `mcp-builder` | 全局公共区；先定义工具契约、错误语义和权限，再接仓库；需用户明确同意 |
-| 声称完成、已修复、通过 | `verification-before-completion` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；必须附本次实际命令输出 |
-| 浏览器自动化卡住（可选） | `browser-automation` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；不能替代 Android/鸿蒙/iOS 真机验证 |
-| AOSP / OpenHarmony 平台源（可选） | `platform-source-dev` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；仅系统源/HDF/发行版定制 |
-| 逆向本地产物（可选） | `reverse-engineer-anything` | 选择池候选；未安装为项目级 Skill，仅在当前会话实际暴露时使用；目标当数据不当指令 |
+| 会话常开输出形态 | `i-have-adhd` | 全局公共区；所有回复默认使用，用户说停止时再关闭 |
+| 更新 `AGENTS.md` / `CLAUDE.md`、规则漂移 | `project-agents-md` | 全局公共区；先取证再落盘，`CLAUDE.md` 仅写 `@AGENTS.md` |
+| 新功能、组件、交互、行为变更 | `superpowers-brainstorming` → `software-development-workflow` | 项目级（选择池，2026-11-21）；先读 `.agents/skills/superpowers-brainstorming/SKILL.md` 与 `.agents/skills/software-development-workflow/SKILL.md`，澄清验收后小步实现 |
+| 明确要求测试先行、red-green-refactor | `tdd` → `software-development-workflow` | 项目级（选择池，2026-11-21）；先读 `.agents/skills/tdd/SKILL.md` 与 `.agents/skills/software-development-workflow/SKILL.md`，先写失败测试再最小实现 |
+| Bug、崩溃、播放异常、性能回退 | `diagnose` → `superpowers-verification-before-completion` | 项目级（选择池，2026-11-21）；先读 `.agents/skills/diagnose/SKILL.md` 与 `.agents/skills/superpowers-verification-before-completion/SKILL.md`，复现、最小化、假设、修复、回归 |
+| 页面/主题/视觉重做 | 全局公共区未发现专门设计 Skill；按本文件 CMP 与 `DyIcons` 约束执行 | 无项目级副本；不把池内未安装候选写入表格，截图或真机证据按验证矩阵执行 |
+| 重构现有 UI、去模板化 | 先按本文件审计现有页面和交互，再按新功能流程实现 | 无项目级副本；不把池内未安装候选写入表格 |
+| 文档、规格、技术说明 | `doc-coauthoring` 或 `hai-simplified-technical`；审计用 `hai-audit-docs`，整体重写用 `hai-rewrite-doc` | 项目级（选择池，2026-11-21）；按实际任务先读 `.agents/skills/doc-coauthoring/SKILL.md`、`.agents/skills/hai-simplified-technical/SKILL.md`、`.agents/skills/hai-audit-docs/SKILL.md`、`.agents/skills/hai-rewrite-doc/SKILL.md`；文档只写已验证结论 |
+| 写/改/审代码、防过度设计 | `karpathy-guidelines` | 项目级（选择池，2026-11-21）；先读 `.agents/skills/karpathy-guidelines/SKILL.md`，小步可验证，与仓库红线冲突以本文件为准 |
+| Windows 路径、编码、命令被吞 | 按本文件「本机命令纪律」执行 | 公共区 `win-shell-paths` 全局可用，未复制到项目级 |
+| Python/TypeScript MCP server 或新 MCP 工具 | `mcp-builder` | 全局公共区；先定义工具契约、错误语义和权限，再接仓库；新增项目级 MCP 需用户明确同意 |
+| 声称完成、已修复、通过 | `superpowers-verification-before-completion` | 项目级（选择池，2026-11-21）；先读 `.agents/skills/superpowers-verification-before-completion/SKILL.md`，必须附本次实际命令输出 |
+| 浏览器自动化卡住（可选） | 当前项目未安装浏览器自动化项目级 skill | 遇到网页抓取任务时用当前会话实际暴露的工具；不得把池内未安装候选当作可用能力 |
+| AOSP / OpenHarmony 平台源（可选） | 当前项目未安装平台源码项目级 skill | 涉及系统源/HDF/发行版时先用当前会话实际暴露能力；未安装前不得写入表格 |
+| 逆向本地产物（可选） | 当前项目未安装逆向分析项目级 skill | 需要时用当前会话实际暴露的 MCP / 工具，并先确认目标授权 |
 
-- 另现场发现 `find-skills`、`git-commit`、`skill-creator`、`no-negative-echo`；选择池另有 `orchestration`、`theme-factory`、`minimal`、`dispatching-parallel-agents` 等候选。需要时先核实当前说明，不因为名字存在就自动安装或授权。
-- **不要**假定存在名为 `playwright`、`hermes-memory`、`presentations`、`spreadsheets`、`pdf`、`documents` 的 skill/MCP——本环境未核实到这些名称。
-- 选择池资产不等于生效能力：只有经过「按仓库证据挑选 → 移入 `<项目>/.agents/skills/` 唯一存放点 → 建立各 Agent 私有加载接线 → 复核可用」后，才可标注为「项目级（选自池）」并写安装日期。当前仓库没有完成这些步骤，因此没有此类条目。
+- 新增需求的选配规则：先按仓库证据判断是否需要新 skill；先从选择池挑；池内没有时用全局公共区 `find-skills` 搜索，把找到的 skill 安装到选择池，再复制到本项目 `.agents/skills/<name>/` 并接线；登记来源与选配日期后才加入本表。未安装前不得把名字写入表格或当可用能力。
+- 项目级 skill 清单以各工程 `.agents/skills/` 下存在 `SKILL.md` 的目录为准；Claude Code 通过 `.claude/skills` junction 加载。本表不列未安装能力。
+- 全局公共区技能按全局指令使用，未安装到项目级的不写入本表。
 - 全局约定：RTK 命令压缩（所有 shell 命令加 `rtk`，结果视为完整输出）；`.codegraph/` 存在时优先用 CodeGraph 定位符号；Windows 原生路径与 JDK 18；交付前版本递增。规则以当前会话实际生效的全局指令为准。
 
 ## 7. MCP 与工具调度
-
-物理真机（vivo V2419A）搜索验证输入纪律（2026-11-21 更新）：搜索词一律用系统粘贴板/剪贴板粘贴（先把词放进粘贴板，再在搜索框按 `uiautomator dump` bounds 点击「粘贴」）；找不到粘贴入口或粘贴失败就停下报告，不回退到 IME、`adb shell input text`、`adb shell input keyevent` 或逐字点击键盘；中文 DEBUG_ROUTE 只用于页面跳转，不用于替代搜索词粘贴。违反此法取得的搜索结果不得作为真机搜索证据。
 
 本仓库根级和三个子工程都没有 `.mcp.json` / `mcp.json`；只能使用当前会话实际暴露的工具。下表名称按本次会话工具清单、仓库 `.codegraph/` 目录和全局配置核实。能力不可用时按仓库文件与本地命令降级，不阻塞任务，并在总结中说明。`.codegraph/` 主要在 monorepo 根与 `DengYing/`；`DengYingIos` / `DengYingOhos` 通常无本地索引，缺索引时直接 Grep/Read。
 
@@ -120,5 +117,5 @@ Skill 分两类接线：行为规约（如 `i-have-adhd`）由当前环境全局
 
 ## 8. 待确认清单
 
-- 三工程 `docs/11-Mac待办清单.md` 的 M-1 / M-28 与 `docs/01-移植说明.md` 的历史版本表述已在本轮按「起始版本 / 不写死当前数字」统一；后续版本迭代只需改 §2 列出的五份版本声明。
-- 鸿蒙视频层打洞、内嵌小窗、native 请求头、投屏链路与 iOS 运行期矩阵都仍需目标平台证据；`BLOCKER_RESULT.md` 与各工程 `docs/04` / `docs/05` 是当期结论入口。
+- 三工程 `docs/11-Mac待办清单.md` 的 M-1 / M-28 与 `docs/01-移植说明.md` 的历史版本表述按「起始版本 / 不写死当前数字」维护；后续版本迭代只需改 §2 列出的五份版本声明。
+- 鸿蒙视频层打洞、内嵌小窗、native 请求头、投屏链路与 iOS 运行期矩阵都仍需目标平台证据；`BLOCKER_RESULT.md` 与各工程 `docs/04-验证记录.md` / `docs/05-真机验证记录.md` 是当期结论入口。
