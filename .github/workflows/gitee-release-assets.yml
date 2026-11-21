@@ -82,7 +82,12 @@ jobs:
           TAG_ENC=$(printf '%s' "$TAG" | jq -sRr @uri)
           CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$BASE/releases/tags/$TAG_ENC")
           if [ "$CODE" = "200" ]; then
-            ID=$(jq -r '.id' /tmp/gitee-release.json)
+            ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+            if [ -z "$ID" ]; then
+              echo "Gitee release lookup returned no id for $TAG" >&2
+              cat /tmp/gitee-release.json
+              exit 1
+            fi
             echo "Found Gitee release $TAG with id $ID"
           elif [ "$CODE" = "404" ]; then
             if [ "$DRY_RUN" = "true" ]; then
@@ -96,7 +101,12 @@ jobs:
                 -H 'Content-Type: application/json;charset=UTF-8' \
                 --data-binary @/tmp/gitee-create.json \
                 -o /tmp/gitee-release.json
-              ID=$(jq -r '.id' /tmp/gitee-release.json)
+              ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+              if [ -z "$ID" ]; then
+                echo "Gitee release creation returned no id for $TAG" >&2
+                cat /tmp/gitee-release.json
+                exit 1
+              fi
               echo "Created Gitee release $TAG with id $ID"
             fi
           else
