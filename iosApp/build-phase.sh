@@ -14,13 +14,11 @@
 #   「按目标架构编译 framework + 拷进 App + 用本工程签名配置重签」。
 #   linkDebugFramework 只产出 framework 文件，不会嵌入也不会重签。
 #
-# 【前置条件，本仓尚未满足】ui/build.gradle.kts 目前没有
-#   binaries { framework { baseName = "ComposeApp" } }
-# 故该 Gradle 任务尚不存在，本脚本在 macOS 上首次运行会报
-#   "Task 'embedAndSignAppleFrameworkForXcode' not found in project ':ui'"
-# 补上 binaries 配置后才能生效 —— 该改动需在 macOS 上验证，见 docs/04 §16.11。
+# 【前置条件，已满足】ui/build.gradle.kts 里 iosArm64 / iosSimulatorArm64 都有
+#   binaries { framework { baseName = "DengYing" } }（2026-11-22 三端合并时接入），
+# 故 :ui:embedAndSignAppleFrameworkForXcode 任务存在，产物为 DengYing.framework。
 #
-# 【未验证（需 macOS）】本脚本只做静态检查（bash -n 语法通过），
+# 【未验证（需 macOS）】本脚本只在 Windows 上做过 bash -n 语法检查，
 #   从未在真实 Xcode 构建中执行过。
 
 set -euo pipefail

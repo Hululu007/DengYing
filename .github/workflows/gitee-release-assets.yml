@@ -1,0 +1,194 @@
+name: Gitee Release Assets
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag, e.g. v1.3.24"
+        required: true
+        type: string
+      dry_run:
+        description: "Only inspect release and attachments, do not upload"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitee-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  mirror-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GITEE_OWNER: han-xiaos-whisper
+      GITEE_REPO: DengYing
+    steps:
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Resolve and validate tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="${INPUT_TAG:-$REF_NAME}"
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid tag: $TAG" >&2
+            exit 1
+          fi
+          echo "name=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for GitHub release assets
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          for i in $(seq 1 60); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              if gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir release-assets --clobber; then
+                APK=$(find release-assets -maxdepth 1 -type f -name '*.apk' 2>/dev/null | wc -l)
+                IPA=$(find release-assets -maxdepth 1 -type f -name '*.ipa' 2>/dev/null | wc -l)
+                if [ "$APK" -gt 0 ] && [ "$IPA" -gt 0 ]; then
+                  echo "GitHub release $TAG has APK and IPA"
+                  exit 0
+                fi
+              fi
+            fi
+            echo "Waiting for GitHub release $TAG assets ($i/60)"
+            sleep 30
+          done
+          echo "Timed out waiting for APK and IPA on GitHub release $TAG" >&2
+          exit 1
+
+      - name: Ensure Gitee release exists
+        id: release
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          IS_DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          test -n "$GITEE_TOKEN" || { echo "GITEE_TOKEN is not configured" >&2; exit 1; }
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          TAG_ENC=$(printf '%s' "$TAG" | jq -sRr @uri)
+          CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$BASE/releases/tags/$TAG_ENC")
+          if [ "$CODE" = "200" ]; then
+            ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+            if [ -z "$ID" ]; then
+              echo "Gitee release lookup returned no id for $TAG" >&2
+              cat /tmp/gitee-release.json
+              exit 1
+            fi
+            echo "Found Gitee release $TAG with id $ID"
+          elif [ "$CODE" = "404" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "INPUT_DRY_RUN=$INPUT_DRY_RUN IS_DRY_RUN=$IS_DRY_RUN"
+            echo "DRY RUN: would create Gitee release $TAG"
+            ID=""
+          elif [ "$CODE" = "404" ]; then
+            jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" --arg sha "$GITHUB_SHA" \
+              '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false,target_commitish:$sha}' \
+              > /tmp/gitee-create.json
+            for attempt in 1 2 3; do
+              if curl -fSs --connect-timeout 15 --max-time 120 -X POST "$BASE/releases" \
+                -H 'Content-Type: application/json;charset=UTF-8' \
+                --data-binary @/tmp/gitee-create.json \
+                -o /tmp/gitee-release.json; then
+                break
+              fi
+              echo "Gitee release creation failed (attempt $attempt/3)" >&2
+              if [ "$attempt" = "3" ]; then exit 1; fi
+              sleep $((attempt * 5))
+            done
+            ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+            if [ -z "$ID" ]; then
+              echo "Gitee release creation returned no id for $TAG" >&2
+              cat /tmp/gitee-release.json
+              exit 1
+            fi
+            echo "Created Gitee release $TAG with id $ID"
+          else
+            echo "Unexpected Gitee release lookup status: $CODE" >&2
+            cat /tmp/gitee-release.json
+            exit 1
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: List existing Gitee attachments
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          if [ -z "$RELEASE_ID" ]; then
+            echo "No release id in dry run"
+            exit 0
+          fi
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          curl -fSs "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN&per_page=100" \
+            -o /tmp/gitee-attachments.json
+          jq -r '.[] | "\(.id)\t\(.name)\t\(.size)"' /tmp/gitee-attachments.json
+
+      - name: Mirror GitHub assets to Gitee
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          test -n "$RELEASE_ID" || { echo "Missing Gitee release id" >&2; exit 1; }
+          BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
+          curl -fSs "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN&per_page=100" \
+            -o /tmp/gitee-attachments.json
+          for FILE in release-assets/*; do
+            [ -f "$FILE" ] || continue
+            NAME=$(basename "$FILE")
+            SIZE=$(stat -c %s "$FILE")
+            EXISTING_ID=$(jq -r --arg name "$NAME" '.[] | select(.name == $name and .size == ($size|tonumber)) | .id' --argjson size "$SIZE" /tmp/gitee-attachments.json | head -n1)
+            if [ -z "$EXISTING_ID" ]; then
+              EXISTING_ID=$(jq -r --arg name "$NAME" '.[] | select(.name == $name) | .id' /tmp/gitee-attachments.json | head -n1)
+              if [ -n "$EXISTING_ID" ]; then
+                echo "Replacing stale attachment $NAME (id $EXISTING_ID)"
+                for attempt in 1 2 3; do
+                  if curl -fSs --connect-timeout 15 --max-time 120 -X DELETE "$BASE/releases/$RELEASE_ID/attach_files/$EXISTING_ID?access_token=$GITEE_TOKEN"; then
+                    break
+                  fi
+                  echo "Attachment delete failed (attempt $attempt/3)" >&2
+                  if [ "$attempt" = "3" ]; then exit 1; fi
+                  sleep $((attempt * 5))
+                done
+              fi
+              echo "Uploading $NAME ($SIZE bytes)"
+              for attempt in 1 2 3; do
+                if curl -fSs --connect-timeout 15 --max-time 600 --retry 2 --retry-delay 5 \
+                  -X POST "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN" \
+                  -F "file=@$FILE"; then
+                  echo "Uploaded $NAME"
+                  break
+                fi
+                echo "Upload failed (attempt $attempt/3)" >&2
+                if [ "$attempt" = "3" ]; then exit 1; fi
+                sleep $((attempt * 10))
+              done
+            else
+              echo "Asset $NAME already present with matching size"
+            fi
+          done
+
+      - name: Report HAP availability
+        if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          if find release-assets -maxdepth 1 -type f -name '*.hap' | grep -q .; then
+            echo "HAP asset mirrored"
+          else
+            echo "No HAP asset on GitHub release; skipped"
+          fi
