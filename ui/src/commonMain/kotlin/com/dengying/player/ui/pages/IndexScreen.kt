@@ -249,6 +249,14 @@ fun IndexScreen(
     // 【池子扩容只追加】分类分页会让 items 变多；这里把条目总数并进 remember key，
     // 池子变大时重新生成 picks（DiscoverPane 只用来补后续轮次，不重建已显示卡片）。
     val catItemCount = (0..6).sumOf { s.cat(it).items.size }
+    // 【冷启动内容信号】首页推荐或发现页片池一有内容就放行后台工作：更新检查、
+    // 发现页详情预取都等它之后再启动（计划 18 §12.2），不抢 t=0 的前台席位。
+    val homeHasContent = s.cat(0).items.isNotEmpty()
+    LaunchedEffect(homeHasContent, poolReady) {
+        if (homeHasContent || poolReady) {
+            com.dengying.player.ui.AppStartupSignals.markFirstContent()
+        }
+    }
     val picks = remember(poolReady, discoSeed, catItemCount) {
         if (!poolReady) {
             emptyList()
@@ -1119,41 +1127,63 @@ private fun DiscoverPane(
         altLimit: Int = 3,
         forceNet: Boolean = false,
         waitForFullSource: Boolean = false,
-    ) = runCatching {
+    ): Triple<String, String, Boolean>? {
         val vod = feed[idx].vod
-        com.dengying.player.playback.resolvePlayChain(
-            repo = deps.sources,
-            raw = discoverRawUrl(deps, vod, forceNet = forceNet),
-            source = vod._source ?: "",
-            vodId = vod.vod_id,
-            vodName = vod.vod_name ?: "",
-            episodeIndex = 0,
-            ioDispatcher = com.dengying.player.platform.ioDispatcher,
-            altLimit = altLimit, // 发现页批量预解析默认只试 3 个，防出网闸拥塞；中心卡全量重试传 MAX
-            // 【先出画面，再换全片】这里**不再**阻塞等全片：真机上 12s 预算里
-            // 跨源兜底常排到队尾，用户看到的是长时间黑卡。改成先返回首个可播
-            // 地址（直链或试看）立刻起播，全片搜索交给起播后的后台升级（见起播
-            // 效果里的 previewOnly 分支），拿到全片再原位换链、保留进度。
-            waitForFullSource = waitForFullSource,
-        )?.let { Triple(it.url, it.headers, it.previewOnly) }
-    }.getOrNull()
-
-    // 【池子成型即预热前 3 张】真机上中心卡落定后全链解析 6-10 个请求排队
-    // 13s（probe net-queue）；提前把首屏前 3 张塞进同一条 Semaphore(2)，
-    // 滑到时命中已解析结果。仍限 2 并发、不新增出网配额。
-    LaunchedEffect(feedKey, feed.size >= 3) {
-        if (feed.size < 3) return@LaunchedEffect
-        (0..2).forEach { idx ->
-            if (resolved[idx] == null && idx !in inFlight) {
-                inFlight.add(idx)
-                launch {
-                    resolveSlots.withPermit {
-                        resolved[idx] = resolveChainOf(idx) ?: Triple("", "", false)
-                    }
-                    inFlight.remove(idx)
-                }
+        val cacheKey = DiscoverUrlCache.key(vod._source ?: "", vod.vod_id, 0)
+        // 进程级缓存优先：滑回刚播过的卡、换批后又抽到同一部片，都不再打解析链。
+        // forceNet（中心卡全量重试）跳过缓存，否则刚存的空线路会把重试按回失败。
+        if (!forceNet) {
+            DiscoverUrlCache.get(cacheKey)?.let {
+                return Triple(it.url, it.headers, it.previewOnly)
             }
         }
+        val result = runCatching {
+            com.dengying.player.playback.resolvePlayChain(
+                repo = deps.sources,
+                raw = discoverRawUrl(deps, vod, forceNet = forceNet),
+                source = vod._source ?: "",
+                vodId = vod.vod_id,
+                vodName = vod.vod_name ?: "",
+                episodeIndex = 0,
+                ioDispatcher = com.dengying.player.platform.ioDispatcher,
+                altLimit = altLimit, // 发现页批量预解析默认只试 3 个，防出网闸拥塞；中心卡全量重试传 MAX
+                // 【先出画面，再换全片】这里**不再**阻塞等全片：真机上 12s 预算里
+                // 跨源兜底常排到队尾，用户看到的是长时间黑卡。改成先返回首个可播
+                // 地址（直链或试看）立刻起播，全片搜索交给起播后的后台升级（见起播
+                // 效果里的 previewOnly 分支），拿到全片再原位换链、保留进度。
+                waitForFullSource = waitForFullSource,
+            )
+        }.getOrNull()?.let { Triple(it.url, it.headers, it.previewOnly) }
+        if (result != null && result.first.isNotEmpty()) {
+            DiscoverUrlCache.put(cacheKey, result.first, result.second, result.third)
+            // 冷启动第一条可播地址到了：发现页的详情预取与更新检查可以放行了。
+            com.dengying.player.ui.AppStartupSignals.markFirstPlayableUrl()
+        }
+        return result
+    }
+
+    // 【预热组跟随中心卡】中心卡落定、加入 Semaphore 之后，再按「距中心最近」
+    // 预热 3 张。旧实现固定预热下标 0..2：首屏中心卡排在其后时，预热组先抢走
+    // Semaphore(2) 的两个许可，中心项反而最后就绪（真机 probe net-queue）。
+    // 仍限 2 并发、不新增出网配额。
+    LaunchedEffect(feedKey, feed.size >= 3) {
+        if (feed.size < 3) return@LaunchedEffect
+        val center = snapshotFlow { playingIdx }.first { it >= 0 }
+        (0 until feed.size)
+            .filter { it != center }
+            .sortedBy { kotlin.math.abs(it - center) }
+            .take(3)
+            .forEach { idx ->
+                if (resolved[idx] == null && idx !in inFlight) {
+                    inFlight.add(idx)
+                    launch {
+                        resolveSlots.withPermit {
+                            resolved[idx] = resolveChainOf(idx) ?: Triple("", "", false)
+                        }
+                        inFlight.remove(idx)
+                    }
+                }
+            }
     }
 
     // 【可见即解析】v5.4 核心：别等中心项落定才开始解析——跨源兜底一条就要
@@ -1247,6 +1277,13 @@ private fun DiscoverPane(
                 } ?: return@launch
                 if (playingIdx != idx || engine.currentUrl != hit.first) return@launch
                 val pos = engine.currentPosition
+                // 后台换到全片后覆盖进程级缓存里的试看链，滑回来直接播全片。
+                DiscoverUrlCache.put(
+                    DiscoverUrlCache.key(vod._source ?: "", vod.vod_id, 0),
+                    full.first,
+                    full.second,
+                    false,
+                )
                 resolved[idx] = Triple(full.first, full.second, false)
                 engine.setMedia(full.first, full.second, pos)
                 engine.play()
