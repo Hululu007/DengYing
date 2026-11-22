@@ -78,6 +78,9 @@ hs_err_pid*.log
 **/harmony/entry/oh-package-lock.json5
 **/harmony/oh-package-lock.json5
 **/harmony/.tmp/
+# ---- 本地文档、截图与 Agent 记录：只在本机保留，不入库、不推远程 ----
+/docs/
+**/docs/
 **/docs/screens/
 
 # ---- 鸿蒙本地签名材料（口令与本机路径一律不入库）----
