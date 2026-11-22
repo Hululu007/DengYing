@@ -36,6 +36,8 @@ declare const dengying: {
   setVideoSurfaceId(surfaceId: string): void;
   /** XComponent 销毁时清理对应 surface（旧 id 不会拆掉新 surface）。 */
   clearVideoSurfaceId(surfaceId: string): void;
+  /** ArkTS 窗口方向推送到 Kotlin（1=横屏，0=竖屏），驱动全屏控件分支。 */
+  setLandscape(value: number): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----
   // compose.har 的 modules.abc 按这 6 个裸名从 libentry.so 取 native 函数；

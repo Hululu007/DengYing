@@ -66,7 +66,7 @@ class UpdatePrefs(private val kv: KeyValueStore?) {
         const val KEY_LAST_CHECK_MS = "ui_update_last_check_ms"
         const val KEY_IGNORED_TAG = "ui_update_ignored_tag"
 
-        const val CHECK_INTERVAL_MS = 24L * 60L * 60L * 1000L
+        const val CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L
         private const val MINUTE_MS = 60L * 1000L
         private const val HOUR_MS = 60L * MINUTE_MS
         private const val DAY_MS = 24L * HOUR_MS

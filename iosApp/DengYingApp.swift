@@ -58,10 +58,13 @@ final class OrientationHostingController: UIViewController {
         UIInterfaceOrientationMask(rawValue: UInt(DengYing.IosOrientationLock.shared.mask))
     }
 
-    /// 全屏态隐藏状态栏。当前恒 false：全屏由 Compose 侧控制层承担，
-    /// 状态栏在竖屏列表页必须可见，横屏播放页保留状态栏也不影响沉浸感体验
-    /// （真要隐藏时把它接到 IosOrientationLock 的横屏态即可）。
-    override var prefersStatusBarHidden: Bool { false }
+    /// 横屏/全屏态隐藏状态栏（与 IosOrientationLock 的横屏掩码对齐），
+    /// 竖屏列表页保留。状态栏不再占用顶部空间，控制栏由 Compose 侧贴边 6dp。
+    override var prefersStatusBarHidden: Bool {
+        let mask = UInt(DengYing.IosOrientationLock.shared.mask)
+        return mask & UInt(UIInterfaceOrientationMask.landscapeLeft.rawValue) != 0 ||
+            mask & UInt(UIInterfaceOrientationMask.landscapeRight.rawValue) != 0
+    }
 
     override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
 }

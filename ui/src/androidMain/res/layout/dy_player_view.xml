@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TextureView 渲染面：参与 Compose/LazyColumn 的正常图层合成，
+     滚动时画面严格跟随卡片框，避免 SurfaceView 独立窗口造成的漂移。
+     media3 的 surface_type 属性是文档化入口，等价于代码里 setVideoTextureView。 -->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view" />

@@ -29,14 +29,14 @@ class UpdatePrefsTest {
     }
 
     @Test
-    fun `auto check is due every 24 hours`() {
+    fun `auto check is due every 6 hours`() {
         val prefs = UpdatePrefs(FakeKeyValueStore())
         val now = 1_700_000_000_000L
 
         assertTrue(prefs.shouldAutoCheck(now))
         prefs.markChecked(now)
-        assertFalse(prefs.shouldAutoCheck(now + 23 * 60 * 60 * 1000L))
-        assertTrue(prefs.shouldAutoCheck(now + 24 * 60 * 60 * 1000L))
+        assertFalse(prefs.shouldAutoCheck(now + 5 * 60 * 60 * 1000L))
+        assertTrue(prefs.shouldAutoCheck(now + 6 * 60 * 60 * 1000L))
     }
 
     @Test

@@ -797,6 +797,24 @@ napi_value ClearVideoSurfaceId(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
+// ---- 窗口方向：ArkTS 读 window properties 后推给 Kotlin 的
+// dengy_set_landscape(int)（shared 顶层 @CName，符号在 libdengyui.so）。
+using SetLandscapeFn = void (*)(int32_t);
+
+napi_value SetLandscape(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  int32_t landscape = 0;
+  if (argc >= 1 && args[0] != nullptr) {
+    napi_get_value_int32(env, args[0], &landscape);
+  }
+  auto fn = ResolveTop<SetLandscapeFn>("dengy_set_landscape");
+  if (fn != nullptr) fn(landscape);
+  return nullptr;
+}
+
 napi_value Init(napi_env env, napi_value exports) {
   BRIDGE_LOG("module init v8");
   // 必须早于任何 Compose 调用：社区 utils 在此拿 env/exports 建好 napi 引用表。
@@ -845,6 +863,8 @@ napi_value Init(napi_env env, napi_value exports) {
       {"setVideoSurfaceId", nullptr, SetVideoSurfaceId, nullptr, nullptr,
        nullptr, napi_default, nullptr},
       {"clearVideoSurfaceId", nullptr, ClearVideoSurfaceId, nullptr, nullptr,
+       nullptr, napi_default, nullptr},
+      {"setLandscape", nullptr, SetLandscape, nullptr, nullptr,
        nullptr, napi_default, nullptr},
       // fusion-renderer 的 6 个 NAPI：compose.har 的 Compose 组件 aboutToAppear
       // 具名 import，缺一个就 ES SyntaxError -> onAbilityDied。实现在 libdengyui.so。
