@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -366,6 +367,11 @@ fun PlayerScreen(
         // 在 factory 阶段就拿到已就绪的 player，绑定与 surface 初始化在同一步完成，
         // 不存在中间态。代价是引擎重建时多一次视图创建，而引擎只在换集/换档时重建，
         // 频率极低。
+        //
+        // 【key 里再加集下标（DVP §3）】只 key 引擎不够：换集时引擎是同一个单例，
+        // 只是换了 MediaSource，旧集最后一帧会挂在新集的画面前面。带集下标后换集
+        // 必然重建渲染面，新集出画前是黑底而不是上一集的残帧。
+        key(s.curEpIndex) {
         VideoSurface(
             engine = vm.engine,
             modifier = Modifier.fillMaxSize(),
@@ -376,10 +382,11 @@ fun PlayerScreen(
                     "view-bind",
                     "engine=${vm.engine != null} boundPlayer=$bound",
                 )
-                // 上面根背景的打洞开关：绑上播放面才允许根背景让位。
+                // 上面根背景的打孔开关：绑上播放面才允许根背景让位。
                 surfaceBound = bound
             },
         )
+        }
 
         // ---- 加载/缓冲 / 错误态：**互斥** ----
         //
@@ -617,7 +624,9 @@ private fun ControlOverlay(
         GlassSurface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp)
+                // 与 InlinePlayer 全屏顶栏同一口径：控件贴屏幕边缘，只留 6dp，
+                // 不引入 safe area inset（用户明确接受返回键落在挖孔区域）。
+                .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
                 .height(44.dp)
                 .align(Alignment.TopCenter),
             shape = RoundedCornerShape(22.dp),
@@ -813,8 +822,8 @@ private fun ControlOverlay(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 10.dp)
-                .padding(bottom = 10.dp),
+                // 与 InlinePlayer 全屏底栏同一口径：贴底 6dp。
+                .padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
             shape = RoundedCornerShape(20.dp),
             fill = Glass.DarkFill,
             elevation = 0.dp,

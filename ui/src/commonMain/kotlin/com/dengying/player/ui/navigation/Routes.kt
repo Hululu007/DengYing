@@ -55,9 +55,11 @@ object Routes {
         vodUri: String = "",
         resumeEpisode: Int = -1,
         autoPlay: Boolean = false,
+        /** 发现页平滑交接：当前已播到的位置（ms）。-1 = 无交接，详情页按自身逻辑播。 */
+        startAtMs: Long = -1L,
     ): String =
         "$DETAIL?vodId=$vodId&source=${enc(source)}&name=${enc(name)}&pic=${enc(pic)}" +
-            "&vodUri=${enc(vodUri)}&resumeEpisode=$resumeEpisode&autoPlay=$autoPlay"
+            "&vodUri=${enc(vodUri)}&resumeEpisode=$resumeEpisode&autoPlay=$autoPlay&startAtMs=$startAtMs"
 
     fun livePlayer(url: String, name: String, source: String, headers: String = ""): String =
         "$LIVE_PLAYER?url=${enc(url)}&name=${enc(name)}&source=${enc(source)}&headers=${enc(headers)}"

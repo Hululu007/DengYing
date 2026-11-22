@@ -38,6 +38,12 @@ import com.dengying.player.player.PlayerListener
 @UnstableApi
 object PlayerFactory {
 
+    /** 发现页预览档：起播 2.5s；min/重缓冲保持 15s，满足 min ≥ 两者且避开饿死循环 */
+    private const val PREVIEW_MIN_BUFFER_MS = 15_000
+    private const val PREVIEW_BUFFER_FOR_PLAYBACK_MS = 2_500
+    private const val PREVIEW_BUFFER_AFTER_REBUFFER_MS = 15_000
+
+
     /**
      * 建一个 ExoPlayer。
      *
@@ -46,11 +52,17 @@ object PlayerFactory {
      *  - `setWakeMode` 不设：本应用不后台播放（NFR-007），不需要持锁
      *  - 不挂 MediaSession：投屏走独立端口，媒体通知不是本版范围
      */
-    fun create(context: Context): ExoPlayer =
+    fun create(context: Context, preview: Boolean = false): ExoPlayer =
         ExoPlayer.Builder(context)
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    // ## 缓冲参数（真机实测修正）
+                    // 正式档（15s/30s）注释见下；预览档只改一组数字，约束完全一样。
+                    .setBufferDurationsMs(
+                        if (preview) PREVIEW_MIN_BUFFER_MS else 30_000,
+                        60_000,
+                        if (preview) PREVIEW_BUFFER_FOR_PLAYBACK_MS else 15_000,
+                        if (preview) PREVIEW_BUFFER_AFTER_REBUFFER_MS else 30_000,
+                    )
                     //
                     // 初版取 `min=15s / max=30s / 起播门槛=2.5s / 重缓冲门槛=5s`，
                     // 结果真机探针记录到**各 992 次**的 `BUFFERING ↔ READY` 交替：
@@ -166,7 +178,7 @@ object PlayerFactory {
 
 /** [PlayerEngine] 的 Media3 实现（Android = Media3 ExoPlayer） */
 @UnstableApi
-class Media3Engine(private val context: Context) : PlayerEngine {
+class Media3Engine(private val context: Context, private val preview: Boolean = false) : PlayerEngine {
 
     /**
      * ExoPlayer 实例 —— **构造时即创建，不懒创建**。
@@ -179,7 +191,7 @@ class Media3Engine(private val context: Context) : PlayerEngine {
      *
      * 即时创建后，`viewHandle()` 自引擎存在起恒非空，绑定一次到位。
      */
-    private val player: ExoPlayer = PlayerFactory.create(context).also { p ->
+    private val player: ExoPlayer = PlayerFactory.create(context, preview).also { p ->
         p.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
@@ -329,6 +341,10 @@ class Media3Engine(private val context: Context) : PlayerEngine {
 
     override val isPlaying: Boolean
         get() = player.isPlaying
+
+    /** 播放意图；缓冲期 [isPlaying] 为 false 但这里仍是 true（DVP §12）。 */
+    override val playWhenReady: Boolean
+        get() = player.playWhenReady
 
     override var currentUrl: String? = null
         private set

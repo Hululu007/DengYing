@@ -68,6 +68,28 @@ object OhosVideoSurfaceBridge {
     @Volatile
     private var surfaceId: ULong? = null
 
+    /** XComponent surfaceId 之外的窗口状态：ArkTS 推送的真实横竖屏。 */
+    @Volatile
+    private var landscape: Boolean = false
+
+    fun isLandscape(): Boolean = landscape
+
+    fun setLandscape(value: Boolean) {
+        if (landscape == value) return
+        landscape = value
+        landscapeListeners.toList().forEach { it(value) }
+    }
+
+    private val landscapeListeners = mutableListOf<(Boolean) -> Unit>()
+
+    fun addLandscapeListener(listener: (Boolean) -> Unit) {
+        if (listener !in landscapeListeners) landscapeListeners += listener
+    }
+
+    fun removeLandscapeListener(listener: (Boolean) -> Unit) {
+        landscapeListeners -= listener
+    }
+
     /** surface 对应的 native window；null = 尚未就绪。 */
     @Volatile
     private var window: CPointer<OHNativeWindow>? = null
@@ -186,6 +208,12 @@ object OhosVideoSurfaceBridge {
 }
 
 // @CName 必须是顶层函数（不能标在 object 成员上，否则会多一个 receiver 参数）。
+// ArkTS 侧读到窗口方向后经 NAPI 推过来；rememberIsLandscape() 读它决定全屏分支。
+@CName("dengy_set_landscape")
+fun dengySetLandscape(landscape: Int) {
+    OhosVideoSurfaceBridge.setLandscape(landscape != 0)
+}
+
 // ArkTS 侧 surfaceId 是十进制字符串；napi_init.cpp 用 strtoull 按 uint64_t 原样传入。
 // 这里也必须是 ULong（64 位无符号）：surfaceId 可能超过 Long.MAX_VALUE，
 // 用 Long 会饱和成错误 id。

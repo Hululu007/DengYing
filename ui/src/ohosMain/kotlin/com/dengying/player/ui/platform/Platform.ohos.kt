@@ -134,6 +134,15 @@ actual fun rememberVolumeController(): VolumeController? = VolumeController()
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
-/** 方向：先恒竖屏版式；接 window properties 后改真值。 */
+/** 方向：ArkTS 壳通过 NAPI 推送窗口方向，组合订阅后重组全屏分支。 */
 @Composable
-actual fun rememberIsLandscape(): Boolean = false
+actual fun rememberIsLandscape(): Boolean {
+    val bridge = remember { OhosVideoSurfaceBridge }
+    var landscape by remember { mutableStateOf(bridge.isLandscape()) }
+    DisposableEffect(bridge) {
+        val listener: (Boolean) -> Unit = { landscape = it }
+        bridge.addLandscapeListener(listener)
+        onDispose { bridge.removeLandscapeListener(listener) }
+    }
+    return landscape
+}

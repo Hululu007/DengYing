@@ -47,6 +47,7 @@ object PlaybackEngineHolder : PlayerEngineHost {
 
     @Volatile
     private var instance: Media3Engine? = null
+    private var previewInstance: Media3Engine? = null
 
     /**
      * **活跃播放表面的数量**（有几个 UI 正在显示这个引擎）。
@@ -122,6 +123,35 @@ object PlaybackEngineHolder : PlayerEngineHost {
         }
     }
 
+    /** 发现页预览引擎（2.5s 起播档）。与正式引擎分离，避免把正式播放的振荡问题引回来。 */
+    override fun previewEngine(): PlayerEngine =
+        appContext?.let { preview(it) } ?: engine()
+
+    /** [PlayerEngineHost] 契约：不创建，只把已经存在的预览引擎交回会话。 */
+    override fun previewEngineIfAny(): PlayerEngine? = previewInstance
+
+    /** 发现页 → 详情页交接标记，见 [PlayerEngineHost.isHandoffInProgress]。 */
+    @Volatile
+    private var handoffInProgress = false
+
+    override fun isHandoffInProgress(): Boolean = handoffInProgress
+
+    override fun setHandoffInProgress(inProgress: Boolean) {
+        handoffInProgress = inProgress
+        Log.w(TAG, "handoff in progress=$inProgress")
+    }
+
+    /** 发现页预览引擎（2.5s 起播档）的带 Context 重载。 */
+    fun preview(context: Context): Media3Engine {
+        synchronized(this) {
+            previewInstance?.let { return it }
+            val e = Media3Engine(context.applicationContext, preview = true)
+            previewInstance = e
+            Log.w(TAG, "preview engine created")
+            return e
+        }
+    }
+
     /** 某处 UI 开始显示（计数 +1） */
     override fun surfaceActive() {
         synchronized(this) {
@@ -135,6 +165,9 @@ object PlaybackEngineHolder : PlayerEngineHost {
      *
      * **归零时暂停播放**——这是"返回首页还有声音"的修法。
      * 不释放引擎，理由见类注释。
+     *
+     * 交接期间（发现页点卡进详情）**只停主引擎，保住预览引擎**：预览引擎手里的
+     * 那条流正等着被详情页接管，此时掐掉会让详情页重新 setMedia、重新起播。
      */
     override fun surfaceInactive() {
         synchronized(this) {
@@ -144,7 +177,12 @@ object PlaybackEngineHolder : PlayerEngineHost {
                 // 没有表面显示了 → 不该有声音留下
                 try {
                     instance?.pause()
-                    Log.w(TAG, "no surface left, paused")
+                    if (handoffInProgress) {
+                        Log.w(TAG, "no surface left, handoff keeps preview alive")
+                    } else {
+                        previewInstance?.pause()
+                        Log.w(TAG, "no surface left, paused")
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "pause failed: ${e.message}")
                 }
@@ -163,9 +201,12 @@ object PlaybackEngineHolder : PlayerEngineHost {
         synchronized(this) {
             surfaceCount = 0
             val e = instance ?: return
+            val p = previewInstance
             instance = null
+            previewInstance = null
             try {
                 e.release()
+                p?.release()
                 Log.w(TAG, "engine force-released")
             } catch (ex: Exception) {
                 Log.w(TAG, "force release failed: ${ex.message}")

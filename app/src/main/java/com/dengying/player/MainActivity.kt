@@ -12,8 +12,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import com.dengying.player.playback.ForegroundResumePlan
 import com.dengying.player.playback.PlaybackEngineHolder
-import com.dengying.player.playback.shouldResumeAfterStop
+import com.dengying.player.playback.planForegroundResume
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.ui.navigation.DengYingNavHost
 import com.dengying.player.ui.theme.DengYingTheme
@@ -54,10 +55,11 @@ class MainActivity : ComponentActivity() {
     private val pendingDebugRoute = mutableStateOf<String?>(null)
 
     /**
-     * 退后台那一刻引擎是否在播（且仍有播放表面）。
+     * 退后台那一刻各引擎是否在播（且仍有播放表面）。
      * `onStop` 写、`onStart` 读后清零——这是「亮屏不自动续播」的判定依据。
+     * 发现页预览引擎是独立实例，必须与主引擎分开记录（DVP §12）。
      */
-    private var resumeAfterStop = false
+    private var resumeAfterStop = ForegroundResumePlan(resumeMain = false, resumePreview = false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,28 +77,47 @@ class MainActivity : ComponentActivity() {
                 // androidx.media3.common.Player，`as? Player` 恒 null（真机
                 // 实测退后台声不停）——直接走 PlayerEngine.pause()。
                 val engine = PlaybackEngineHolder.peek()
+                // 发现页中心卡预览走独立预览实例，只 pause 主引擎会留下声轨。
+                val preview = PlaybackEngineHolder.previewEngineIfAny()
+                // 用「播放意图」而不是 isPlaying：缓冲中 isPlaying 是 false，
+                // 但用户没按暂停，回前台仍应续播（MuMu 上实测就卡在这里）。
+                val previewPlaying = preview != null && preview !== engine && preview.playWhenReady
                 // 【回前台只恢复「本来在播」的】旧实现 onStart 无条件 play()，
                 // 用户手动暂停后锁屏/亮屏会被强行续播。这里先记录意图再暂停。
-                resumeAfterStop = engine?.isPlaying == true &&
-                    PlaybackEngineHolder.surfaceCount() > 0
+                resumeAfterStop = planForegroundResume(
+                    mainWasPlaying = engine?.playWhenReady == true,
+                    previewWasPlaying = previewPlaying,
+                    surfaceCount = PlaybackEngineHolder.surfaceCount(),
+                )
                 engine?.pause()
+                if (preview !== engine) preview?.pause()
                 PlaybackProbe.note(
                     "foreground-stop",
-                    "wasPlaying=$resumeAfterStop surfaces=${PlaybackEngineHolder.surfaceCount()}",
+                    "main=${resumeAfterStop.resumeMain} preview=${resumeAfterStop.resumePreview} " +
+                        "surfaces=${PlaybackEngineHolder.surfaceCount()}",
                 )
             }
 
             override fun onStart(owner: LifecycleOwner) {
                 // 只有退后台时确实在播、且播放表面仍在，才恢复；
                 // 无会话/已暂停/离开播放位一律不动引擎。
-                val resume = shouldResumeAfterStop(
-                    resumeAfterStop,
-                    PlaybackEngineHolder.surfaceCount(),
+                val wanted = resumeAfterStop
+                resumeAfterStop = ForegroundResumePlan(resumeMain = false, resumePreview = false)
+                // 表面可能在后台期间已经撤掉，按当次表面数再确认一次。
+                val resume = planForegroundResume(
+                    mainWasPlaying = wanted.resumeMain,
+                    previewWasPlaying = wanted.resumePreview,
+                    surfaceCount = PlaybackEngineHolder.surfaceCount(),
                 )
-                resumeAfterStop = false
-                if (!resume) return
-                PlaybackEngineHolder.peek()?.play()
-                PlaybackProbe.note("foreground-resume")
+                if (!resume.any) return
+                val engine = PlaybackEngineHolder.peek()
+                val preview = PlaybackEngineHolder.previewEngineIfAny()
+                if (resume.resumeMain) engine?.play()
+                if (resume.resumePreview && preview !== null && preview !== engine) preview.play()
+                PlaybackProbe.note(
+                    "foreground-resume",
+                    "main=${resume.resumeMain} preview=${resume.resumePreview}",
+                )
             }
         })
         setContent {

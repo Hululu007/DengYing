@@ -88,6 +88,17 @@ interface PlayerEngine {
     val isPlaying: Boolean
 
     /**
+     * 播放意图：开关是否处在「要播」。
+     *
+     * 与 [isPlaying] 的区别只在缓冲/停顿：`isPlaying` 在缓冲期是 false，
+     * 但用户并没有暂停。退后台记录「本来在播」必须用这个信号，否则卡在缓冲
+     * 的那一刻退后台，回前台会被误判成「用户暂停过」而不恢复（DVP §12）。
+     * 默认实现退化成 [isPlaying]，平台引擎可覆盖。
+     */
+    val playWhenReady: Boolean
+        get() = isPlaying
+
+    /**
      * 当前装载的媒体地址；`null` = 未装载或已释放。
      *
      * 供「无缝续播」判定：调用方（发现页内嵌位）回来时若 [currentUrl] 仍是
@@ -177,6 +188,20 @@ interface PlayerEngineHost {
     fun engine(): PlayerEngine
 
     /**
+     * 发现页预览专用引擎。默认等同 [engine]，由 Android 壳通过
+     * `UiDeps.engineHost` 覆盖为独立实例（更低的起播缓冲门槛）——
+     * 预览卡顿可接受，正式播放不能。其它平台无第二个播放器，保持默认。
+     */
+    fun previewEngine(): PlayerEngine = engine()
+
+    /**
+     * 取当前已创建的预览引擎，**不创建**。未创建返回 null。
+     * 发现页点进详情时用它把正在播的媒体交回会话，避免重新 setMedia。
+     * 默认 null：没有独立预览实例的平台不做伪交接（[engine] 不算预览）。
+     */
+    fun previewEngineIfAny(): PlayerEngine? = null
+
+    /**
      * 偷看当前引擎，**不创建**。没有引擎时返回 null。
      *
      * 与 [engine] 的区别是副作用：详情页的内嵌位要在「已有引擎」时挂载、
@@ -196,6 +221,21 @@ interface PlayerEngineHost {
 
     /** 当前表面计数（排障用） */
     fun surfaceCount(): Int
+
+    /**
+     * 发现页 → 详情页的**交接是否进行中**。
+     *
+     * 点击中心卡进详情时，发现页会先撤掉自己的表面、详情页稍后才挂上内嵌表面。
+     * 这段空窗里若按「表面归零就暂停」处理，预览引擎会被提前掐掉，详情页只能
+     * 重新 setMedia，表现为黑屏 + 重新缓冲。标记期间壳层应只停主引擎、保住预览引擎，
+     * 等详情页挂上表面或判定交接失败后由详情侧清除。
+     *
+     * 默认 false：没有独立预览实例的平台不存在这个空窗。
+     */
+    fun isHandoffInProgress(): Boolean = false
+
+    /** 标记交接开始/结束，见 [isHandoffInProgress]。 */
+    fun setHandoffInProgress(inProgress: Boolean) {}
 }
 
 /**

@@ -166,7 +166,8 @@ fun DengYingNavHost(
 
         composable(
             route = "${Routes.DETAIL}?vodId={vodId}&source={source}&name={name}&pic={pic}" +
-                "&vodUri={vodUri}&resumeEpisode={resumeEpisode}&autoPlay={autoPlay}",
+                "&vodUri={vodUri}&resumeEpisode={resumeEpisode}&autoPlay={autoPlay}" +
+                "&startAtMs={startAtMs}",
             arguments = listOf(
                 navArgument("vodId") { type = NavType.LongType; defaultValue = 0L },
                 navArgument("source") { type = NavType.StringType; defaultValue = "" },
@@ -175,6 +176,7 @@ fun DengYingNavHost(
                 navArgument("vodUri") { type = NavType.StringType; defaultValue = "" },
                 navArgument("resumeEpisode") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("autoPlay") { type = NavType.BoolType; defaultValue = false },
+                navArgument("startAtMs") { type = NavType.LongType; defaultValue = -1L },
             ),
         ) { entry ->
             val a = entry.arguments
@@ -191,6 +193,7 @@ fun DengYingNavHost(
                 vodUri = dec(a?.stringArg("vodUri")),
                 resumeEpisode = a?.intArg("resumeEpisode") ?: -1,
                 autoPlay = a?.boolArg("autoPlay") ?: false,
+                startAtMs = a?.longArg("startAtMs") ?: -1L,
                 onBack = { nav.popBackStack() },
                 onOpenPlayer = { route -> nav.navigate(route) },
                 pageActive = isTopEntry,
@@ -203,12 +206,9 @@ fun DengYingNavHost(
                 "&episodeIndex={episodeIndex}&episodeName={episodeName}" +
                 "&altUrls={altUrls}&epUrls={epUrls}&epNames={epNames}&startAtMs={startAtMs}" +
                 "&headersJson={headersJson}&localFile={localFile}&live={live}",
-            // 【退场用滑动而非淡出】播放画面底层是 SurfaceView——它**不参与**
-            // View 层 alpha 动画（打洞渲染）：fade-out 的几百毫秒里视频画面
-            // 原样滞留在屏上叠着渐隐的页面框架，转场结束才突然消失——这是
-            // 真机反馈「退出全屏后有短暂残留」的根因（内嵌位的 active 修复
-            // 只消掉了占位闪帧，消不掉 SurfaceView 的帧滞留）。
-            // SurfaceView 的**位置**变化是跟随的：滑动退场让画面跟着滑走。
+            // 【退场仍用滑动】播放画面现在是 TextureView（参与正常 View 图层合成），
+            // alpha 淡出理论上不会再有 SurfaceView 打洞渲染的帧滞留问题；
+            // 这里保留 220ms 滑动是为了不额外改动转场行为，二者都可用。
             popExitTransition = {
                 androidx.compose.animation.slideOutVertically(
                     animationSpec = androidx.compose.animation.core.tween(220),

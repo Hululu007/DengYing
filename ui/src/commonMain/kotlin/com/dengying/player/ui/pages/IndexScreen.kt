@@ -39,7 +39,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +61,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -73,6 +77,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.random.Random
 import com.dengying.player.core.DiscoverItem
 import com.dengying.player.core.VideoItem
@@ -174,7 +179,8 @@ fun IndexScreen(
     // 发现窗格的跨页重建状态（滚动位置/解析缓存/断点）。
     // 必须 remember 在**本层**：DiscoverPane 切到首页时会被销毁（pager 只预组合
     // 相邻一页），状态 remember 在页内的结果就是"去首页再回来从头播"（用户实测）。
-    val discoverResume = remember { DiscoverResume() }
+    val discoverUi = vm.discoverUi
+    val discoverResume = discoverUi.resume
     // 每个分类**各持一个滚动状态**（FR-701 的配套修复）。
     //
     // 【真机反馈的 bug-1】初版不给 `LazyVerticalGrid` 传 state，它用内部默认状态，
@@ -236,22 +242,10 @@ fun IndexScreen(
     // 跨源救不回比例高 → 只限量掺入约三分之一）。辅料内部保留免费率加权
     // （少儿/动画版块排前），主体验证自动播放尽量一击即中。
     //
-    // 【v5.6 狂刷修复】旧版 poolStamp 逐分类计 items.size：warmAllCategories
-    // 预热时 6 个分类**陆续到货**，每到一个整池重洗一次（真机实测 7+ 次
-    // "内容连变直到稳定"）。改成**一次成型**：六分类全部到货（或 8s 超时兜底，
-    // 防个别分类始终无货卡死）才洗一次；期间发现页显示"备片"加载态。
-    // 换批（下拉刷新 discoSeed++）仍整池重洗。
-    val allWarm = (1..6).all { s.cat(it).items.isNotEmpty() }
-    var warmTimeout by androidx.compose.runtime.remember {
-        androidx.compose.runtime.mutableStateOf(false)
-    }
-    androidx.compose.runtime.LaunchedEffect(allWarm) {
-        if (!allWarm) {
-            kotlinx.coroutines.delay(8000)
-            warmTimeout = true
-        }
-    }
-    val poolReady = allWarm || warmTimeout
+    // 【v5.6 狂刷修复 + 提速】首张卡取第一个到货的分类，不整批等待；
+    // picks 的 key 含 catItemCount，后续分类到货只触发 DiscoverPane 补后续轮次，
+    // 不重建已显示的卡（v5.6「内容连变 7 次」的根因就是整池 wait 后一次性换池）。
+    val poolReady = (1..6).any { s.cat(it).items.isNotEmpty() }
     // 【池子扩容只追加】分类分页会让 items 变多；这里把条目总数并进 remember key，
     // 池子变大时重新生成 picks（DiscoverPane 只用来补后续轮次，不重建已显示卡片）。
     val catItemCount = (0..6).sumOf { s.cat(it).items.size }
@@ -370,6 +364,7 @@ fun IndexScreen(
                 2 -> DiscoverPane(
                     pool = picks,
                     resume = discoverResume,
+                    uiState = discoverUi,
                     topPadding = topPad,
                     bottomPadding = bottomReserve,
                     onOpenDetail = onOpenDetail,
@@ -415,8 +410,11 @@ fun IndexScreen(
         // v5.7：再叠加滚动隐藏——任一窗格下滑时收起，上滑或切页复位。
         androidx.compose.animation.AnimatedVisibility(
             visible = chromeVisible && pagerState.targetPage != 3,
-            enter = fadeIn() + androidx.compose.animation.slideInVertically { -it / 2 },
-            exit = fadeOut() + androidx.compose.animation.slideOutVertically { -it / 2 },
+            // 【只淡入淡出，不做纵向滑动】(DVP §8) 玻璃的折射是用"表面在根坐标里的
+            // 位置"对齐采样层的；纵向滑动动画期间这个对齐每帧在变，底边会画出错位
+            // 的双线。去掉滑动后玻璃只在固定位置淡入，底边干净。
+            enter = fadeIn(),
+            exit = fadeOut(),
         ) {
         Row(
             modifier = Modifier
@@ -496,8 +494,11 @@ fun IndexScreen(
         // v5.7：Dock 跟随滚动隐藏/呼出（与顶栏同一 chromeVisible）。
         androidx.compose.animation.AnimatedVisibility(
             visible = chromeVisible,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+            // 【只淡入淡出，不做纵向滑动】(DVP §8) Dock 是最明显的受害者：玻璃折射
+            // 按表面在根坐标里的位置对齐采样层，纵向滑动期间对齐每帧在变，收起再
+            // 呼出后底边会留一道错位的亮线。淡入淡出即可，Dock 自身有 spring 追踪。
+            enter = androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
         BottomDock(
@@ -953,7 +954,7 @@ private fun ScrollDirWatcher(
  *
  * 只在内存里，不落盘：进程重启回到首屏是合理行为（主流短视频页同款）。
  */
-private class DiscoverResume {
+internal class DiscoverResume {
     /** 列表滚动位置（项下标 + 项内偏移）。 */
     val listIndex = androidx.compose.runtime.mutableIntStateOf(0)
     val listOffset = androidx.compose.runtime.mutableIntStateOf(0)
@@ -967,10 +968,50 @@ private class DiscoverResume {
     val resolved = androidx.compose.runtime.mutableStateMapOf<Int, Triple<String, String, Boolean>>()
 }
 
+/**
+ * 发现页跨导航持有者：由 `IndexViewModel` 持有，随 nav back stack entry 存活。
+ *
+ * 【为什么不在 Compose 里 remember】`remember` 只活到组合销毁；从发现页点进详情，
+ * IndexScreen 离开组合，remember 全丢 → 换批种子重洗、滚动回顶、从 0 重播
+ * （用户实测「返回每次都会刷新一下」）。ViewModel 则跟着 nav entry 存活，返回后原样复用。
+ *
+ * 只存「可重建的输入与已生成的结果」，不存 Composable 对象。
+ */
+internal class DiscoverUiState {
+    val resume = DiscoverResume()
+
+    private var feedKey: Long = Long.MIN_VALUE
+    private var feedSource: DiscoverFeedSource? = null
+    private var feed: MutableList<DiscoverEntry>? = null
+
+    /** 取（必要时创建）本批的批次源与显示列表。换批 [key] 变才重置。 */
+    fun feedFor(
+        key: Long,
+        pool: List<VideoItem>,
+    ): Pair<DiscoverFeedSource, MutableList<DiscoverEntry>> {
+        if (key != feedKey) {
+            feedKey = key
+            feedSource = null
+            feed = null
+            resume.resolved.clear()
+            resume.paused.clear()
+            resume.startedIdx.intValue = -1
+            resume.playingIdx.intValue = -1
+        }
+        val src = feedSource ?: DiscoverFeedSource().also { feedSource = it }
+        val list = feed ?: androidx.compose.runtime.mutableStateListOf<DiscoverEntry>().also {
+            if (pool.isNotEmpty()) it.addAll(src.nextBatch(pool))
+            feed = it
+        }
+        return src to list
+    }
+}
+
 @Composable
 private fun DiscoverPane(
     pool: List<VideoItem>,
     resume: DiscoverResume,
+    uiState: DiscoverUiState,
     topPadding: Dp,
     bottomPadding: Dp,
     onOpenDetail: (String) -> Unit,
@@ -1010,18 +1051,19 @@ private fun DiscoverPane(
     // 组合期抛出 = 未捕获异常杀进程（faultlog cppcrash 实录：点发现页闪退）。
     // 拿不到就退化 NullPlayerEngine：只浏览不自动播，VideoSurface 渲染空画面。
     // Android 侧 engine() 恒成功，runCatching 不改变任何行为。
+    // Android 壳提供独立预览引擎（2.5s 起播缓冲）；其它平台默认等于 engine()。
     val engine = remember {
-        runCatching { deps.engineHost.engine() }
-            .getOrElse { com.dengying.player.player.NullPlayerEngine }
+        runCatching { deps.engineHost.previewEngine() }
+            .getOrElse { runCatching { deps.engineHost.engine() }.getOrElse { com.dengying.player.player.NullPlayerEngine } }
     }
     // 【无限流】显示列表 = 按轮追加：一轮内洗牌遍历当前池，取尽后轮次 +1 重洗。
     // 只在换批（[feedKey] = discoSeed）时重建；池子扩容只影响后续轮次，
     // 已有卡片、解析缓存和滚动位置都不动。
     // 首批在 remember 初始化里同步填好（之后追加都在协程里做，不在组合期改状态）。
-    val feedSource = remember(feedKey) { DiscoverFeedSource() }
-    val feed = remember(feedKey) {
-        mutableStateListOf<DiscoverEntry>().also { it.addAll(feedSource.nextBatch(pool)) }
-    }
+    // 【跨导航保留】DiscoverPane 在横向 Pager 切到首页时会被销毁，但 NavGraph
+    // 里 discoverResume 持有者（IndexScreen）只随 IndexScreen 退出才销毁。
+    // 回收后再次进入发现页仍保留滚动位置/解析缓存/断点；只有 feedKey 变才重置。
+    val (feedSource, feed) = remember(feedKey, uiState) { uiState.feedFor(feedKey, pool) }
     // 池子是每次取批时传入的「最新值」：分类分页可在浏览中陆续到货
     val currentPool by androidx.compose.runtime.rememberUpdatedState(pool)
     fun appendBatch() {
@@ -1070,22 +1112,47 @@ private fun DiscoverPane(
             if (on) deps.engineHost.surfaceActive() else deps.engineHost.surfaceInactive()
         }
     }
-    suspend fun resolveChainOf(idx: Int) = runCatching {
+    suspend fun resolveChainOf(
+        idx: Int,
+        altLimit: Int = 3,
+        forceNet: Boolean = false,
+        waitForFullSource: Boolean = false,
+    ) = runCatching {
         val vod = feed[idx].vod
         com.dengying.player.playback.resolvePlayChain(
             repo = deps.sources,
-            raw = discoverRawUrl(deps, vod),
+            raw = discoverRawUrl(deps, vod, forceNet = forceNet),
             source = vod._source ?: "",
             vodId = vod.vod_id,
             vodName = vod.vod_name ?: "",
             episodeIndex = 0,
             ioDispatcher = com.dengying.player.platform.ioDispatcher,
-            altLimit = 3, // 发现页批量预解析：候选只试 3 个，防出网闸拥塞
-            // 批量预解析不走"先播试看再热升级"：这里在后台等全片更划算——
-            // 缓存里直接是全片，中心项落定时起播零等待（用户看不见）。
-            waitForFullSource = true,
+            altLimit = altLimit, // 发现页批量预解析默认只试 3 个，防出网闸拥塞；中心卡全量重试传 MAX
+            // 【先出画面，再换全片】这里**不再**阻塞等全片：真机上 12s 预算里
+            // 跨源兜底常排到队尾，用户看到的是长时间黑卡。改成先返回首个可播
+            // 地址（直链或试看）立刻起播，全片搜索交给起播后的后台升级（见起播
+            // 效果里的 previewOnly 分支），拿到全片再原位换链、保留进度。
+            waitForFullSource = waitForFullSource,
         )?.let { Triple(it.url, it.headers, it.previewOnly) }
     }.getOrNull()
+
+    // 【池子成型即预热前 3 张】真机上中心卡落定后全链解析 6-10 个请求排队
+    // 13s（probe net-queue）；提前把首屏前 3 张塞进同一条 Semaphore(2)，
+    // 滑到时命中已解析结果。仍限 2 并发、不新增出网配额。
+    LaunchedEffect(feedKey, feed.size >= 3) {
+        if (feed.size < 3) return@LaunchedEffect
+        (0..2).forEach { idx ->
+            if (resolved[idx] == null && idx !in inFlight) {
+                inFlight.add(idx)
+                launch {
+                    resolveSlots.withPermit {
+                        resolved[idx] = resolveChainOf(idx) ?: Triple("", "", false)
+                    }
+                    inFlight.remove(idx)
+                }
+            }
+        }
+    }
 
     // 【可见即解析】v5.4 核心：别等中心项落定才开始解析——跨源兜底一条就要
     // 1-3s，落定再解析用户要干等 10s（实测 probe：net-queue 排队 5.5s）。
@@ -1128,17 +1195,25 @@ private fun DiscoverPane(
     val pausedPositions = resume.paused
     var startedIdx by resume.startedIdx
 
-    // 【中心项起播】playingIdx / active 变化：先停旧声，再等该项解析落袋 → 起播。
+    // 【中心项起播】playingIdx / active / 该项解析结果变化：先停旧声，再等该项解析落袋 → 起播。
     // 不等 surface 绑定：换了片先 setMedia（mediaReady 据此挂回 PlayerView），
     // play() 紧跟着调；等绑定会让换卡首帧既无画也无音，只能靠用户再滑一下触发。
     // 等待期间滚走：LaunchedEffect(key) 结构化取消，旧播放意图作废。
-    LaunchedEffect(playingIdx, active) {
+    //
+    // key 里带 `resolved[playingIdx]?.first`（DVP §2）：中心卡首轮解析失败 → 重试
+    // 写回非空地址后本效果自动重跑一次，把「救回来了」的卡片直接起播，而不是
+    // 继续停在「看不了」。首轮成功时 key 不变，不会重复起播。
+    LaunchedEffect(playingIdx, active, resolved[playingIdx]?.first) {
         val idx = playingIdx
         // 被切走的片记断点：滑到新中心、或整窗格失焦，都要留位置
         if (startedIdx >= 0 && (startedIdx != idx || !active)) {
             pausedPositions[startedIdx] = engine.currentPosition
         }
-        engine.pause()
+        // 【只在该停的时候停】旧实现在这里无条件 pause()：Dock 切回、重试成功、
+        // 交接进详情都会把「已经在前台播着的那一条」掐一下再拉起来，听感断一拍。
+        // 交接期间更不能停：详情页马上要接管这条流（DVP §11）。
+        val willSwap = !active || idx < 0 || startedIdx != idx
+        if (willSwap && !deps.engineHost.isHandoffInProgress()) engine.pause()
         if (!active || idx < 0 || idx >= feed.size) return@LaunchedEffect
         val hit = snapshotFlow { resolved[idx] }.filterNotNull().first()
         if (hit.first.isEmpty()) return@LaunchedEffect // 救不回：卡片给「看不了」提示
@@ -1152,10 +1227,112 @@ private fun DiscoverPane(
             startedIdx = idx
         }
         engine.play()
+        // 【先出试看，再换全片】解析只拿到 300s 试看链时不再让用户对着黑卡等：
+        // 画面立刻给出去，全片搜索在后台继续，找到就**保留当前位置**原位换链
+        // （DVP §14）。换链前确认中心卡还是这一张、引擎里还是那条试看，避免
+        // 把用户已经滑走后的新卡片顶掉。
+        if (hit.third && idx < feed.size) {
+            val vod = feed[idx].vod
+            launch {
+                val full = withTimeoutOrNull(20_000) {
+                    com.dengying.player.playback.findFullSource(
+                        repo = deps.sources,
+                        source = vod._source ?: "",
+                        vodName = vod.vod_name ?: "",
+                        episodeIndex = 0,
+                        ioDispatcher = com.dengying.player.platform.ioDispatcher,
+                    )
+                } ?: return@launch
+                if (playingIdx != idx || engine.currentUrl != hit.first) return@launch
+                val pos = engine.currentPosition
+                resolved[idx] = Triple(full.first, full.second, false)
+                engine.setMedia(full.first, full.second, pos)
+                engine.play()
+            }
+        }
     }
 
-    // 【中心判定（主流口径：B 站/微博内嵌视频流）】滚动**停止**后才动作：
+    // 【中心卡多次重试】批量预解析只试 3 个候选（见 resolveChainOf），中心卡
+    // 落定后仍判失败时再走详情页同款全量解析。真机上出现过「发现页报看不了、
+    // 进详情等一下又能播」——解析链在那一刻临时失败是常态（token 未就绪、
+    // 源站抖动），所以允许最多 [DiscoverPlaybackRules.MAX_CENTER_RETRY] 次、
+    // 逐次退避，且重试时**跳过详情缓存重新拉**，否则缓存里的空线路会一直
+    // 把重试按回失败。
+    val retryCount = remember(feedKey) { mutableStateMapOf<Int, Int>() }
+    // 【最终结论】只有「全部源跑完仍无可播首集」才许卡片报失败（DVP §10）。
+    // 6s 快照里没有可播候选，往往只是慢源还没回来——按快照报「看不了」正是
+    // 用户反馈的「发现页说看不了、进详情等一下又能播」。
+    val finalVerdict = remember(feedKey) { mutableStateMapOf<Int, Boolean>() }
+    LaunchedEffect(playingIdx, active, resolved[playingIdx]?.first) {
+        val idx = playingIdx
+        if (!active || idx < 0 || idx >= feed.size) return@LaunchedEffect
+        val failed = resolved[idx]?.first?.isEmpty() == true
+        val attempts = retryCount[idx] ?: 0
+        if (!DiscoverPlaybackRules.shouldRetry(
+                isCenter = true,
+                failed = failed,
+                attempts = attempts,
+            )
+        ) return@LaunchedEffect
+        retryCount[idx] = attempts + 1
+        // 退避：第 1 次立刻重试（多数是解析时序问题），之后 1.2s、2.4s。
+        if (attempts > 0) kotlinx.coroutines.delay(1200L * attempts)
+        val lastChance = attempts + 1 >= DiscoverPlaybackRules.MAX_CENTER_RETRY
+        if (lastChance) {
+            // 最后一次：先把「全部源跑完」的候选等回来再解析，否则只是把同一份
+            // 残缺快照再试一遍。等不到（超时/本轮没在搜）就按原逻辑收尾。
+            withTimeoutOrNull(20_000L) {
+                deps.sources.awaitCompleteAltSources(feed[idx].vod.vod_name ?: "")
+            }
+        }
+        val r = resolveSlots.withPermit {
+            resolveChainOf(idx, altLimit = Int.MAX_VALUE, forceNet = true)
+        }
+        if (r != null && r.first.isNotEmpty()) {
+            finalVerdict[idx] = false
+            resolved[idx] = r
+        } else if (lastChance) {
+            // 最终列表里也没可播首集：这才是真结论，卡片可以给失败提示了
+            finalVerdict[idx] = true
+            com.dengying.player.player.PlaybackProbe.note("discover-give-up", "idx=$idx")
+        }
+    }
+
+    // 【缓冲转圈】发现页只认「URL 解析中」，解析完成到首帧之间引擎在缓冲却
+    // 没有任何提示（用户实测「转圈消失后还要卡一下」）。这里接引擎的
+    // onBuffering，三端引擎都发同一事件；只记下标与布尔，不记地址。
+    var engineBuffering by remember { mutableStateOf(false) }
+    DisposableEffect(engine) {
+        val listener = object : com.dengying.player.player.PlayerListener {
+            override fun onReady(durationMs: Long) { engineBuffering = false }
+            override fun onPlaying() { engineBuffering = false }
+            override fun onPaused() { engineBuffering = false }
+            override fun onBuffering(active: Boolean) {
+                engineBuffering = active
+                com.dengying.player.player.PlaybackProbe.note(
+                    "discover-buffering", "idx=$playingIdx on=$active",
+                )
+            }
+            override fun onCompleted() { engineBuffering = false }
+            override fun onError(
+                kind: com.dengying.player.player.PlaybackErrorKind,
+                code: Int,
+                message: String,
+            ) { engineBuffering = false }
+            override fun onVideoSize(width: Int, height: Int) {}
+        }
+        engine.addListener(listener)
+        onDispose { engine.removeListener(listener) }
+    }
+    LaunchedEffect(playingIdx) { engineBuffering = false }
+
+    // 【中心判定（主流口径：B 站/微博内嵌视频流）】滚动**停止**后才起播：
     // 取视口中心最近的项，且可见面积 >= 55%（防边缘半张卡误播）。
+    //
+    // 【滚动中立刻停】旧实现只监听 isScrollInProgress 的翻转，滚动期间什么都不做
+    // ——手指一动卡片已经滑走，旧视频还在原地播（声音、画面都要等抬手才切）。
+    // 现在滚动中也观察滚动位置：当前中心卡可见面积掉到 55% 以下就立刻置 -1 停播；
+    // 滚动中**绝不**启播下一张，否则一路滑过去会连续起播好几张。
     LaunchedEffect(feedKey, feed.isNotEmpty()) {
         if (feed.isEmpty()) return@LaunchedEffect
         fun visibleFraction(info: androidx.compose.foundation.lazy.LazyListItemInfo): Float {
@@ -1165,10 +1342,20 @@ private fun DiscoverPane(
             return ((bottom - top).coerceAtLeast(0)).toFloat() / info.size
         }
         snapshotFlow {
-            listState.isScrollInProgress
-        }.collect { scrolling ->
-            if (scrolling) return@collect // 拖动中不换片
+            Triple(
+                listState.isScrollInProgress,
+                listState.firstVisibleItemIndex,
+                listState.firstVisibleItemScrollOffset,
+            )
+        }.collect { (scrolling, _, _) ->
             val info = listState.layoutInfo
+            if (scrolling) {
+                if (playingIdx >= 0) {
+                    val cur = info.visibleItemsInfo.firstOrNull { it.index == playingIdx }
+                    if (cur == null || visibleFraction(cur) < 0.55f) playingIdx = -1
+                }
+                return@collect
+            }
             val center = info.viewportStartOffset + info.viewportSize.height / 2
             val best = info.visibleItemsInfo.minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - center) }
             playingIdx = if (best != null && visibleFraction(best) >= 0.55f) best.index else -1
@@ -1235,17 +1422,31 @@ private fun DiscoverPane(
             items(count = feed.size, key = { feed[it].key }) { idx ->
                 val item = feed[idx].vod
                 val hit = resolved[idx]
+                // 残帧门：本片还没装进引擎（解析中/失败/卡住）时不挂 PlayerView，
+                // 旧视图销毁 → 上一集最后一帧不残留，只显示海报。
+                val mediaReady = playingIdx == idx && startedIdx == idx &&
+                    hit != null && hit.first.isNotEmpty()
+                // 失败态要等重试用尽才成立：重试期间按「还在加载」处理，
+                // 避免真机能播的片先被贴一张「这部暂时看不了」。
+                // 重试用尽也只是必要条件——还得等「全部源跑完」的最终结论
+                // （finalVerdict，DVP §10），否则慢源还没回来就先判了死刑。
+                val failedNow = DiscoverPlaybackRules.finalFailure(
+                    emptyUrl = playingIdx == idx && hit != null && hit.first.isEmpty(),
+                    attempts = retryCount[idx] ?: 0,
+                    allSourcesDone = finalVerdict[idx] == true,
+                )
                 DiscoverVideoCard(
                     item = item,
                     isCenter = playingIdx == idx,
                     resolving = playingIdx == idx && hit == null,
-                    failed = playingIdx == idx && hit != null && hit.first.isEmpty(),
+                    failed = failedNow,
                     preview = playingIdx == idx && hit != null && hit.third,
                     engine = engine,
                     onOpenDetail = onOpenDetail,
-                    // 残帧门：本片还没装进引擎（解析中/失败/卡住）时不挂 PlayerView，
-                    // 旧视图销毁 → 上一集最后一帧不残留，只显示海报。
-                    mediaReady = playingIdx == idx && startedIdx == idx && hit != null && hit.first.isNotEmpty(),
+                    mediaReady = mediaReady,
+                    // 重试等待期间也算「加载中」，转圈别断，用户才不会以为卡死。
+                    buffering = playingIdx == idx && mediaReady && engineBuffering ||
+                        (playingIdx == idx && hit != null && hit.first.isEmpty() && !failedNow),
                 )
             }
         }
@@ -1270,7 +1471,11 @@ private fun DiscoverVideoCard(
     onOpenDetail: (String) -> Unit,
     /** 本卡媒体已装进引擎。false = 还在解析/卡住，此时不挂视图，避免上一集残帧。 */
     mediaReady: Boolean = false,
+    /** 引擎正在缓冲（发现页自己订阅 onBuffering）。 */
+    buffering: Boolean = false,
 ) {
+    // 播放窗在窗口里的位置：点击时交给详情页做「画面平移」的起点。
+    var playerBounds by remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -1288,31 +1493,84 @@ private fun DiscoverVideoCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(16f / 9f)
+                        .onGloballyPositioned { playerBounds = it.boundsInWindow() }
                         .clickable {
                             // 详情页会先读进程级 detailCache。发现页已拿到完整 VideoItem，
                             // 这里同步注入，避免「视频已经看到了还要再转一圈正在获取详情」。
+                            //
+                            // 【只补不用覆盖】卡片上的 item 是**发现页的简化条目**：
+                            // 它通常只带一条线路，有时连 vod_uri 都没有。若在这里无条件
+                            // put，会把 discoverRawUrl 已经缓存的完整详情（全部线路）冲掉，
+                            // 详情页上线后就会出现「播放源只有一个」。
                             val source = item._source ?: ""
-                            com.dengying.player.ui.UiDepsHolder.get().detailCache.put(
-                                com.dengying.player.ui.UiDeps.detailCacheKey(source, item.vod_id),
-                                item,
+                            val deps = com.dengying.player.ui.UiDepsHolder.get()
+                            val cacheKey = com.dengying.player.ui.UiDeps.detailCacheKey(source, item.vod_id)
+                            val cachedDetail = deps.detailCache.get(cacheKey)
+                            if (cachedDetail == null) deps.detailCache.put(cacheKey, item)
+                            // 【平滑交接】已装进预览引擎的片才带当前位置进详情，
+                            // 解析中/失败的卡不带，详情页按自身逻辑处理。
+                            val startAtMs = DiscoverPlaybackRules.handoffStartAtMs(
+                                mediaReady, engine.currentPosition,
                             )
+                            // 【画面平移】只有「这张卡正在播」才交接几何：
+                            // 详情页会把画面从卡片矩形动画到自己的播放位，
+                            // 中途不重载媒体，视觉上是同一块画面在移动。
+                            playerBounds?.let { r ->
+                                if (startAtMs >= 0L) {
+                                    DiscoverHero.record(
+                                        left = r.left.toInt(),
+                                        top = r.top.toInt(),
+                                        width = r.width.toInt(),
+                                        height = r.height.toInt(),
+                                    )
+                                }
+                            }
+                            // 【地址交接】把预览引擎正在播的这条地址一起交过去：
+                            // 详情页直接当首集预解析结果，起播时接管同一引擎，
+                            // 不解链、不重建 MediaSource —— 这是画面能连续平移的前提。
+                            if (startAtMs >= 0L) {
+                                DiscoverHandoff.record(
+                                    DiscoverHandoff.Payload(
+                                        url = engine.currentUrl.orEmpty(),
+                                        // 引擎不对外暴露请求头；此处交接的是
+                                        // 「已经装进引擎的同一条流」，接管后不会
+                                        // 再发请求，头部留空不影响播放。
+                                        headers = "",
+                                        positionMs = engine.currentPosition,
+                                        vodId = item.vod_id,
+                                        source = source,
+                                    ),
+                                )
+                            }
+                            // 【交接窗口】点卡的同一帧起，发现页这一侧的 surface 很快就会
+                            // 撤掉（离开页面 / Dock 切换），而详情页的内嵌表面要几帧之后
+                            // 才挂上。旧实现在这段空窗里按「表面归零就暂停」把预览引擎
+                            // 掐了，详情页只能重新 setMedia → 用户看到黑屏、重新缓冲。
+                            // 置位后壳层只停主引擎、保住预览引擎；详情页挂上表面或判定
+                            // 交接失败时清除（见 DetailViewModel.attachInlineSurface）。
+                            if (startAtMs >= 0L && !engine.currentUrl.isNullOrEmpty()) {
+                                deps.engineHost.setHandoffInProgress(true)
+                            }
                             onOpenDetail(
                                 com.dengying.player.ui.navigation.Routes.detail(
                                     vodId = item.vod_id,
                                     source = source,
                                     name = item.vod_name ?: "",
                                     pic = item.vod_pic ?: "",
-                                    vodUri = item.vod_uri ?: "",
+                                    // vodUri 优先取卡片条目的；卡片没有就退到缓存里
+                                    // 那份完整详情的——它是解析线路的必需参数，
+                                    // 传空会让详情页一条线路都解析不出来。
+                                    vodUri = item.vod_uri ?: cachedDetail?.vod_uri ?: "",
+                                    // resumeEpisode = 0：发现页看到的就是第 1 集，
+                                    // -1 会让 ResumeDecide 判「不自动播」（详情停在空态）。
+                                    resumeEpisode = 0,
+                                    autoPlay = true,
+                                    startAtMs = startAtMs,
                                 )
                             )
                         },
                 ) {
-                    if (isCenter) {
-                        // 【换片残帧】发现页所有中心卡共用同一 PlayerEngine/PlayerView。
-                        // pause() 不清 TextureView，下一片还没 setMedia（解析中/卡住）时
-                        // 快门不重开，上一片最后一帧会一直盖在新卡上。
-                        // 所以 mediaReady=false 时干脆不挂 VideoSurface：旧视图连播放器一起
-                        // 销毁，残帧随之消失，只留海报底图；本片 setMedia 成功后再挂新视图出画。
+                    if (DiscoverPlaybackRules.showPoster(isCenter, mediaReady)) {
                         com.dengying.player.ui.components.Poster(
                             url = item.vod_pic ?: "",
                             title = item.vod_name ?: "",
@@ -1320,31 +1578,33 @@ private fun DiscoverVideoCard(
                             cornerRadius = 0,
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         )
-                        if (mediaReady) {
-                            VideoSurface(
-                                engine = engine,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
                     } else {
-                        com.dengying.player.ui.components.Poster(
-                            url = item.vod_pic ?: "",
-                            title = item.vod_name ?: "",
+                        // 媒体就绪：FIT 的 letterbox 必须落在黑底上，否则透出
+                        // 下层海报，画面下半截还是上一张图（用户实测）。
+                        Box(Modifier.fillMaxSize().background(Color.Black))
+                    }
+                    if (mediaReady) {
+                        VideoSurface(
+                            engine = engine,
                             modifier = Modifier.fillMaxSize(),
-                            cornerRadius = 0,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         )
                     }
-                    if (resolving) {
+                    if (DiscoverPlaybackRules.showSpinner(resolving, buffering, failed)) {
                         // 【必须 size 而非 height】只约束高度会让宽高不等，
-                        // 圆环几何中心偏移，视觉上「整个组件在绕圈」而非笔刷转
-                        CircularProgressIndicator(
+                        // 圆环几何中心偏移，视觉上「整个组件在绕圈」而非笔刷转。
+                        // 暗底保证浅色海报上也看得见。
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = androidx.compose.ui.graphics.Color.White,
-                        )
+                                .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                                .padding(8.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White,
+                            )
+                        }
                     }
                     if (failed) {
                         Text(
@@ -1412,11 +1672,19 @@ private fun DiscoverVideoCard(
 private suspend fun discoverRawUrl(
     deps: com.dengying.player.ui.UiDeps,
     item: VideoItem,
+    forceNet: Boolean = false,
 ): String {
     val key = item._source ?: return ""
     val src = CmsSources.byKey(key) ?: return ""
     val detail = runCatching {
-        deps.sources.fetchDetail(src, item.vod_id)
+        // detailCache 由 IndexViewModel.prefetchDetails 预热；命中即省掉 1.2–2.6s
+        // 建连（真机实测）。未命中才打详情请求并写回，与预取同一键。
+        // forceNet：重试路径必须绕过缓存——缓存里那份可能就是「线路为空」的
+        // 那次失败结果，照着它重试只会得到同样结论。
+        val key2 = com.dengying.player.ui.UiDeps.detailCacheKey(key, item.vod_id)
+        (if (forceNet) null else deps.detailCache.get(key2)) ?: runCatching {
+            deps.sources.fetchDetail(src, item.vod_id, item.vod_uri ?: "")
+        }.getOrNull()?.also { deps.detailCache.put(key2, it) }
     }.getOrNull() ?: return ""
     // 【默认线路】第一条线路不保证是正片（部分源把预告/花絮排前面，或先给一条
     // 只有几集的试看线）。与详情页同一口径：优先非预告、集数最多的线路，

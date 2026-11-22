@@ -28,4 +28,50 @@ class ForegroundResumePolicyTest {
         assertFalse(shouldResumeAfterStop(wasPlayingBeforeStop = true, surfaceCount = 0))
         assertFalse(shouldResumeAfterStop(wasPlayingBeforeStop = false, surfaceCount = 0))
     }
+
+    // ── DVP §12：发现页预览引擎是独立实例，退后台必须一起停、回前台按各自状态恢复 ──
+
+    @Test
+    fun 只有预览引擎在播且有画面时恢复预览() {
+        val plan = planForegroundResume(
+            mainWasPlaying = false,
+            previewWasPlaying = true,
+            surfaceCount = 1,
+        )
+        assertTrue(plan.resumePreview)
+        assertFalse(plan.resumeMain)
+        assertTrue(plan.any)
+    }
+
+    @Test
+    fun 预览引擎已暂停时回前台不恢复() {
+        val plan = planForegroundResume(
+            mainWasPlaying = false,
+            previewWasPlaying = false,
+            surfaceCount = 1,
+        )
+        assertFalse(plan.resumePreview)
+        assertFalse(plan.any)
+    }
+
+    @Test
+    fun 预览引擎有表面与主引擎可同时恢复() {
+        val plan = planForegroundResume(
+            mainWasPlaying = true,
+            previewWasPlaying = true,
+            surfaceCount = 2,
+        )
+        assertTrue(plan.resumeMain)
+        assertTrue(plan.resumePreview)
+    }
+
+    @Test
+    fun 没有表面时哪个引擎都不恢复() {
+        val plan = planForegroundResume(
+            mainWasPlaying = true,
+            previewWasPlaying = true,
+            surfaceCount = 0,
+        )
+        assertFalse(plan.any)
+    }
 }

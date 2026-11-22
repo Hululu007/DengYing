@@ -30,6 +30,7 @@ import com.dengying.player.core.CmsClass
 import com.dengying.player.core.HomeSection
 import com.dengying.player.core.HomeTab
 import com.dengying.player.core.VideoItem
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -378,6 +379,15 @@ class SourceRepository {
     private val altSearchCache = HashMap<String, List<AltCandidate>>()
     private val inflightAlt = HashMap<String, Deferred<List<AltCandidate>>>()
     private val altSearchLock = PlatformLock()
+
+    /**
+     * 「全部源跑完」的等待者（DVP §10）。
+     *
+     * 跨源搜索有 6s 预算，到点只交快照；慢源几百毫秒后才补最后一批。调用方要判
+     * 「确实没有更好的线路/确实一个都播不了」时不能拿快照当结论，必须等最终列表。
+     * 一路搜索只会有一次最终结论，所以用一次性 [CompletableDeferred]：完成即摘牌。
+     */
+    private val altFinalWaiters = HashMap<String, CompletableDeferred<List<AltCandidate>>>()
 
     /**
      * 跨源搜索的**自有**作用域。
@@ -928,21 +938,36 @@ class SourceRepository {
      *
      * 用于自动换线：当前源分片不可达时，找别的源的同名资源。
      * 按源速排序，跳过当前源本身。
+     *
+     * @param onBatch 分批上屏：搜索过程中每凑够一批就回调一次（含 6s 预算到点时的
+     *   快照），供界面边搜边显示。
+     * @param onFinal **全部源跑完**后的最终列表回调（可能为空，DVP §10）。快照不是
+     *   结论：慢源里可能还有更完整的线路，快源也可能只是这次临时失败。判「换不换
+     *   源」「能不能播」只能用这条回调（或 [awaitCompleteAltSources]）的结果。
+     *   注意它可能跑在 [altScope] 上，回调里要自己切回宿主线程。
      */
     suspend fun findAltSources(
         sources: List<CmsSource>,
         currentSourceKey: String,
         title: String,
         onBatch: ((List<AltCandidate>) -> Unit)? = null,
+        onFinal: ((List<AltCandidate>) -> Unit)? = null,
     ): List<AltCandidate> {
         val norm = title.replace(Regex("[（(].*?[)）]"), "").trim()
         if (norm.isEmpty()) return emptyList()
+
+        // 最终结论的唯一出口：外部回调 + 唤醒 [awaitCompleteAltSources] 的等待者。
+        fun finishFinal(list: List<AltCandidate>) {
+            onFinal?.invoke(list)
+            altSearchLock.withLock { altFinalWaiters.remove(norm) }?.complete(list)
+        }
         // 【进程级缓存】详情页预取与播放链兜底会先后用同一片名调本函数——
         // 每次都是 12+ 源并发搜索（2-5 秒）。tv189 免登录片全部走"跨源找全片"
         // 路径（v1.2.0 FR-610），播放链每次命中缓存才能把跨源代价压到只剩
         // "试候选"一段。搜索结果短时稳定，进程内存缓存即可（不落盘）。
         altSearchLock.withLock { altSearchCache[norm] }?.let { cached ->
             if (cached.isNotEmpty()) onBatch?.invoke(cached)
+            finishFinal(cached)
             return cached
         }
         // 【在途合并】详情页预取与播放链兜底几乎同时调用（用户点正片时预取
@@ -955,6 +980,9 @@ class SourceRepository {
         altSearchLock.withLock { inflightAlt[norm] }?.let { shared ->
             val result = runCatching { shared.await() }.getOrDefault(emptyList())
             if (result.isNotEmpty()) onBatch?.invoke(result)
+            // 共享任务跑完全源时才会写缓存——有缓存才等于「最终列表已就绪」，
+            // 否则本调用方只拿到快照，最终结论得等那个任务自己补发（见 finishFinal）。
+            altSearchLock.withLock { altSearchCache[norm] }?.let { finishFinal(it) }
             return result
         }
         return coroutineScope {
@@ -1068,6 +1096,8 @@ class SourceRepository {
                         if (full.isNotEmpty()) {
                             altSearchLock.withLock { altSearchCache[norm] = full }
                         }
+                        // 慢源跑完 = 最终结论（空列表也算：确实一个候选都没有）
+                        finishFinal(full)
                     }
                 }
                 return snapshot to completed
@@ -1086,8 +1116,12 @@ class SourceRepository {
             }
             // 只有跑完全部源才写缓存：残缺快照一旦落缓存，用户之后再进同一部片
             // 也只会看到那几个快源（用户反馈「播放源少了很多」的直接原因）。
-            if (complete && out.isNotEmpty()) {
-                altSearchLock.withLock { altSearchCache[norm] = out.toList() }
+            if (complete) {
+                if (out.isNotEmpty()) {
+                    altSearchLock.withLock { altSearchCache[norm] = out.toList() }
+                }
+                // 跑完全源却零候选也是结论（走降级轮也一样），要让等最终列表的调用方醒过来
+                finishFinal(out.toList())
             }
             out
             }
@@ -1097,6 +1131,36 @@ class SourceRepository {
             task.invokeOnCompletion { altSearchLock.withLock { inflightAlt.remove(norm) } }
             task.await()
         }
+    }
+
+    /**
+     * 等「全部源跑完」的跨源候选（DVP §10）。
+     *
+     * 播放链的兜底搜索有 6s 预算，到点只给快照。拿快照判失败会误报「看不了」——
+     * 慢源里往往正好有可播的那条。调用方在**做出最终结论之前**（判失败、判要不要
+     * 换源）用本方法等完整结果：已有缓存立即返回；正在搜则挂一次性等待者等
+     * [findAltSources] 的 `onFinal`；本轮搜索根本没在跑时等不到，超时返回 null，
+     * 调用方按原逻辑处理。
+     *
+     * 返回空列表 = 全部源跑完却一个候选都没有（真结论，不是「还没搜完」）。
+     */
+    suspend fun awaitCompleteAltSources(
+        title: String,
+        timeoutMs: Long = PageBudget.ALT_SOURCES_BUDGET_MS * 3,
+    ): List<AltCandidate>? {
+        val norm = title.replace(Regex("[（(].*?[)）]"), "").trim()
+        if (norm.isEmpty()) return null
+        altSearchLock.withLock { altSearchCache[norm] }?.let { return it }
+        val mine = CompletableDeferred<List<AltCandidate>>()
+        // 同一片名可能已有别的调用方在等：共用同一个等待者，完成时一起醒
+        // （KMP 的 HashMap 没有 putIfAbsent，手动取或放）
+        val waiter = altSearchLock.withLock { altFinalWaiters[norm] ?: mine.also { altFinalWaiters[norm] = it } }
+        val res = withTimeoutOrNull(timeoutMs) { waiter.await() }
+        if (res == null) {
+            // 超时就摘掉自己那条，别让后续搜索把结果完成到一个已经没人等的位置
+            altSearchLock.withLock { if (altFinalWaiters[norm] === waiter) altFinalWaiters.remove(norm) }
+        }
+        return res
     }
 
     /**

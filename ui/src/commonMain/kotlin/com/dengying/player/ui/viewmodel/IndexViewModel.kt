@@ -48,7 +48,12 @@ class IndexViewModel(
 ) : ViewModel() {
 
     /** 预取详情时最多取多少张卡片：再往后用户很少点，带宽反而拖慢网格本身 */
-    private val PREFETCH_DETAIL_MAX = 6
+    // 覆盖发现页首批 9 张（DISCOVER_BATCH），这批落定后可直接命中 detailCache；
+    // 第 9 张之后用户很少滑动即停，再多的后台预取反而拖慢网格本身。
+    private val PREFETCH_DETAIL_MAX = com.dengying.player.ui.pages.DISCOVER_BATCH
+
+    /** 发现页跨导航状态（滚动位置/断点/解析缓存/当前批次），随 nav entry 存活。 */
+    internal val discoverUi = com.dengying.player.ui.pages.DiscoverUiState()
 
     /** 每个分类当前在跑的预取协程，后台刷新换片单时要能停掉上一轮 */
     private val prefetchJobs = HashMap<Int, Job>()

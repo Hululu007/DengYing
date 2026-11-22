@@ -27,7 +27,13 @@ half4 main(float2 xy) {
     float r = length(d);
     float2 dir = d / max(r, 0.0001);
     float fall = smoothstep(0.66, 1.0, r) * uRefract;
-    float2 uv = clamp(xy + dir * fall, float2(0.0), uSize - float2(1.0));
+    float2 shift = dir * fall;
+    // 【底边不做纵向折射】(DVP §8) GlassSurface 的采样层按"表面当前在根坐标里的
+    // 位置"平移对齐，而纵向滑动动画（topBar/dock 的 slideInVertically）期间这份
+    // 对齐每帧都在变，底边的纵向外推会把玻璃底边画出一道错位的双线/缺口。
+    // 下半部的纵向位移压成 0（uv.y == xy.y），左右两侧的折射照旧。
+    if (xy.y > c.y) shift.y = 0.0;
+    float2 uv = clamp(xy + shift, float2(0.0), uSize - float2(1.0));
     half4 col = content.sample(uv);
     float g = dot(col.rgb, half3(0.299, 0.587, 0.114));
     col.rgb = half3(g) + (col.rgb - half3(g)) * half3(uSat);

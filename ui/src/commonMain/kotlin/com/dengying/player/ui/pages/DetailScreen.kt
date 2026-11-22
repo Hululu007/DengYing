@@ -40,6 +40,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -107,6 +110,8 @@ fun DetailScreen(
     vodUri: String,
     resumeEpisode: Int,
     autoPlay: Boolean,
+    /** 发现页平滑交接：已播位置（ms）。-1 = 无交接。 */
+    startAtMs: Long = -1L,
     onBack: () -> Unit,
     onOpenPlayer: (String) -> Unit,
     /**
@@ -141,6 +146,7 @@ fun DetailScreen(
             vodUri = vodUri,
             resumeEpisode = resumeEpisode,
             autoPlayRequested = autoPlay,
+            handoffStartAtMs = startAtMs,
             repo = deps.sources,
             store = deps.store,
             engineHost = deps.engineHost,
@@ -221,9 +227,9 @@ fun DetailScreen(
         }
     }
 
-    // 【这里不用 GlassPage】详情页内容区含内嵌播放位（SurfaceView/TextureView）。
-    // 把视频面录进 GraphicsLayer 会采不到画面（SurfaceView 不参与图层合成），
-    // 实测风险大于收益，故本页只保留柔光底：顶栏玻璃透出的是页面柔光，
+    // 【这里不用 GlassPage】详情页内容区含内嵌播放位，渲染面已是 TextureView
+    // （参与正常图层合成，可被 GraphicsLayer 采样）；但视频层透射采样在真机上的
+    // 效果与开销尚未验证，故本页维持现状：只保留柔光底，顶栏玻璃透出的是页面柔光，
     // 不采样内容。首页/列表页无视频面，才用 GlassPage 做真实内容透射。
     Column(
         modifier = Modifier
@@ -313,10 +319,62 @@ fun DetailScreen(
                 // 【视图宿主绑定】每次组合都尝试把会话引擎接到这里——
                 // 会话在播（含从全屏返回）时，画面就出现在这个占位里。
                 SideEffect { vm.attachInlineSurface() }
-                InlinePlayer(
+                // 【从发现页平移到详情的画面】
+                // 发现页点击时把「正在播放的那块画面」的屏幕矩形交给本页；
+                // 这里把它从卡片位置动画到自己的播放位（320ms），中途不重载媒体，
+                // 所以看起来就是同一块画面在移动。两个窗口都是 16:9，
+                // 等比缩放 + 平移即可精确对齐，不需要改布局。
+                var heroFrom by remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+                var slotRect by remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+                val heroAnim = remember { androidx.compose.animation.core.Animatable(1f) }
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    val r = DiscoverHero.take()
+                    if (r != null) {
+                        heroFrom = androidx.compose.ui.geometry.Rect(
+                            left = r[0].toFloat(),
+                            top = r[1].toFloat(),
+                            right = (r[0] + r[2]).toFloat(),
+                            bottom = (r[1] + r[3]).toFloat(),
+                        )
+                    }
+                }
+                androidx.compose.runtime.LaunchedEffect(heroFrom, slotRect) {
+                    val from = heroFrom
+                    val to = slotRect
+                    if (from != null && to != null && to.width > 0f) {
+                        heroAnim.snapTo(0f)
+                        heroAnim.animateTo(
+                            targetValue = 1f,
+                            animationSpec = androidx.compose.animation.core.tween(
+                                durationMillis = 320,
+                                easing = androidx.compose.animation.core.FastOutSlowInEasing,
+                            ),
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { slotRect = it.boundsInWindow() }
+                        .graphicsLayer {
+                            val from = heroFrom
+                            val to = slotRect
+                            if (from != null && to != null && to.width > 0f) {
+                                val s0 = from.width / to.width
+                                val v = heroAnim.value
+                                val scale = s0 + (1f - s0) * v
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = (from.center.x - to.center.x) * (1f - v)
+                                translationY = (from.center.y - to.center.y) * (1f - v)
+                            }
+                        },
+                ) {
+                    InlinePlayer(
                     engine = vm.inlineEngine,
                     title = vm.inlineState.title,
                     episodeName = vm.inlineState.episodeName,
+                    episodeIndex = vm.inlineState.episodeIndex,
                     episodeCount = vm.inlineEpisodeCount(),
                     live = vm.inlineState.live,
                     zoomMode = vm.inlineState.zoomMode,
@@ -349,6 +407,7 @@ fun DetailScreen(
                     },
                     modifier = Modifier.background(Color.Black),
                 )
+                }
 
                 Column(
                     modifier = Modifier
@@ -1030,6 +1089,7 @@ private fun DetailFullscreenView(
         engine = vm.inlineEngine,
         title = vm.inlineState.title,
         episodeName = vm.inlineState.episodeName,
+        episodeIndex = vm.inlineState.episodeIndex,
         episodeCount = vm.inlineEpisodeCount(),
         live = vm.inlineState.live,
         zoomMode = vm.inlineState.zoomMode,

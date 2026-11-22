@@ -36,6 +36,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeout
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.navigation.Routes
+import com.dengying.player.ui.pages.DiscoverHandoff
 import com.dengying.player.ui.prefs.PlaybackPrefs
 
 /**
@@ -75,6 +76,8 @@ class DetailViewModel(
     private val vodUri: String,
     private val resumeEpisode: Int,
     private val autoPlayRequested: Boolean,
+    /** 发现页平滑交接：发现页预览引擎当前已播到的位置；-1 = 无交接。 */
+    private val handoffStartAtMs: Long = -1L,
     private val repo: SourceRepository,
     private val store: Store,
     private val engineHost: PlayerEngineHost,
@@ -136,6 +139,32 @@ class DetailViewModel(
 
     /** FR-506：自动起播只应发生一次，避免页面重载后反复跳转 */
     private var autoPlayed = false
+
+    /**
+     * 发现页交接位置是否已消费。
+     *
+     * 只对「进来后的第一次起播」生效：之后手动换集要按 0/历史恢复，
+     * 否则每次换集都会跳回发现页看到的那一刻。
+     */
+    private var handoffUsed = false
+
+    /**
+     * 发现页 → 详情的交接是否还在窗口内（DVP §10/§11）。
+     *
+     * 窗口内：不自动换源、不打断会话设置媒体——发现页正在播的那条流还在被接管，
+     * 此时换源等于把交接目标换掉，用户看到黑屏 + 重新缓冲。更好的源等交接落定再换。
+     * 清除点见 [attachInlineSurface] / [restoreInlinePosition]。
+     */
+    private var handoffPending = false
+
+    /**
+     * 跨源候选是否已「全部源跑完」（DVP §10）。
+     *
+     * 跨源搜索有 6s 预算，到点只交快照；快照里没出现的好源不代表不存在。把快照
+     * 当最终结论有两个后果：慢源里更完整的线路永远选不上；快源临时失败就提前
+     * 报「看不了」。所以自动选源只在完整列表到达后判定（见 [maybeAutoPickBestSource]）。
+     */
+    private var altListFinal = false
 
     /** 导航副作用：需要跳到播放页 */
     var pendingPlayerRoute by mutableStateOf<String?>(null)
@@ -221,6 +250,7 @@ class DetailViewModel(
                     active = true,
                     title = s.title,
                     episodeName = s.episodeName,
+                    episodeIndex = s.episodeIndex,
                     live = s.live,
                     isPlaying = s.status == com.dengying.player.playback.PlaybackSession.Status.Playing,
                     curTime = s.curTime,
@@ -286,8 +316,25 @@ class DetailViewModel(
                     "ok=${item != null} elapsed=${Clock.nowMs() - t0} hit=${cached != null}",
                 )
                 if (item != null) {
-                    deps.detailCache.put(cacheKey, item)
-                    applyDetail(item, seq)
+                    // 【别用空线路覆盖满线路】发现页的简化条目大多只有一条线路，
+                    // 有的源在缺 vod_uri 时甚至连线路都解析不出来。若网络结果比
+                    // 缓存少，保留缓存的线路字段，否则详情页会从「10 条线路」
+                    // 退化成「1 条」甚至空列表。
+                    val merged = if (
+                        item.vod_play_url.isNullOrBlank() &&
+                        !cached?.vod_play_url.isNullOrBlank()
+                    ) {
+                        PlaybackProbe.note("detail-merge-lines", "from=cache")
+                        item.copy(
+                            vod_play_url = cached?.vod_play_url,
+                            vod_play_from = cached?.vod_play_from ?: item.vod_play_from,
+                            vod_uri = item.vod_uri ?: cached?.vod_uri,
+                        )
+                    } else {
+                        item
+                    }
+                    deps.detailCache.put(cacheKey, merged)
+                    applyDetail(merged, seq)
                 } else if (cached == null) {
                     state = state.copy(
                         errMsg = "详情加载失败：${src.name} 无数据或请求失败，试试返回重进",
@@ -367,7 +414,47 @@ class DetailViewModel(
         //
         // playGap 源（如 AH 的 ap2233）首集必然解析失败：预解析只会白占
         // 6~7 秒带宽并拖慢后面的跨源搜索。等自动换到可播源后再预解析。
-        if (!currentSourceHasPlayGap() && preResolved == null && !preResolving) startPreResolve()
+        //
+        // 【发现页平滑交接】从发现页点进来时，卡片里正在播的那条地址就是
+        // 我们要的地址——直接拿它当首集预解析结果，等于「零等待」：
+        // 起播时同媒体幂等路径接管预览引擎，不解链、不重建 MediaSource，
+        // 画面才会连续地从卡片位置平移到详情播放位。
+        if (!adoptDiscoverHandoff() && !currentSourceHasPlayGap() &&
+            preResolved == null && !preResolving
+        ) {
+            startPreResolve()
+        }
+    }
+
+    /**
+     * 消费发现页交接过来的地址（见 [DiscoverHero]）。
+     *
+     * 只在本页首次加载、且发现页确实传了地址时生效；返回 true 表示
+     * 首集地址已就绪，调用方不要再起解析链。
+     */
+    private fun adoptDiscoverHandoff(): Boolean {
+        val h = DiscoverHandoff.take() ?: return false
+        if (h.url.isBlank()) return false
+        // 串号保护：交接的片/源必须与本页一致，否则当普通进入处理。
+        if (h.vodId != curVodId || h.source != curSource) {
+            PlaybackProbe.note("detail-handoff-miss", "vod=${h.vodId != curVodId} src=${h.source != curSource}")
+            // 交接作废：撤掉壳层的保护标记，否则发现页预览不会被「表面归零」停掉。
+            engineHost.setHandoffInProgress(false)
+            return false
+        }
+        // 【前提】发现页用的是预览引擎，不建会话；交接能成立的前提就是
+        // 「此刻没有别的会话占着引擎」。有会话说明用户是从别处（播放页/
+        // 另一个详情）过来的，这条地址对不上，走正常解析。
+        if (com.dengying.player.playback.PlaybackSession.engineOrNull() != null) {
+            PlaybackProbe.note("detail-handoff-miss", "session-exists")
+            engineHost.setHandoffInProgress(false)
+            return false
+        }
+        preResolved = h.url to h.headers
+        preResolveIdx = 0
+        handoffPending = true
+        PlaybackProbe.note("detail-adopt-handoff", "len=${h.url.length} pos=${h.positionMs}")
+        return true
     }
 
     /** 当前源是否声明了播放链缺口（非空 = 该源当前不可播，见 PlaybackSession 门禁） */
@@ -396,7 +483,11 @@ class DetailViewModel(
             val t0 = Clock.nowMs()
             // 分批上屏：先到的源立即给用户可点的换线选项，不再等齐 12+ 源。
             // 每次回调都做标题守卫，避免切片/换源后旧片候选落到新详情页。
-            fun onBatch(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>) {
+            //
+            // [final] = 「全部源跑完」的最终列表（DVP §10）：允许空列表（跑完却零
+            // 候选也是真结论），并把 [altListFinal] 打开——自动选源只认这个信号，
+            // 不拿 6s 快照做判断。
+            fun applyAlts(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>, final: Boolean) {
                 if (state.item?.vod_name != expectedTitle && curName != expectedTitle) return
                 // 逐批上屏时会整表替换：把已探测到的集数按 (源, vodId) 带过去，
                 // 否则第二批到来就把第一批的「全 24 集」清回 -1。
@@ -412,14 +503,34 @@ class DetailViewModel(
                         epCount = probed[a.sourceKey to a.vodId] ?: -1,
                     )
                 }
-                if (mapped.isEmpty()) return
+                // 分批途中的空列表按「还没搜到」处理；最终列表的空是真结论
+                if (mapped.isEmpty() && !final) return
                 com.dengying.player.player.PlaybackProbe.note(
-                    "alt-batch", "title=$expectedTitle n=${mapped.size}",
+                    if (final) "alt-final" else "alt-batch",
+                    "title=$expectedTitle n=${mapped.size}",
                 )
                 state = state.copy(altSources = mapped, altLoading = false)
                 prefetchAltDetails(mapped)
+                if (final) {
+                    altListFinal = true
+                    viewModelScope.launch { maybeAutoPickBestSource() }
+                }
             }
-            val alts = repo.findAltSources(repo.allSources(), curSource, title, onBatch = ::onBatch)
+
+            fun onBatch(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>) {
+                applyAlts(alts, final = false)
+            }
+
+            // 最终回调可能跑在跨源搜索的 altScope 线程上，统一切回 viewModelScope
+            // 再改状态（分批回调沿用既有行为，不动）。
+            fun onFinal(alts: List<com.dengying.player.data.source.SourceRepository.AltCandidate>) {
+                viewModelScope.launch { applyAlts(alts, final = true) }
+            }
+
+            val alts = repo.findAltSources(
+                repo.allSources(), curSource, title,
+                onBatch = ::onBatch, onFinal = ::onFinal,
+            )
             onBatch(alts)
             com.dengying.player.player.PlaybackProbe.note(
                 "alt-sources-loaded",
@@ -500,6 +611,12 @@ class DetailViewModel(
      */
     private suspend fun maybeAutoPickBestSource() {
         if (linePickedByUser || autoPickedBestSource) return
+        // 【只在完整候选上判定】6s 预算的快照缺慢源，拿它当结论会漏掉更完整的
+        // 线路、也会把快源的临时失败当成整片失败（DVP §10）。
+        if (!altListFinal) return
+        // 【交接窗口内不换源】发现页打进详情的那条流还在被接管，此时换源等于
+        // 把交接目标换掉——用户看到的是黑屏 + 重新缓冲。更好的源等窗口结束再换。
+        if (handoffPending) return
         val targets = rankedSwitchTargets(
             currentKey = curSource,
             currentEpCount = currentEpCount(),
@@ -551,6 +668,8 @@ class DetailViewModel(
         preResolveSeq++
         preResolved = null
         preResolving = false
+        // 新源要重新搜一轮候选，「完整列表」信号必须跟着作废
+        altListFinal = false
         curSource = target.sourceKey
         curVodId = target.vodId
         curName = target.vodName
@@ -668,6 +787,12 @@ class DetailViewModel(
         /** 页面正在退出：只留黑底，不画占位图形（修"返回后残留"） */
         val hidden: Boolean = false,
         val episodeName: String = "",
+        /**
+         * 当前集下标（DVP §3）。渲染面 key 要用它：换集时集名可能相同（"第01集"/
+         * "01"）或为空（试看线），只按集名做 key 会让渲染面不重建，引擎换了但
+         * Surface 还挂在旧视图上——表现为换集黑屏。
+         */
+        val episodeIndex: Int = 0,
         val live: Boolean = false,
         val zoomMode: com.dengying.player.ui.platform.VideoZoomMode = com.dengying.player.ui.platform.VideoZoomMode.FIT,
     )
@@ -719,7 +844,17 @@ class DetailViewModel(
     fun attachInlineSurface() {
         val s = com.dengying.player.playback.PlaybackSession.currentState()
         if (!s.hasSession) return
-        val e = engineHost.peek() ?: return
+        // 会话已经建起来 = 发现页那条流已被接管（或走了正常解析），交接窗口结束：
+        // 壳层恢复正常「表面归零就暂停」，本页解除自动换源封锁。
+        if (handoffPending) {
+            handoffPending = false
+            PlaybackProbe.note("detail-handoff-settled", "status=${s.status}")
+            viewModelScope.launch { maybeAutoPickBestSource() }
+        }
+        engineHost.setHandoffInProgress(false)
+        // 会话可能接管了发现页的预览引擎（平滑交接），此时必须显示会话的引擎，
+        // 而不是宿主主实例——否则画面全黑（时间轴照走）。
+        val e = com.dengying.player.playback.PlaybackSession.engineOrNull() ?: engineHost.peek() ?: return
         if (inlineEngine === e) return
         bindInlineEngine(e)
         if (!surfaceRegistered) {
@@ -860,6 +995,16 @@ class DetailViewModel(
             return
         }
         val ep = eps[realIdx]
+        // 【发现页平滑交接】同一片从发现页点进来时，路由带了预览引擎的
+        // 当前位置。用该位置向会话申请续播，不重新从 0 起播；会话的同媒体
+        // 幂等路径（sameMedia）不会重建 MediaSource，画面无重新加载空档。
+        // 只在首次自动播放消费一次，之后手动换集仍按 0/历史恢复。
+        // 【只第 1 集消费交接位置】发现页看到的就是第 1 集，那一刻的进度套到别的
+        // 集上会跳到不相干的时刻；所以只认 `realIdx == 0`，且只消费一次。
+        val handoffMs = if (realIdx == 0 && handoffStartAtMs >= 0L && !handoffUsed) {
+            handoffUsed = true
+            handoffStartAtMs
+        } else -1L
         val localUrl = DownloadCenter.itemFor(curSource, curVodId, realIdx)
             ?.takeIf { it.canPlay }
             ?.let { DownloadCenter.localPlayUrl(it) }
@@ -871,6 +1016,10 @@ class DetailViewModel(
 
         // 会话重置续播恢复标志（新集新会话语义）
         inlinePositionRestored = false
+        // 【交接集不恢复历史进度】画面已经在播发现页那一刻的位置了；再让
+        // [restoreInlinePosition] 按历史/第 0 秒恢复一次，用户会看到画面被拽回去。
+        // 交接集直接沿用引擎里的位置，等于把"恢复"这一步也算做完了。
+        if (handoffMs >= 0L) inlinePositionRestored = true
         // 【历史条目按集记账】这里曾漏赋值，导致内嵌播放无论点哪集都写 episodeIndex=0；
         // 续播/alt 拉流也同用一个序号，必须与本次点击的集一致。
         inlineEpisodeIndex = realIdx
@@ -892,6 +1041,7 @@ class DetailViewModel(
             preResolved = if (!isLocal && realIdx == preResolveIdx) preResolved?.first else null,
             preHeaders = if (!isLocal && realIdx == preResolveIdx) preResolved?.second ?: "" else "",
             localFile = isLocal,
+            startAtMs = handoffMs,
         )
     }
 
@@ -1726,12 +1876,16 @@ class DetailViewModel(
             state = state.copy(resumeNotice = d.notice)
         }
         if (d.verdict == ResumeDecide.Verdict.Play) {
+            // 发现页带过来的进度：autoPlayed 此刻还没置 true（就是本次自动起播），
+            // 只看路由是否带了有效位置。
+            val handoff = handoffStartAtMs >= 0L
             autoPlayed = true
             // FR-711 修订（用户反馈）：历史直达只进详情页内嵌续播，**不**自动
             // 进纯屏幕全屏形态。用户要全屏再自己点全屏键；自动 enter 会把
             // 「想回详情看简介/选集」的路径塞进横屏，体感像被劫持。
             // 播放仍由会话发起（playInline → PlaybackSession.play），续播位置
             // 由会话的历史恢复逻辑接管（与手动点集完全同口径，不经 VM 传值）。
+            if (handoff) inlinePositionRestored = true // 发现页已带进度，跳过历史二次定位
             playInline(d.episodeIndex)
             return
         }

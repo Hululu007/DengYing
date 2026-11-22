@@ -4,12 +4,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -159,6 +155,16 @@ fun InlinePlayer(
     live: Boolean = false,
     /** 影视名与集名分开传入；旧调用未传时回退到 title。 */
     episodeName: String = "",
+    /**
+     * 当前集下标（DVP §3）。
+     *
+     * 渲染面按 (片名, 集名, 集下标) 做 key：只差集名时换集也能重建渲染面。旧实现
+     * 只 key 到集名，同一集名跨集/跨源（"第01集" 与 "01"、试看线的空集名）复用时
+     * 渲染面不重建，引擎换了但 Surface 还挂在旧视图上——表现就是换集后黑屏、
+     * 要退出去再进才有画面。**key 里不能带地址**：token 型源换链会让地址变化，
+     * 那属于同一条流，重建渲染面只会闪黑。
+     */
+    episodeIndex: Int = 0,
     episodeCount: Int = 0,
     /** 当前画面缩放；默认 FIT 不影响既有调用。 */
     zoomMode: VideoZoomMode = VideoZoomMode.FIT,
@@ -425,12 +431,22 @@ fun InlinePlayer(
             }
             // 单击 / 双击：只在"未形成拖动"时触发，故不会与 seek 冲突
             //
+            // 【面板外单击先收面板】倍速/画面面板打开时单击画面 = 收起面板，
+            // 且这一次点击不翻控制层（否则面板收了、控制行也被藏掉，用户下一拍
+            // 想点倍速键只能先点出来，DVP §9）。双击仍是播放/暂停。
+            //
             // 【P-03 双击】内嵌位与全屏一致：双击切换播放/暂停。
             // 单击与双击的区分由 `detectTapGestures` 的判定窗口完成，
             // 代价是单击回调会等约 300ms（与全屏同口径，见 PlayerScreen 的说明）。
             .pointerInput(Unit) {
                 detectTapGestures(
-                    onTap = { controlsVisible = !controlsVisible },
+                    onTap = {
+                        // 面板状态在 lambda 里现读（pointerInput(Unit) 不会因面板开合重启）
+                        val t = resolveSurfaceTap(zoomOpen = zoomSheet, speedOpen = speedSheet)
+                        zoomSheet = t.zoomOpen
+                        speedSheet = t.speedOpen
+                        if (t.toggleControls) controlsVisible = !controlsVisible
+                    },
                     onDoubleTap = { if (!live) onTogglePlay() },
                     onLongPress = {
                         // 长按画面任意位置即临时加速（原口径是长按右半屏），与全屏同口径。
@@ -464,11 +480,18 @@ fun InlinePlayer(
             // 【P-06】hidden 时整个渲染面都不进组合（不是只不画浮层）——
             // 视图从组合树移除会同时把播放面从窗口上摘下，不留下任何一帧。
             // 会话不动：回详情页/回全屏时重新挂载即可（引擎是全局单例）。
-            VideoSurface(
-                engine = engine,
-                modifier = Modifier.fillMaxSize(),
-                zoomMode = zoomMode,
-            )
+            // 【换集残帧】同一 engine 连续播不同集时，PlayerView 不重新创建，
+            // 新集 setMedia 之前旧集的最后一帧一直留着（用户实测「切集先看到上一集画面」）。
+            // 用「影视名 + 集名 + 集下标」当 key：换集即销毁重建渲染面，新集出画前是黑底。
+            // 集下标是必需的（DVP §3）：跨集/跨源时集名可能相同或为空，只按集名做
+            // key 会让渲染面不重建，引擎换了而 Surface 还挂在旧视图上（换集黑屏）。
+            key(title, episodeName, episodeIndex) {
+                VideoSurface(
+                    engine = engine,
+                    modifier = Modifier.fillMaxSize(),
+                    zoomMode = zoomMode,
+                )
+            }
         }
 
         // ---- 空态 / 错误态 / 缓冲态 ----
@@ -632,19 +655,9 @@ fun InlinePlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // 仅全屏形态让开横屏左侧挖孔与底部手势条；
-                    // 内嵌位在详情页里本来就贴着内容底边，再加底部 inset 会被顶起来。
-                    .then(
-                        if (fullscreen) {
-                            Modifier.windowInsetsPadding(
-                                WindowInsets.safeDrawing.only(
-                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                                ),
-                            )
-                        } else {
-                            Modifier
-                        },
-                    )
+                    // 【全屏控件贴边】用户明确要求返回键/进度条贴住屏幕边缘，
+                    // 只留 6dp；横屏挖孔与手势条不再让位。内嵌位保持原样。
+                    .then(if (fullscreen) Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp) else Modifier)
                     .background(Color.Black.copy(alpha = 0.5f))
                     .padding(horizontal = 8.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -863,19 +876,11 @@ private fun FullscreenTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // 【安全区】横屏时挖孔在左侧（vivo V2419A 实测 cutout 占左边 120px），
-                // 原来顶栏从 x=0 起画，「返回」整个压在挖孔下面，看起来像顶栏错位。
-                // 用 safeDrawing 的横向+顶部内边距：隐藏系统栏时顶部为 0，
-                // 挖孔始终让出，控制栏不再钻到摄像头下面。
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Horizontal + WindowInsetsSides.Top,
-                    ),
-                )
+                // 【全屏控件贴边】返回键左边距屏幕左缘 6dp：不再用 safeDrawing
+                // 让开横屏挖孔（vivo V2419A 左侧 120px）；用户明确要求贴边，
+                // 返回键仍是 34dp 圆形热区，压在挖孔区域也能点。
                 .background(Color.Black.copy(alpha = 0.35f))
-                // 顶部多留 10dp：隐藏系统栏后 statusBars inset 为 0，只靠 safeDrawing
-                // 会让按钮贴着屏幕上边缘，圆角/挖孔机型看着像被裁掉。
-                .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp),
+                .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             InlineIconButton(
