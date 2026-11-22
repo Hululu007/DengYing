@@ -13,9 +13,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.24</string>
+	<string>1.3.27</string>
 	<key>CFBundleVersion</key>
-	<string>1000324</string>
+	<string>1000327</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
