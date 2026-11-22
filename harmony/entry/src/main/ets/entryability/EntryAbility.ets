@@ -16,11 +16,17 @@ export default class EntryAbility extends UIAbility {
     // 版本号推给 Kotlin：`:ui` 关了 BuildConfig，读不到 HAP 的 build-profile，
     // 更新检查必须与真正安装的包同版本（Android 读 BuildConfig、iOS 读 Info.plist）。
     try {
-      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
-      dengying.setAppVersion(info.versionName, info.versionCode);
-      hilog.info(DOMAIN, 'DengYing', 'version=%{public}s code=%{public}d', info.versionName, info.versionCode);
+      const info = // 必须带 WITH_APPLICATION：DEFAULT 标志返回的 BundleInfo 里 appInfo 是 null，
+            // 读 appInfo.debug 会抛「Cannot read property debug of null」。
+            bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
+      // debug 标志一并发（编译期常量，HAP 构建形态决定）：鸿蒙没有 BuildConfig 也没有
+      // isDebugBinary，release 包里若仍按 debug 处理会露出账号密码表单与「令牌设置」。
+      const isDebug = info.appInfo.debug ? 1 : 0;
+      dengying.setAppVersion(info.versionName, info.versionCode, isDebug);
+      hilog.info(DOMAIN, 'DengYing', 'version=%{public}s code=%{public}d debug=%{public}d', info.versionName, info.versionCode, isDebug);
     } catch (e) {
-      hilog.warn(DOMAIN, 'DengYing', 'setAppVersion failed: %{public}s', JSON.stringify(e));
+      const err = e as BusinessError;
+      hilog.warn(DOMAIN, 'DengYing', 'setAppVersion failed: code=%{public}d msg=%{public}s', err.code, err.message);
     }
     hilog.info(DOMAIN, 'DengYing', '%{public}s', 'Ability onCreate');
   }

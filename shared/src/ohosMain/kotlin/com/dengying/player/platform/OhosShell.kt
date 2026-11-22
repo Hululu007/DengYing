@@ -32,9 +32,21 @@ object OhosAppInfo {
     var versionCode: Long = 0L
         private set
 
-    fun setVersion(name: String, code: Long) {
+    /**
+     * 当前 HAP 是否为 debug 构建（壳从 bundleManager 的 appInfo.debug 读出）。
+     *
+     * 之前  写死 true，导致 release 包也渲染账号密码表单与
+     * 「令牌设置」；Android 读 BuildConfig.DEBUG、iOS 读 Platform.isDebugBinary，
+     * 鸿蒙只能由壳推。默认 false：没推上来就按 release 处理（宁可少显示调试入口）。
+     */
+    @Volatile
+    var isDebug: Boolean = false
+        private set
+
+    fun setVersion(name: String, code: Long, debug: Boolean) {
         versionName = name
         versionCode = code
+        isDebug = debug
     }
 }
 
@@ -86,6 +98,6 @@ object OhosWindowControl {
  */
 @OptIn(ExperimentalForeignApi::class, kotlin.experimental.ExperimentalNativeApi::class)
 @kotlin.native.CName("dengy_set_app_version")
-fun setAppVersionFromShell(name: CPointer<ByteVar>?, code: Long) {
-    OhosAppInfo.setVersion(name?.toKString() ?: "", code)
+fun setAppVersionFromShell(name: CPointer<ByteVar>?, code: Long, debug: Int) {
+    OhosAppInfo.setVersion(name?.toKString() ?: "", code, debug != 0)
 }

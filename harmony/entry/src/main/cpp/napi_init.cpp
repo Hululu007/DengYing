@@ -890,25 +890,27 @@ napi_value RegisterOrientationSink(napi_env env, napi_callback_info info) {
 
 // ---- 应用版本：ArkTS 读 bundleManager 后推给 Kotlin 的 dengy_set_app_version ----
 // `:ui` 关掉了 BuildConfig，读不到 HAP 的 build-profile，更新提示的版本只能由壳推。
-using SetAppVersionFn = void (*)(const char*, int64_t);
+using SetAppVersionFn = void (*)(const char*, int64_t, int32_t);
 
 napi_value SetAppVersion(napi_env env, napi_callback_info info) {
   ClearPendingException(env);
-  size_t argc = 2;
-  napi_value args[2] = {nullptr, nullptr};
+  size_t argc = 3;
+  napi_value args[3] = {nullptr, nullptr, nullptr};
   napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   std::string name;
   int64_t code = 0;
+  int32_t debug = 0;
   if (argc >= 1 && args[0] != nullptr) name = ReadString(env, args[0]);
   if (argc >= 2 && args[1] != nullptr) napi_get_value_int64(env, args[1], &code);
+  if (argc >= 3 && args[2] != nullptr) napi_get_value_int32(env, args[2], &debug);
   auto fn = ResolveTop<SetAppVersionFn>("dengy_set_app_version");
   if (fn == nullptr) {
     BRIDGE_LOG("setAppVersion: dengy_set_app_version missing");
     return nullptr;
   }
-  fn(name.c_str(), code);
-  BRIDGE_LOG("setAppVersion: %{public}s (%{public}lld)", name.c_str(),
-             static_cast<long long>(code));
+  fn(name.c_str(), code, debug);
+  BRIDGE_LOG("setAppVersion: %{public}s (%{public}lld) debug=%{public}d", name.c_str(),
+             static_cast<long long>(code), debug);
   return nullptr;
 }
 

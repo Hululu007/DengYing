@@ -46,7 +46,7 @@ declare const dengying: {
    */
   registerOrientationSink(sink: (landscape: number) => void): void;
   /** 应用版本推送到 Kotlin（更新检查用）。 */
-  setAppVersion(versionName: string, versionCode: number): void;
+  setAppVersion(versionName: string, versionCode: number, debug: number): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----
   // compose.har 的 modules.abc 按这 6 个裸名从 libentry.so 取 native 函数；

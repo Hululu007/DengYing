@@ -57,8 +57,15 @@ object OhosUiDeps : UiDeps {
      */
     override val castController: CastController = NoopCastController
 
-    /** 当前只有 debug 产物（HAP 由 hvigor debug 构建），真接签名包时改由 ArkTS 传入 */
-    override val isDebug: Boolean = true
+    /**
+     * 当前 HAP 是否为 debug 构建，由壳从 `bundleManager` 的 `appInfo.debug` 推送
+     * （`EntryAbility` → `dengy.setAppVersion(name, code, debug)` → [OhosAppInfo]）。
+     *
+     * 【别再写死 true】之前恒 true，release 包也会渲染账号密码表单与「令牌设置」；
+     * Android 读 `BuildConfig.DEBUG`、iOS 读 `Platform.isDebugBinary`，鸿蒙没有这两条
+     * 通道，只能由壳推。未推送时按 release 处理。
+     */
+    override val isDebug: Boolean get() = OhosAppInfo.isDebug
 
     /**
      * 版本号由壳推送：EntryAbility 读 `bundleManager` 的 `versionName` / `versionCode`
