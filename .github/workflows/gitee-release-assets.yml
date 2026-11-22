@@ -95,13 +95,20 @@ jobs:
             echo "DRY RUN: would create Gitee release $TAG"
             ID=""
           elif [ "$CODE" = "404" ]; then
-            jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" \
-              '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false}' \
+            jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" --arg sha "$GITHUB_SHA" \
+              '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false,target_commitish:$sha}' \
               > /tmp/gitee-create.json
-            curl -fSs -X POST "$BASE/releases" \
-              -H 'Content-Type: application/json;charset=UTF-8' \
-              --data-binary @/tmp/gitee-create.json \
-              -o /tmp/gitee-release.json
+            for attempt in 1 2 3; do
+              if curl -fSs --connect-timeout 15 --max-time 120 -X POST "$BASE/releases" \
+                -H 'Content-Type: application/json;charset=UTF-8' \
+                --data-binary @/tmp/gitee-create.json \
+                -o /tmp/gitee-release.json; then
+                break
+              fi
+              echo "Gitee release creation failed (attempt $attempt/3)" >&2
+              if [ "$attempt" = "3" ]; then exit 1; fi
+              sleep $((attempt * 5))
+            done
             ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
             if [ -z "$ID" ]; then
               echo "Gitee release creation returned no id for $TAG" >&2
@@ -149,11 +156,27 @@ jobs:
               EXISTING_ID=$(jq -r --arg name "$NAME" '.[] | select(.name == $name) | .id' /tmp/gitee-attachments.json | head -n1)
               if [ -n "$EXISTING_ID" ]; then
                 echo "Replacing stale attachment $NAME (id $EXISTING_ID)"
-                curl -fSs -X DELETE "$BASE/releases/$RELEASE_ID/attach_files/$EXISTING_ID?access_token=$GITEE_TOKEN"
+                for attempt in 1 2 3; do
+                  if curl -fSs --connect-timeout 15 --max-time 120 -X DELETE "$BASE/releases/$RELEASE_ID/attach_files/$EXISTING_ID?access_token=$GITEE_TOKEN"; then
+                    break
+                  fi
+                  echo "Attachment delete failed (attempt $attempt/3)" >&2
+                  if [ "$attempt" = "3" ]; then exit 1; fi
+                  sleep $((attempt * 5))
+                done
               fi
               echo "Uploading $NAME ($SIZE bytes)"
-              curl -fSs -X POST "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN" \
-                -F "file=@$FILE"
+              for attempt in 1 2 3; do
+                if curl -fSs --connect-timeout 15 --max-time 600 --retry 2 --retry-delay 5 \
+                  -X POST "$BASE/releases/$RELEASE_ID/attach_files?access_token=$GITEE_TOKEN" \
+                  -F "file=@$FILE"; then
+                  echo "Uploaded $NAME"
+                  break
+                fi
+                echo "Upload failed (attempt $attempt/3)" >&2
+                if [ "$attempt" = "3" ]; then exit 1; fi
+                sleep $((attempt * 10))
+              done
             else
               echo "Asset $NAME already present with matching size"
             fi
