@@ -56,7 +56,10 @@ object PlayerFactory {
         ExoPlayer.Builder(context)
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    // 正式档（15s/30s）注释见下；预览档只改一组数字，约束完全一样。
+                    // 两档数值只在这里落一次：
+                    //  - 预览档：15_000 / 60_000 / 2_500 / 15_000
+                    //  - 正式档：30_000 / 60_000 / 15_000 / 30_000
+                    // 参数语义见下方注释；预览档只改一组数字，约束完全一样。
                     .setBufferDurationsMs(
                         if (preview) PREVIEW_MIN_BUFFER_MS else 30_000,
                         60_000,
@@ -96,12 +99,11 @@ object PlayerFactory {
                     //    与 minBuffer 同值——饿死一次后要重新攒够才恢复，
                     //    这是治"高频往复"的关键（初版 2.5s/5s 太激进导致 992 次振荡）
                     //  - `maxBufferMs = 60s`：给 CDN 抖动留余量（免费源实测 45-357KB/s）
-                    .setBufferDurationsMs(
-                        /* minBufferMs = */ 30_000,
-                        /* maxBufferMs = */ 60_000,
-                        /* bufferForPlaybackMs = */ 15_000,
-                        /* bufferForPlaybackAfterRebufferMs = */ 30_000,
-                    )
+                    //
+                    // 【只调用一次】上面那次 setBufferDurationsMs 已按 preview 选好
+                    // 两档数值；旧实现紧接着又无条件调用一次正式档，把预览档覆盖掉
+                    // （发现页实际生效的是 30s/60s/15s/30s）。重复调用已删除，两档
+                    // 各只生效一次。
                     .build()
             )
             .build()
