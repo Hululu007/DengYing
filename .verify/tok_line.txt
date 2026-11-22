@@ -1,1 +1,0 @@
-<string name="auth_access_token_v1">62fb826cc1da96a8ced7db5ad4a12b59efd68f8164beacc3c32971804df8290b</string>

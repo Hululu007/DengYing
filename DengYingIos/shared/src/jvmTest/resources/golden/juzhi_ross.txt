@@ -1,3 +1,0 @@
-{"domain": "http://fuckducai.biosyne.cn",
-"enabled": true,
-"offlineUrl":"https://juzhi7777.app"}
