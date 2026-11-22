@@ -47,6 +47,11 @@ declare const dengying: {
   registerOrientationSink(sink: (landscape: number) => void): void;
   /** 应用版本推送到 Kotlin（更新检查用）。 */
   setAppVersion(versionName: string, versionCode: number, debug: number): void;
+  /**
+   * 注册「壳动作」执行器（Kotlin → ArkTS 反向调用）。
+   * op: 1=打开外部链接 2=写系统剪贴板；arg 为链接或文本。
+   */
+  registerShellSink(sink: (op: number, arg: string) => void): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----
   // compose.har 的 modules.abc 按这 6 个裸名从 libentry.so 取 native 函数；

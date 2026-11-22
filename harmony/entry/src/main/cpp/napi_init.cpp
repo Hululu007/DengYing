@@ -914,6 +914,72 @@ napi_value SetAppVersion(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
+// ---- 壳命令（反向）：打开外部链接 / 复制文本 ----
+// 与 orientation 同构：ArkTS 在 EntryAbility 里注册 sink，Kotlin 侧
+// dlsym("dengy_shell_call") 投递 (op, arg)。op 见 Kotlin 的 OhosShellControl：
+// 1 = 用系统浏览器打开链接，2 = 写入系统剪贴板。未注册时返回 0，Kotlin 侧
+// 当场降级为 false（老 HAP / 预览环境不影响其它端）。
+napi_threadsafe_function g_shellTsfn = nullptr;
+napi_ref g_shellSink = nullptr;
+
+struct ShellCall {
+  int32_t op;
+  std::string arg;
+};
+
+void OnShellToJs(napi_env env, napi_value /*js_cb*/, void* /*context*/,
+                 void* data) {
+  std::unique_ptr<ShellCall> call(static_cast<ShellCall*>(data));
+  if (env == nullptr || call == nullptr) return;
+  if (g_shellSink == nullptr) {
+    BRIDGE_LOG("shell call dropped: sink not registered");
+    return;
+  }
+  napi_value sink = nullptr;
+  napi_get_reference_value(env, g_shellSink, &sink);
+  if (sink == nullptr) {
+    BRIDGE_LOG("shell call dropped: sink ref null");
+    return;
+  }
+  napi_value undefined = nullptr;
+  napi_get_undefined(env, &undefined);
+  napi_value argv[2] = {nullptr, nullptr};
+  napi_create_int32(env, call->op, &argv[0]);
+  napi_create_string_utf8(env, call->arg.c_str(), NAPI_AUTO_LENGTH, &argv[1]);
+  napi_status st = napi_call_function(env, undefined, sink, 2, argv, nullptr);
+  BRIDGE_LOG("shell call to js: op=%{public}d status=%{public}d", call->op, st);
+  if (st != napi_ok) {
+    napi_value exc = nullptr;
+    napi_get_and_clear_last_exception(env, &exc);
+  }
+}
+
+// ArkTS 侧：registerShellSink((op: number, arg: string) => void)
+napi_value RegisterShellSink(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (argc < 1 || args[0] == nullptr) {
+    BRIDGE_LOG("registerShellSink: no callback");
+    return nullptr;
+  }
+  if (g_shellSink != nullptr) {
+    napi_delete_reference(env, g_shellSink);
+    g_shellSink = nullptr;
+  }
+  napi_create_reference(env, args[0], 1, &g_shellSink);
+  if (g_shellTsfn == nullptr) {
+    napi_value async_name = nullptr;
+    napi_create_string_utf8(env, "dengy_shell", NAPI_AUTO_LENGTH, &async_name);
+    napi_create_threadsafe_function(env, nullptr, nullptr, async_name, 0, 1,
+                                    nullptr, nullptr, nullptr, OnShellToJs,
+                                    &g_shellTsfn);
+  }
+  BRIDGE_LOG("shell sink registered");
+  return nullptr;
+}
+
 napi_value Init(napi_env env, napi_value exports) {
   BRIDGE_LOG("module init v8");
   // 必须早于任何 Compose 调用：社区 utils 在此拿 env/exports 建好 napi 引用表。
@@ -971,6 +1037,9 @@ napi_value Init(napi_env env, napi_value exports) {
       // 版本：EntryAbility 读 bundleManager 后推给 Kotlin。
       {"setAppVersion", nullptr, SetAppVersion, nullptr, nullptr, nullptr,
        napi_default, nullptr},
+      // 反向：Kotlin 经 dengy_shell_call 请求 ArkTS 打开链接 / 复制文本。
+      {"registerShellSink", nullptr, RegisterShellSink, nullptr, nullptr,
+       nullptr, napi_default, nullptr},
       // fusion-renderer 的 6 个 NAPI：compose.har 的 Compose 组件 aboutToAppear
       // 具名 import，缺一个就 ES SyntaxError -> onAbilityDied。实现在 libdengyui.so。
       {"nativeCreateRootNode", nullptr, NativeCreateRootNode, nullptr, nullptr,
@@ -1033,6 +1102,26 @@ __attribute__((visibility("default"))) int dengy_request_orientation(
       napi_call_threadsafe_function(g_orientTsfn, req, napi_tsfn_nonblocking);
   if (st != napi_ok) {
     delete req;
+    return 0;
+  }
+  return 1;
+}
+
+// 由 libdengyui.so 的 OhosShellControl 调用：投递一条壳命令到 JS 线程。
+// 1=已投递；0=sink 未注册或投递失败（Kotlin 侧当场返回 false）。
+__attribute__((visibility("default"))) int dengy_shell_call(int32_t op,
+                                                            const char* arg) {
+  if (arg == nullptr || g_shellTsfn == nullptr) {
+    BRIDGE_LOG("shell call refused: tsfn=%{public}s",
+               g_shellTsfn == nullptr ? "null" : "ok");
+    return 0;
+  }
+  auto* call = new ShellCall{op, std::string(arg)};
+  napi_status st =
+      napi_call_threadsafe_function(g_shellTsfn, call, napi_tsfn_nonblocking);
+  if (st != napi_ok) {
+    delete call;
+    BRIDGE_LOG("shell call failed: status=%{public}d", st);
     return 0;
   }
   return 1;

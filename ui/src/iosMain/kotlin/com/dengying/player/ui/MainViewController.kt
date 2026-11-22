@@ -23,6 +23,10 @@ import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSLibraryDirectory
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSUserDomainMask
+import platform.Foundation.NSURL
+import platform.UIKit.UIApplication
+import platform.UIKit.UIPasteboard
+import com.dengying.player.ui.update.UpdateChecker
 import platform.UIKit.UIViewController
 
 /**
@@ -107,6 +111,30 @@ class IosAppDeps : UiDeps {
     override val appVersionCode: Long =
         (NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)
             ?.toLongOrNull() ?: 0L
+
+    /**
+     * 只允许打开本仓库的 Release 页面，校验与 Android `DengYingApp.openExternalUrl`
+     * 同一份（[UpdateChecker.isAllowedReleaseUrl]），再交给系统浏览器打开。
+     *
+     * 用 `openURL(_:options:completionHandler:)` 而不是已废弃的 `openURL(_:)`：
+     * iOS 10 起后者仍能用但打 deprecation 警告，且没有「用户拒绝」回调。
+     * 返回值只代表「已交给系统」，不保证 Safari 真的打开（与 Android
+     * `startActivity` 同语义）。
+     */
+    override fun openExternalUrl(url: String): Boolean {
+        if (!UpdateChecker.isAllowedReleaseUrl(url)) return false
+        val nsUrl = NSURL.URLWithString(url) ?: return false
+        val app = UIApplication.sharedApplication
+        if (!app.canOpenURL(nsUrl)) return false
+        app.openURL(nsUrl, emptyMap<Any?, Any?>(), null)
+        return true
+    }
+
+    override fun copyText(text: String): Boolean {
+        if (text.isBlank()) return false
+        UIPasteboard.generalPasteboard.string = text
+        return true
+    }
 
     /**
      * 装配探针、音频会话、存储与源聚合。**幂等**：重复调用只执行一次。

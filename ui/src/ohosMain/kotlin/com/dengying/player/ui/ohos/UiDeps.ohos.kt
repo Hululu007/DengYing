@@ -8,12 +8,14 @@ import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Log
 import com.dengying.player.platform.OhosAppInfo
+import com.dengying.player.platform.OhosShellControl
 import com.dengying.player.playback.cast.CastController
 import com.dengying.player.playback.cast.NoopCastController
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.account.AhAuth
 import com.dengying.player.ui.theme.ThemePrefs
+import com.dengying.player.ui.update.UpdateChecker
 
 /**
  * `:ui` 需求的鸿蒙侧装配（对齐 Android 的 `DengYingApp : UiDeps`）。
@@ -82,6 +84,23 @@ object OhosUiDeps : UiDeps {
 
     override val appVersionCode: Long
         get() = OhosAppInfo.versionCode
+
+    /**
+     * 只允许打开本仓库的 Release 页面，校验与 Android `DengYingApp.openExternalUrl`
+     * 同一份（[UpdateChecker.isAllowedReleaseUrl]），再经 NAPI 交给 ArkTS 用系统浏览器打开。
+     *
+     * 校验留在公共侧：`dengy_shell_call` 是通用通道，不该让壳替上层做 URL 白名单，
+     * 否则以后有人在页面里传任意 URL 就会直接打开。
+     */
+    override fun openExternalUrl(url: String): Boolean {
+        if (!UpdateChecker.isAllowedReleaseUrl(url)) return false
+        return OhosShellControl.call(OhosShellControl.OP_OPEN_URL, url)
+    }
+
+    override fun copyText(text: String): Boolean {
+        if (text.isBlank()) return false
+        return OhosShellControl.call(OhosShellControl.OP_COPY_TEXT, text)
+    }
 }
 
 /**

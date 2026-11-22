@@ -1,5 +1,5 @@
 import { AbilityConstant, bundleManager, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { BusinessError, pasteboard } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { registerHttpExecutor } from '../net/HttpBridge';
@@ -16,9 +16,9 @@ export default class EntryAbility extends UIAbility {
     // 版本号推给 Kotlin：`:ui` 关了 BuildConfig，读不到 HAP 的 build-profile，
     // 更新检查必须与真正安装的包同版本（Android 读 BuildConfig、iOS 读 Info.plist）。
     try {
-      const info = // 必须带 WITH_APPLICATION：DEFAULT 标志返回的 BundleInfo 里 appInfo 是 null，
-            // 读 appInfo.debug 会抛「Cannot read property debug of null」。
-            bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
+      // 必须带 WITH_APPLICATION：DEFAULT 标志返回的 BundleInfo 里 appInfo 是 null，
+      // 读 appInfo.debug 会抛「Cannot read property debug of null」。
+      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
       // debug 标志一并发（编译期常量，HAP 构建形态决定）：鸿蒙没有 BuildConfig 也没有
       // isDebugBinary，release 包里若仍按 debug 处理会露出账号密码表单与「令牌设置」。
       const isDebug = info.appInfo.debug ? 1 : 0;
@@ -74,6 +74,26 @@ export default class EntryAbility extends UIAbility {
             });
         } catch (e) {
           hilog.warn(DOMAIN, 'DengYing', 'orientation sink failed: %{public}s', JSON.stringify(e));
+        }
+      });
+      // 反向通道：Kotlin 的 UiDeps.openExternalUrl / copyText 经 NAPI 请求打开链接、
+      // 写剪贴板。URL 白名单在 Kotlin 侧（UpdateChecker.isAllowedReleaseUrl）已校验，
+      // 这里只负责执行；op 见 OhosShellControl。
+      dengying.registerShellSink((op: number, arg: string): void => {
+        try {
+          hilog.info(DOMAIN, 'DengYing', 'shell sink op=%{public}d', op);
+          if (op === 1) {
+            this.context.openLink(arg).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'openLink failed: %{public}s', JSON.stringify(e));
+            });
+          } else if (op === 2) {
+            const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, arg);
+            pasteboard.getSystemPasteboard().setData(data).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'copyText failed: %{public}s', JSON.stringify(e));
+            });
+          }
+        } catch (e) {
+          hilog.warn(DOMAIN, 'DengYing', 'shell sink failed: %{public}s', JSON.stringify(e));
         }
       });
     } catch (e) {

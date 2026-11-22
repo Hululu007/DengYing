@@ -4,7 +4,10 @@ import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CFunction
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.cstr
 import kotlinx.cinterop.invoke
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toKString
 import kotlin.concurrent.Volatile
 import platform.posix.RTLD_NOLOAD
@@ -35,7 +38,7 @@ object OhosAppInfo {
     /**
      * 当前 HAP 是否为 debug 构建（壳从 bundleManager 的 appInfo.debug 读出）。
      *
-     * 之前  写死 true，导致 release 包也渲染账号密码表单与
+     * 之前写死 true，导致 release 包也渲染账号密码表单与
      * 「令牌设置」；Android 读 BuildConfig.DEBUG、iOS 读 Platform.isDebugBinary，
      * 鸿蒙只能由壳推。默认 false：没推上来就按 release 处理（宁可少显示调试入口）。
      */
@@ -87,6 +90,52 @@ object OhosWindowControl {
         requestSymbol = symbol as? CPointer<CFunction<(Int) -> Int>>
         resolved = true
         return requestSymbol
+    }
+}
+
+/**
+ * 让 ArkTS 执行「壳动作」：打开外部链接、写系统剪贴板（Kotlin → ArkTS）。
+ *
+ * 与 [OhosWindowControl] 同一条反向通道形态，共用 C 侧 `dengy_shell_call`
+ * + ArkTS 的 `registerShellSink((op, arg) => void)`。没注册 sink（老 HAP、
+ * 桌面预览）时返回 false，调用方按「本平台不支持」处理 —— 与
+ * `UiDeps.openExternalUrl` / `copyText` 返回 Boolean 的契约一致。
+ */
+@OptIn(ExperimentalForeignApi::class)
+object OhosShellControl {
+
+    /** 用系统浏览器打开链接。arg 必须是 https URL，校验在调用方。 */
+    const val OP_OPEN_URL = 1
+
+    /** 把文本写进系统剪贴板。 */
+    const val OP_COPY_TEXT = 2
+
+    private var resolved = false
+    private var callSymbol: CPointer<CFunction<(Int, CPointer<ByteVar>) -> Int>>? = null
+
+    /**
+     * 投递一条壳动作。
+     *
+     * @return 是否已投递给 ArkTS（true 只代表投递成功，不保证系统动作已完成）
+     */
+    fun call(op: Int, arg: String): Boolean {
+        if (op <= 0 || arg.isEmpty()) return false
+        val fn = resolve() ?: return false
+        return runCatching {
+            memScoped {
+                fn(op, arg.cstr.ptr) == 1
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun resolve(): CPointer<CFunction<(Int, CPointer<ByteVar>) -> Int>>? {
+        if (resolved) return callSymbol
+        val handle = dlopen("libentry.so", RTLD_NOLOAD)
+        val symbol = handle?.let { dlsym(it, "dengy_shell_call") }
+        @Suppress("UNCHECKED_CAST")
+        callSymbol = symbol as? CPointer<CFunction<(Int, CPointer<ByteVar>) -> Int>>
+        resolved = true
+        return callSymbol
     }
 }
 
