@@ -4,6 +4,8 @@ import com.dengying.player.data.json.JsonX
 import com.dengying.player.data.net.HttpClient
 import com.dengying.player.platform.ioDispatcher
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 
@@ -198,7 +200,11 @@ object UpdateChecker {
     }
 
     /**
-     * 请求 Gitee，失败时回退 GitHub。
+     * 同时请求 Gitee 与 GitHub，取两者中更新的版本。
+     *
+     * 【为什么不按「Gitee 失败才回退」】任一源都可能发布滞后，只在请求失败时
+     * 回退会把落后源的旧 tag 当成最新版本，用户就永远看不到另一个源上的新版。
+     * 两个请求并行发起，任一成功即可给出结果，两个都失败才返回 Failed。
      *
      * 网络异常/非 200 都收敛成 [UpdateCheckResult.Failed]，由调用方决定是否
      * 记录检查时间；这里不抛出，避免一次更新检查影响启动流程。
@@ -207,13 +213,38 @@ object UpdateChecker {
         if (parseCheckableVersion(currentVersion) == null) return UpdateCheckResult.Disabled
         return try {
             withContext(ioDispatcher) {
-                val gitee = fetchGitee(currentVersion)
-                if (gitee == UpdateCheckResult.Failed) fetchGithub(currentVersion) else gitee
+                coroutineScope {
+                    val gitee = async { fetchGitee(currentVersion) }
+                    val github = async { fetchGithub(currentVersion) }
+                    pickNewer(gitee.await(), github.await())
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             UpdateCheckResult.Failed
+        }
+    }
+
+    /**
+     * 从两个源的结果里挑更新的一个。
+     *
+     * [UpdateCheckResult.Available] 一定高于当前版本（见 [releaseResult]），
+     * 所以两个 Available 只需比较版本号；只有一个成功时直接用它的结论。
+     */
+    internal fun pickNewer(first: UpdateCheckResult, second: UpdateCheckResult): UpdateCheckResult {
+        val firstVersion = (first as? UpdateCheckResult.Available)?.let { parseVersion(it.info.version) }
+        val secondVersion = (second as? UpdateCheckResult.Available)?.let { parseVersion(it.info.version) }
+        return when {
+            firstVersion != null && secondVersion != null ->
+                if (firstVersion >= secondVersion) first else second
+            firstVersion != null -> first
+            secondVersion != null -> second
+            first == UpdateCheckResult.UpToDate || second == UpdateCheckResult.UpToDate ->
+                UpdateCheckResult.UpToDate
+            first == UpdateCheckResult.Disabled && second == UpdateCheckResult.Disabled ->
+                UpdateCheckResult.Disabled
+            else -> UpdateCheckResult.Failed
         }
     }
 

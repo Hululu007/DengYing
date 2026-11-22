@@ -52,7 +52,7 @@ class UpdatePrefs(private val kv: KeyValueStore?) {
     /** 「我的」页副标题：上次检查的相对时间。 */
     fun statusText(nowMs: Long): String {
         val last = lastCheckMs()
-        if (last <= 0L) return "检查 Gitee Releases 上的最新版本"
+        if (last <= 0L) return "检查 Gitee / GitHub 上的最新版本"
         val elapsed = (nowMs - last).coerceAtLeast(0L)
         return when {
             elapsed < MINUTE_MS -> "刚刚检查"

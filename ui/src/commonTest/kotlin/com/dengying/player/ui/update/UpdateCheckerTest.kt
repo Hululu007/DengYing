@@ -164,6 +164,45 @@ class UpdateCheckerTest {
         )
     }
 
+    private fun available(version: String) = UpdateCheckResult.Available(
+        UpdateInfo(
+            tag = "v$version",
+            version = version,
+            publishedDate = "",
+            notes = "",
+            url = "https://gitee.com/han-xiaos-whisper/DengYing/releases/tag/v$version",
+        ),
+    )
+
+    @Test
+    fun `newer of the two sources wins`() {
+        val giteeOlder = available("1.3.14")
+        val githubNewer = available("1.3.15")
+
+        assertSame(githubNewer, UpdateChecker.pickNewer(giteeOlder, githubNewer))
+        assertSame(githubNewer, UpdateChecker.pickNewer(githubNewer, giteeOlder))
+    }
+
+    @Test
+    fun `lagging source does not hide the newer release`() {
+        val newer = available("1.3.15")
+
+        assertSame(newer, UpdateChecker.pickNewer(UpdateCheckResult.UpToDate, newer))
+        assertSame(newer, UpdateChecker.pickNewer(newer, UpdateCheckResult.Failed))
+    }
+
+    @Test
+    fun `both sources failing stays failed`() {
+        assertEquals(
+            UpdateCheckResult.UpToDate,
+            UpdateChecker.pickNewer(UpdateCheckResult.UpToDate, UpdateCheckResult.Failed),
+        )
+        assertEquals(
+            UpdateCheckResult.Failed,
+            UpdateChecker.pickNewer(UpdateCheckResult.Failed, UpdateCheckResult.Failed),
+        )
+    }
+
     @Test
     fun `notes are plain text and capped`() {
         assertEquals("", UpdateChecker.formatNotes(""))

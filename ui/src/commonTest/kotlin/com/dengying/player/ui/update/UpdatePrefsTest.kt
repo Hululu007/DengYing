@@ -77,7 +77,7 @@ class UpdatePrefsTest {
         val prefs = UpdatePrefs(FakeKeyValueStore())
         val now = 1_700_000_000_000L
 
-        assertEquals("检查 Gitee Releases 上的最新版本", prefs.statusText(now))
+        assertEquals("检查 Gitee / GitHub 上的最新版本", prefs.statusText(now))
         prefs.markChecked(now - 2 * 60 * 60 * 1000L)
         assertEquals("2 小时前检查", prefs.statusText(now))
     }
