@@ -241,7 +241,9 @@ class IndexViewModel(
      */
     fun warmAllCategories() {
         for (i in 1 until state.categories.size) {
-            if (!state.cat(i).started) loadData(i)
+            // forDiscover：这批分类是给发现页片池供料的，详情预取要让位给
+            // 用户正在等的首张卡解析（见 [prefetchDetails]）。
+            if (!state.cat(i).started) loadData(i, forDiscover = true)
         }
     }
 
@@ -314,7 +316,11 @@ class IndexViewModel(
      * 【Background 优先级】走 [NetPriority.Background]，只占 4/6 个出网空位，
      * 前台请求（列表、搜索、用户真正点的详情）永远有 2 个空位可用。
      */
-    private fun prefetchDetails(idx: Int, items: List<VideoItem>) {
+    private fun prefetchDetails(
+        idx: Int,
+        items: List<VideoItem>,
+        waitForFirstPlayableUrl: Boolean = false,
+    ) {
         val targets = items.asSequence()
             .filter { it._source != null && it.vod_id > 0 }
             .filter { detailCache.get(UiDeps.detailCacheKey(it._source!!, it.vod_id)) == null }
@@ -325,6 +331,12 @@ class IndexViewModel(
         // 后台请求抢同一份带宽，恰好拖慢用户正要点的那个详情。
         prefetchJobs[idx]?.cancel()
         prefetchJobs[idx] = viewModelScope.launch(NetPriority.Background) {
+            // 【发现页专用】首张卡还没解析出地址时，详情预取先等着：两边都吃出网闸，
+            // 预取抢到席位会把用户真正在等的那张卡往后推（计划 18 §5.2.2）。
+            // 上限 6s，首页回包/解析再慢也不能把预取永久卡死；超时照常开始。
+            if (waitForFirstPlayableUrl) {
+                com.dengying.player.ui.AppStartupSignals.awaitFirstPlayableUrl(6_000)
+            }
             for (it in targets) {
                 val src = CmsSources.byKey(it._source ?: continue) ?: continue
                 if (!src.enabled) continue
@@ -347,7 +359,7 @@ class IndexViewModel(
     }
 
     /** 重新加载某分类第一页 */
-    fun loadData(idx: Int) {
+    fun loadData(idx: Int, forDiscover: Boolean = false) {
         val cat = state.categories[idx]
         // 推荐页不走聚合分类管线（无 PageCache/豆瓣榜/翻页），见 [loadRecommend]
         if (cat == RECOMMEND) {
@@ -381,8 +393,8 @@ class IndexViewModel(
             }
             // 无论陈旧与否都后台刷新——反正不阻塞用户，
             // 且"内容变了"是唯一值得替换的条件（见 refreshInBackground）
-            refreshInBackground(idx, seq, cat)
-            prefetchDetails(idx, cached)
+            refreshInBackground(idx, seq, cat, forDiscover)
+            prefetchDetails(idx, cached, waitForFirstPlayableUrl = forDiscover)
             return
         }
 
@@ -433,7 +445,7 @@ class IndexViewModel(
                     }
                     // 写入缓存供下次命中
                     cache.put(cat, 1, res.items)
-                    prefetchDetails(idx, res.items)
+                    prefetchDetails(idx, res.items, waitForFirstPlayableUrl = forDiscover)
                 } else {
                     // FR-108：无数据不是失败，但首页该分类确实没内容时也要说清楚
                     setCat(idx) {
@@ -471,7 +483,12 @@ class IndexViewModel(
      * 片单顺序或成员变化都算"变了"。这样正常情况（内容没变）完全不重组，
      * 用户的滚动位置不会被打断。
      */
-    private fun refreshInBackground(idx: Int, seq: Int, cat: String) {
+    private fun refreshInBackground(
+        idx: Int,
+        seq: Int,
+        cat: String,
+        forDiscover: Boolean = false,
+    ) {
         viewModelScope.launch {
             try {
                 val res = repo.fetchByCategory(repo.allSources(), cat, 1)
@@ -495,7 +512,7 @@ class IndexViewModel(
                 // 后台刷新可能换了片单顺序（真机 `index-bg-refresh changed=true` 很常见），
                 // 此时用户眼前的第一屏已经不是 [loadData] 预取的那 6 张了——必须按新列表再预取一次，
                 // 否则「点了第一张恰好没预取到」。
-                prefetchDetails(idx, state.cat(idx).items)
+                prefetchDetails(idx, state.cat(idx).items, waitForFirstPlayableUrl = forDiscover)
             } catch (e: Exception) {
                 // 静默失败：用户已有内容可看，不必打扰
                 PlaybackProbe.note("index-bg-refresh-failed", e::class.simpleName ?: "Exception")

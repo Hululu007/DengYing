@@ -17,6 +17,7 @@ import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
 import com.dengying.player.data.download.DownloadCenter
+import com.dengying.player.ui.AppStartupSignals
 import com.dengying.player.ui.components.GlassBackdropState
 import com.dengying.player.ui.components.LocalGlassBackdrop
 import com.dengying.player.ui.components.glassBackdrop
@@ -106,7 +107,14 @@ fun DengYingNavHost(
     // 自动检查不阻塞首帧：请求在 IO 上发出，失败只更新「我的」页状态。
     // 只认冷启动：转屏/重建会让 NavHost 重组，但不应周期性再弹更新提示。
     LaunchedEffect(coldStartAutoCheck) {
-        if (coldStartAutoCheck) UpdateNoticeController.autoCheckOnColdStart(deps)
+        if (!coldStartAutoCheck) return@LaunchedEffect
+        // 【让位给首屏】冷启动时更新检查和首页首批、发现页首条解析抢同一个
+        // 出网闸（6 席）。等首屏内容出现（最多 8s）再以 Background 档启动，
+        // 用户先看到内容；更新提示晚几秒没有感知（计划 18 §12.2）。
+        AppStartupSignals.awaitFirstContent(8_000)
+        kotlinx.coroutines.withContext(com.dengying.player.data.net.NetPriority.Background) {
+            UpdateNoticeController.autoCheckOnColdStart(deps)
+        }
     }
     // 【鸿蒙没有系统返回分发器】Android 的 NavHost 自己接了 OnBackPressedDispatcher，
     // 这里只给 `systemBackNeedsHost` 的平台补一条路由级返回：有上一页时 popBackStack；
