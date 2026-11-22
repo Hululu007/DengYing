@@ -15,28 +15,48 @@ package com.dengying.player.ui.pages
  * 调用点都在主线程（Compose 的 resolveChainOf），不做额外同步。
  */
 internal object DiscoverUrlCache {
-    private const val MAX_ENTRIES = 120
-
-    class CacheEntry(val url: String, val headers: String, val previewOnly: Boolean)
-
-    private val entries = LinkedHashMap<String, CacheEntry>()
-
     fun key(source: String, vodId: Long, episodeIndex: Int): String =
-        "$source|$vodId|$episodeIndex"
+        UrlCacheStore.key(source, vodId, episodeIndex)
 
-    fun get(key: String): CacheEntry? {
+    fun get(key: String): UrlCacheStore.Entry? = store.get(key)
+
+    fun put(key: String, url: String, headers: String, previewOnly: Boolean) =
+        store.put(key, url, headers, previewOnly)
+
+    // 进程级单例；容量与 LRU 行为在 [UrlCacheStore] 里，便于单测。
+    private val store = UrlCacheStore()
+}
+
+/** 有容量上限的「地址 → 可播信息」表，最近命中/写入的排在后面，超出容量淘汰最旧。 */
+internal class UrlCacheStore(private val maxEntries: Int = 120) {
+
+    class Entry(val url: String, val headers: String, val previewOnly: Boolean)
+
+    private val entries = LinkedHashMap<String, Entry>()
+
+    fun get(key: String): Entry? {
         // 命中后移到队尾，近似 LRU；LinkedHashMap 的 accessOrder 不在 common 里。
         val hit = entries.remove(key) ?: return null
         entries[key] = hit
+        com.dengying.player.player.PlaybackProbe.note("discover-url-cache", "hit key=$key")
         return hit
     }
 
     fun put(key: String, url: String, headers: String, previewOnly: Boolean) {
         if (url.isEmpty()) return
+        com.dengying.player.player.PlaybackProbe.note(
+            "discover-url-cache",
+            "put key=$key preview=$previewOnly",
+        )
         entries.remove(key)
-        if (entries.size >= MAX_ENTRIES) {
+        while (entries.size >= maxEntries) {
             entries.keys.firstOrNull()?.let { entries.remove(it) }
         }
-        entries[key] = CacheEntry(url, headers, previewOnly)
+        entries[key] = Entry(url, headers, previewOnly)
+    }
+
+    companion object {
+        fun key(source: String, vodId: Long, episodeIndex: Int): String =
+            "$source|$vodId|$episodeIndex"
     }
 }
