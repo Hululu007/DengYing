@@ -7,6 +7,7 @@ import com.dengying.player.data.store.Store
 import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Log
+import com.dengying.player.platform.KeyValueStore
 import com.dengying.player.platform.OhosAppInfo
 import com.dengying.player.platform.OhosShellControl
 import com.dengying.player.playback.cast.CastController
@@ -101,6 +102,15 @@ object OhosUiDeps : UiDeps {
         if (text.isBlank()) return false
         return OhosShellControl.call(OhosShellControl.OP_COPY_TEXT, text)
     }
+
+    /**
+     * 更新提示的「忽略此版本 / 上次检查时间」要跨进程留存。
+     *
+     * 与 `store` 共用同一份 [OhosApp.kv]（`Store` 也是它构建的），键互不相交；
+     * kv 未就绪时返回 null，`UpdatePrefs` 对 null 是安全的（当作「没记过」）。
+     */
+    override val keyValueStore: KeyValueStore?
+        get() = OhosApp.kvOrNull
 }
 
 /**

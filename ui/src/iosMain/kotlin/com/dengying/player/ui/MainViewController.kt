@@ -4,6 +4,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.dengying.player.data.cache.PageCache
 import com.dengying.player.data.source.SourceRepository
 import com.dengying.player.data.store.Store
+import com.dengying.player.platform.KeyValueStore
 import com.dengying.player.platform.UserDefaultsStore
 import com.dengying.player.player.PlaybackProbe
 import com.dengying.player.player.PlayerEngineHost
@@ -158,6 +159,7 @@ class IosAppDeps : UiDeps {
         // NSUserDefaults 是 App 沙盒内的主域，与 Android 的 SharedPreferences
         // 同构（键 → 字符串扁平映射、加载一次内存读）。
         val kv = UserDefaultsStore()
+        keyValueStore = kv
         store = Store(kv)
         // P4-1d：PlaybackSession 升舱到 commonMain 后不再带 Context，引擎由宿主注入。
         // 与 Android `DengYingApp.onCreate` 对齐：单例宿主即 IosPlayerEngineHost。
@@ -226,6 +228,13 @@ class IosAppDeps : UiDeps {
         ).firstOrNull() as? String
         return (docs ?: NSHomeDirectory()) + "/downloads"
     }
+
+    /**
+     * 更新提示的「忽略此版本 / 上次检查时间」要跨进程留存：与 `store` 共用同一份
+     * `NSUserDefaults` 域（键互不相交），在 `ensureStarted` 里赋值。
+     */
+    override var keyValueStore: KeyValueStore? = null
+        private set
 
     private var started = false
 }
