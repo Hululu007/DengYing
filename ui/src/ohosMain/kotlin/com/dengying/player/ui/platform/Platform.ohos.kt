@@ -140,13 +140,17 @@ actual class BrightnessController internal constructor() {
     }
 
     actual fun restore() {
+        // 幂等：没调过亮度就不必发通道。调用方的 DisposableEffect 在窗口重组时
+        // 可能反复 dispose，这里必须挡住，否则会变成每秒十几次的 NAPI 调用。
+        if (last.isNaN()) return
         last = Float.NaN
         OhosShellControl.call(OhosShellControl.OP_RESTORE_BRIGHTNESS, "")
     }
 }
 
 @Composable
-actual fun rememberBrightnessController(): BrightnessController? = BrightnessController()
+actual fun rememberBrightnessController(): BrightnessController? =
+    remember { BrightnessController() }
 
 /**
  * 媒体音量：**鸿蒙侧不提供**，保留类型只为对齐 expect。
