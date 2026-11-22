@@ -82,40 +82,40 @@ jobs:
           BASE="https://gitee.com/api/v5/repos/$GITEE_OWNER/$GITEE_REPO"
           TAG_ENC=$(printf '%s' "$TAG" | jq -sRr @uri)
           CODE=$(curl -sS -o /tmp/gitee-release.json -w '%{http_code}' -H 'Accept: application/json;charset=UTF-8' "$BASE/releases/tags/$TAG_ENC")
+          ID=""
           if [ "$CODE" = "200" ]; then
             ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
-            if [ -z "$ID" ]; then
-              echo "Gitee release lookup returned no id for $TAG" >&2
-              cat /tmp/gitee-release.json
-              exit 1
-            fi
+          fi
+          # Gitee 对尚未创建的 tag 返回 200 + null，因此「无 id」与 404 一样按未创建处理
+          if [ -n "$ID" ]; then
             echo "Found Gitee release $TAG with id $ID"
-          elif [ "$CODE" = "404" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "INPUT_DRY_RUN=$INPUT_DRY_RUN IS_DRY_RUN=$IS_DRY_RUN"
-            echo "DRY RUN: would create Gitee release $TAG"
-            ID=""
-          elif [ "$CODE" = "404" ]; then
-            jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" --arg sha "$GITHUB_SHA" \
-              '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false,target_commitish:$sha}' \
-              > /tmp/gitee-create.json
-            for attempt in 1 2 3; do
-              if curl -fSs --connect-timeout 15 --max-time 120 -X POST "$BASE/releases" \
-                -H 'Content-Type: application/json;charset=UTF-8' \
-                --data-binary @/tmp/gitee-create.json \
-                -o /tmp/gitee-release.json; then
-                break
+          elif [ "$CODE" = "200" ] || [ "$CODE" = "404" ]; then
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "DRY RUN: would create Gitee release $TAG"
+              ID=""
+            else
+              jq -n --arg token "$GITEE_TOKEN" --arg tag "$TAG" --arg sha "$GITHUB_SHA" \
+                '{access_token:$token,tag_name:$tag,name:$tag,body:"Release assets mirrored from GitHub Actions.",prerelease:false,target_commitish:$sha}' \
+                > /tmp/gitee-create.json
+              for attempt in 1 2 3; do
+                if curl -fSs --connect-timeout 15 --max-time 120 -X POST "$BASE/releases" \
+                  -H 'Content-Type: application/json;charset=UTF-8' \
+                  --data-binary @/tmp/gitee-create.json \
+                  -o /tmp/gitee-release.json; then
+                  break
+                fi
+                echo "Gitee release creation failed (attempt $attempt/3)" >&2
+                if [ "$attempt" = "3" ]; then exit 1; fi
+                sleep $((attempt * 5))
+              done
+              ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
+              if [ -z "$ID" ]; then
+                echo "Gitee release creation returned no id for $TAG" >&2
+                cat /tmp/gitee-release.json
+                exit 1
               fi
-              echo "Gitee release creation failed (attempt $attempt/3)" >&2
-              if [ "$attempt" = "3" ]; then exit 1; fi
-              sleep $((attempt * 5))
-            done
-            ID=$(jq -r 'if type == "object" then (.id // "") else "" end' /tmp/gitee-release.json)
-            if [ -z "$ID" ]; then
-              echo "Gitee release creation returned no id for $TAG" >&2
-              cat /tmp/gitee-release.json
-              exit 1
+              echo "Created Gitee release $TAG with id $ID"
             fi
-            echo "Created Gitee release $TAG with id $ID"
           else
             echo "Unexpected Gitee release lookup status: $CODE" >&2
             cat /tmp/gitee-release.json
