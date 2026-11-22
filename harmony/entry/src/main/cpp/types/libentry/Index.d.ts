@@ -38,6 +38,15 @@ declare const dengying: {
   clearVideoSurfaceId(surfaceId: string): void;
   /** ArkTS 窗口方向推送到 Kotlin（1=横屏，0=竖屏），驱动全屏控件分支。 */
   setLandscape(value: number): void;
+  /**
+   * 反向通道：注册「Kotlin 请求转屏/收系统栏」的 sink。
+   * Kotlin 的 FullscreenState.enter/exit 经 libentry.so 的
+   * `dengy_request_orientation` 投递到这里，由 ArkTS 调 window 接口真正生效。
+   * @param sink 收到 1=进入全屏横屏（收系统栏），0=退出全屏（恢复竖屏+系统栏）
+   */
+  registerOrientationSink(sink: (landscape: number) => void): void;
+  /** 应用版本推送到 Kotlin（更新检查用）。 */
+  setAppVersion(versionName: string, versionCode: number): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----
   // compose.har 的 modules.abc 按这 6 个裸名从 libentry.so 取 native 函数；

@@ -815,6 +815,103 @@ napi_value SetLandscape(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
+// ---- 窗口方向（反向）：Kotlin 请求 ArkTS 改方向 ----
+// 与 HTTP 桥同构但方向相反：Kotlin 的 FullscreenState.enter/exit 需要 ArkUI 的
+// window 接口才能转屏/收系统栏，而 Kotlin 调不到 ArkTS。于是 ArkTS 在
+// EntryAbility 里注册一个 sink（registerOrientationSink），Kotlin 侧
+// dlopen("libentry.so", RTLD_NOLOAD) + dlsym("dengy_request_orientation")
+// 投递请求，由 sink 调 setPreferredOrientation / setWindowSystemBarEnable。
+// 未注册时返回 0，Kotlin 静默降级（老 HAP / 桌面预览不影响其它端）。
+napi_threadsafe_function g_orientTsfn = nullptr;
+napi_ref g_orientSink = nullptr;
+
+struct OrientRequest {
+  int32_t landscape;
+};
+
+void OnOrientationToJs(napi_env env, napi_value /*js_cb*/, void* /*context*/,
+                       void* data) {
+  std::unique_ptr<OrientRequest> req(static_cast<OrientRequest*>(data));
+  if (g_orientSink == nullptr) {
+    BRIDGE_LOG("orientation dropped: sink not registered");
+    return;
+  }
+  napi_value sink = nullptr;
+  napi_get_reference_value(env, g_orientSink, &sink);
+  if (sink == nullptr) {
+    BRIDGE_LOG("orientation dropped: sink ref null");
+    return;
+  }
+  napi_value arg = nullptr;
+  napi_value undefined = nullptr;
+  napi_get_undefined(env, &undefined);
+  napi_create_int32(env, req->landscape, &arg);
+  napi_status st = napi_call_function(env, undefined, sink, 1, &arg, nullptr);
+  BRIDGE_LOG("orientation to js: %{public}d status=%{public}d", req->landscape, st);
+  if (st != napi_ok) {
+    napi_value exc = nullptr;
+    napi_get_and_clear_last_exception(env, &exc);
+  }
+}
+
+// ArkTS 侧：registerOrientationSink((landscape: number) => void)
+napi_value RegisterOrientationSink(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (argc < 1 || args[0] == nullptr) {
+    BRIDGE_LOG("registerOrientationSink: no callback");
+    return nullptr;
+  }
+  if (g_orientSink != nullptr) {
+    napi_delete_reference(env, g_orientSink);
+    g_orientSink = nullptr;
+  }
+  napi_create_reference(env, args[0], 1, &g_orientSink);
+  if (g_orientTsfn == nullptr) {
+    napi_value async_name = nullptr;
+    napi_create_string_utf8(env, "dengy_orientation", NAPI_AUTO_LENGTH,
+                            &async_name);
+    napi_create_threadsafe_function(env, nullptr, nullptr, async_name, 0, 1,
+                                    nullptr, nullptr, nullptr, OnOrientationToJs,
+                                    &g_orientTsfn);
+  }
+  BRIDGE_LOG("orientation sink registered");
+  return nullptr;
+}
+
+// Kotlin 侧入口在文件末尾的 `extern "C"` 块里（`dengy_request_orientation`）：
+// 【必须放在匿名 namespace 之外】本文件从第 16 行起整个包在 `namespace {` 里，
+// 匿名 namespace 的符号是内部链接 + C++ 名字修饰，`visibility("default")` 也导不出去
+// ——Kotlin 侧 `dlsym` 拿不到（表现为全屏点了没反应，且不报错）。
+// 对照 `dengy_http_submit`（:1010）：同在 `extern "C"` 块，才出现在
+// `llvm-nm -D libentry.so` 的动态符号表里。
+
+// ---- 应用版本：ArkTS 读 bundleManager 后推给 Kotlin 的 dengy_set_app_version ----
+// `:ui` 关掉了 BuildConfig，读不到 HAP 的 build-profile，更新提示的版本只能由壳推。
+using SetAppVersionFn = void (*)(const char*, int64_t);
+
+napi_value SetAppVersion(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 2;
+  napi_value args[2] = {nullptr, nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  std::string name;
+  int64_t code = 0;
+  if (argc >= 1 && args[0] != nullptr) name = ReadString(env, args[0]);
+  if (argc >= 2 && args[1] != nullptr) napi_get_value_int64(env, args[1], &code);
+  auto fn = ResolveTop<SetAppVersionFn>("dengy_set_app_version");
+  if (fn == nullptr) {
+    BRIDGE_LOG("setAppVersion: dengy_set_app_version missing");
+    return nullptr;
+  }
+  fn(name.c_str(), code);
+  BRIDGE_LOG("setAppVersion: %{public}s (%{public}lld)", name.c_str(),
+             static_cast<long long>(code));
+  return nullptr;
+}
+
 napi_value Init(napi_env env, napi_value exports) {
   BRIDGE_LOG("module init v8");
   // 必须早于任何 Compose 调用：社区 utils 在此拿 env/exports 建好 napi 引用表。
@@ -866,6 +963,12 @@ napi_value Init(napi_env env, napi_value exports) {
        nullptr, napi_default, nullptr},
       {"setLandscape", nullptr, SetLandscape, nullptr, nullptr,
        nullptr, napi_default, nullptr},
+      // 反向：Kotlin 经 dengy_request_orientation 请求 ArkTS 转屏/收系统栏。
+      {"registerOrientationSink", nullptr, RegisterOrientationSink, nullptr,
+       nullptr, nullptr, napi_default, nullptr},
+      // 版本：EntryAbility 读 bundleManager 后推给 Kotlin。
+      {"setAppVersion", nullptr, SetAppVersion, nullptr, nullptr, nullptr,
+       napi_default, nullptr},
       // fusion-renderer 的 6 个 NAPI：compose.har 的 Compose 组件 aboutToAppear
       // 具名 import，缺一个就 ES SyntaxError -> onAbilityDied。实现在 libdengyui.so。
       {"nativeCreateRootNode", nullptr, NativeCreateRootNode, nullptr, nullptr,
@@ -911,6 +1014,26 @@ __attribute__((visibility("default"))) int dengy_http_submit(const char* json) {
   }
   BRIDGE_LOG("submit: queued json len=%{public}zu", strlen(json));
   return 0;
+}
+
+// 由 libdengyui.so 里的 OhosWindowControl 调用：请求 ArkTS 转屏/收系统栏。
+// 1=已投递；0=ArkTS 未注册 sink 或投递失败（Kotlin 侧静默降级）。
+//
+// 【必须与 dengy_http_submit 同处这个 extern "C" 块】本文件第 16 行起整体包在
+// `namespace {` 里，匿名 namespace 的符号是内部链接 + C++ 名字修饰，
+// `visibility("default")` 也导不进动态符号表——Kotlin 侧 `dlsym` 取到 null，
+// 表现是「点全屏毫无反应、也不报错」。
+__attribute__((visibility("default"))) int dengy_request_orientation(
+    int32_t landscape) {
+  if (g_orientTsfn == nullptr) return 0;
+  auto* req = new OrientRequest{landscape};
+  napi_status st =
+      napi_call_threadsafe_function(g_orientTsfn, req, napi_tsfn_nonblocking);
+  if (st != napi_ok) {
+    delete req;
+    return 0;
+  }
+  return 1;
 }
 
 }  // extern "C"

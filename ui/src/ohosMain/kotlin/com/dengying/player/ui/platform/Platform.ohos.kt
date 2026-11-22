@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.dengying.player.platform.OhosWindowControl
 import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.OhosVideoSurfaceBridge
 import com.dengying.player.player.PlayerEngine
@@ -77,10 +78,25 @@ actual fun VideoSurface(
     )
 }
 
-/** 窗口方向/系统栏控制待接 ohos window API：先空实现（enter/exit 幂等、不抛，符合契约 3）。 */
+/**
+ * 窗口方向/系统栏控制。
+ *
+ * 鸿蒙的方向与系统栏只能由 ArkUI 的 `window` 接口改，Kotlin 调不到 ArkTS，
+ * 因此这里只把请求推给 ArkTS 注册的 sink（见 [OhosWindowControl]）：
+ * `EntryAbility` 收到后调 `setPreferredOrientation` + `setWindowSystemBarEnable`。
+ *
+ * 与 Android（`requestedOrientation` + `WindowInsetsController`）、iOS
+ * （`IosOrientationLock` + Swift 的 `prefersStatusBarHidden`）同一语义：
+ * 只请求、不保证生效，且不抛异常（sink 未注册时静默降级）。
+ */
 actual class FullscreenState internal constructor() {
-    actual fun enter(landscape: Boolean) {}
-    actual fun exit() {}
+    actual fun enter(landscape: Boolean) {
+        OhosWindowControl.requestLandscape(landscape)
+    }
+
+    actual fun exit() {
+        OhosWindowControl.requestLandscape(false)
+    }
 }
 
 @Composable

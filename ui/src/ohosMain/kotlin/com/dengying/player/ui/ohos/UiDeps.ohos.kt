@@ -7,6 +7,7 @@ import com.dengying.player.data.store.Store
 import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.PlayerEngineHost
 import com.dengying.player.platform.Log
+import com.dengying.player.platform.OhosAppInfo
 import com.dengying.player.playback.cast.CastController
 import com.dengying.player.playback.cast.NoopCastController
 import com.dengying.player.ui.UiDeps
@@ -58,6 +59,22 @@ object OhosUiDeps : UiDeps {
 
     /** 当前只有 debug 产物（HAP 由 hvigor debug 构建），真接签名包时改由 ArkTS 传入 */
     override val isDebug: Boolean = true
+
+    /**
+     * 版本号由壳推送：EntryAbility 读 `bundleManager` 的 `versionName` / `versionCode`
+     * 后经 `dengy.setAppVersion` → NAPI → [OhosAppInfo] 落到这里。
+     *
+     * 为什么用 getter 而不是构造时抓一份：NAPI 注入发生在 EntryAbility.onCreate、
+     * `UiDepsHolder.init` 之后（首帧组合就能读 `appVersionName`），抓块照会让
+     * 更新检查读到空串。用 getter 则谁先谁后都取到最新值。
+     *
+     * 未推送时是空串/0，`UiDeps` 的默认语义即「本平台不提供版本」，更新检查跳过。
+     */
+    override val appVersionName: String
+        get() = OhosAppInfo.versionName
+
+    override val appVersionCode: Long
+        get() = OhosAppInfo.versionCode
 }
 
 /**

@@ -1,4 +1,5 @@
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, bundleManager, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { registerHttpExecutor } from '../net/HttpBridge';
@@ -12,6 +13,15 @@ export default class EntryAbility extends UIAbility {
     registerHttpExecutor();
     const code = dengying.appInit(this.context.filesDir);
     hilog.info(DOMAIN, 'DengYing', 'appInit code=%{public}d dir=%{public}s', code, this.context.filesDir);
+    // 版本号推给 Kotlin：`:ui` 关了 BuildConfig，读不到 HAP 的 build-profile，
+    // 更新检查必须与真正安装的包同版本（Android 读 BuildConfig、iOS 读 Info.plist）。
+    try {
+      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+      dengying.setAppVersion(info.versionName, info.versionCode);
+      hilog.info(DOMAIN, 'DengYing', 'version=%{public}s code=%{public}d', info.versionName, info.versionCode);
+    } catch (e) {
+      hilog.warn(DOMAIN, 'DengYing', 'setAppVersion failed: %{public}s', JSON.stringify(e));
+    }
     hilog.info(DOMAIN, 'DengYing', '%{public}s', 'Ability onCreate');
   }
 
@@ -36,6 +46,29 @@ export default class EntryAbility extends UIAbility {
       // 横竖屏切换时补推一次（避免锁死在启动方向）。
       mainWindow.on('windowSizeChange', (size: window.Size) => {
         dengying.setLandscape(size.width > size.height ? 1 : 0);
+      });
+      // 反向通道：Kotlin 的 FullscreenState.enter/exit 经 NAPI 请求转屏/收系统栏。
+      // Kotlin 调不到 ArkUI 的 window 接口，只能由这里真正执行；未注册时
+      // Kotlin 侧静默降级（与 Android/iOS 「只请求、不保证生效」同语义）。
+      dengying.registerOrientationSink((landscape: number): void => {
+        try {
+          const toLandscape = landscape === 1;
+          hilog.info(DOMAIN, 'DengYing', 'orientation sink landscape=%{public}d', landscape);
+          // 两个接口都返回 Promise：不接 then/catch 的话失败会变成未处理的
+          // rejection（ArkTS 只打一条错误日志，调用方以为成功）。
+          mainWindow.setPreferredOrientation(
+            toLandscape ? window.Orientation.LANDSCAPE : window.Orientation.PORTRAIT)
+            .catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'setPreferredOrientation failed: %{public}s', JSON.stringify(e));
+            });
+          // 全屏播放时收起状态栏与手势条，内容贴边（Compose 侧留 6dp）。
+          mainWindow.setWindowSystemBarEnable(toLandscape ? [] : ['status', 'navigation'])
+            .catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'setWindowSystemBarEnable failed: %{public}s', JSON.stringify(e));
+            });
+        } catch (e) {
+          hilog.warn(DOMAIN, 'DengYing', 'orientation sink failed: %{public}s', JSON.stringify(e));
+        }
       });
     } catch (e) {
       hilog.warn(DOMAIN, 'DengYing', 'setWindowLayoutFullScreen / orientation failed: %{public}s', JSON.stringify(e));

@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import platform.Foundation.NSBundle
 import platform.Foundation.NSHomeDirectory
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSLibraryDirectory
@@ -87,6 +88,25 @@ class IosAppDeps : UiDeps {
      */
     @OptIn(kotlin.experimental.ExperimentalNativeApi::class)
     override val isDebug: Boolean = kotlin.native.Platform.isDebugBinary
+
+    /**
+     * 版本号来自 Info.plist。
+     *
+     * `iosApp/Info.plist` 的 `CFBundleShortVersionString` / `CFBundleVersion`
+     * 就是 Xcode 写进产物的 `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`，
+     * 与 Android `BuildConfig.VERSION_NAME` / `versionCode` 同义。
+     *
+     * 必须走 plist 而不是写常量：`:ui` 关了 BuildConfig，写死会让「应用内显示
+     * 1.3.27、安装包却是 1.3.26」重新出现。`CFBundleVersion` 是字符串且可能
+     * 不是纯数字，解析失败回 0 —— 只有 `appVersionName` 参与更新比较，
+     * 这个值当前只作记录。
+     */
+    override val appVersionName: String =
+        NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: ""
+
+    override val appVersionCode: Long =
+        (NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)
+            ?.toLongOrNull() ?: 0L
 
     /**
      * 装配探针、音频会话、存储与源聚合。**幂等**：重复调用只执行一次。
