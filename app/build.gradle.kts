@@ -1,8 +1,33 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+
+/**
+ * release 签名参数：优先环境变量，其次 `local.properties`，都没有才回退 debug 证书。
+ *
+ * 为什么必须有固定的 release 证书：CI 跑在一次性 runner 上，AGP 会现场生成
+ * `~/.android/debug.keystore`，于是每个 CI 产物签名都不同 —— 用户（以及我们自己）
+ * 装新版本只能先卸载，历史/收藏/下载全丢。固定证书后各版本可原地覆盖升级。
+ *
+ * 四个键：RELEASE_STORE_FILE（相对仓库根或绝对路径）、RELEASE_STORE_PASSWORD、
+ * RELEASE_KEY_ALIAS、RELEASE_KEY_PASSWORD。CI 侧从 secret 解出 keystore 再导出同名
+ * 环境变量；本地只写 `local.properties`，keystore 与密码都不入库（`.gitignore` 已覆盖
+ * `local.properties`、`*.jks`、`*.keystore`）。
+ */
+val localProperties = Properties().apply {
+    val local = rootProject.file("local.properties")
+    if (local.exists()) local.inputStream().use { load(it) }
+}
+
+/** 读签名参数：环境变量优先（CI），其次 `local.properties`（本机），空串视为未配置。 */
+fun signingValue(key: String): String? =
+    (System.getenv(key) ?: localProperties.getProperty(key))?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = signingValue("RELEASE_STORE_FILE")
 
 /**
  * Android 壳 —— 本工程里的「参照实现」。
@@ -37,6 +62,19 @@ android {
         unitTests.all { it.useJUnit() }
     }
 
+    signingConfigs {
+        // 有固定证书就用它；没有（别人 clone 下来直接编）回退 debug 证书，
+        // 保证构建能跑通，只是产物之间不能互相覆盖安装。
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile)
+                storePassword = signingValue("RELEASE_STORE_PASSWORD")
+                keyAlias = signingValue("RELEASE_KEY_ALIAS")
+                keyPassword = signingValue("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             // 不做混淆验收：源清单/规则里正则与常量很多，收益有限、排障成本高。
@@ -45,11 +83,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // 只本地装机、不上架，但未签名 APK 装不上（apksigner 报
-            // Missing META-INF/MANIFEST.MF），故 release 复用 AGP 自动创建的 debug
-            // 签名配置（同一张 CN=Android Debug 证书）。
-            // 代价：包名不带 .debug；将来换正式密钥必须先卸载再装。
-            signingConfig = signingConfigs.getByName("debug")
+            // 未签名 APK 装不上（apksigner 报 Missing META-INF/MANIFEST.MF）。
+            // 有固定 release 证书时用它（各版本可原地升级）；没有才退回 AGP 自动
+            // 生成的 debug 证书 —— 那张证书每台机器都不一样，产物互相覆盖不了。
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
         }
         debug {
             applicationIdSuffix = ".debug"

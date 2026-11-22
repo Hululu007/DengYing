@@ -38,14 +38,36 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # 固定 release 证书：runner 是一次性的，缺了这步 AGP 会现场生成随机 debug
+      # 证书，产物之间互相覆盖不了安装（用户升级必须先卸载，数据全丢）。
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::缺少 secret RELEASE_KEYSTORE_BASE64，拒绝用随机证书打包"
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > keystore/dengying-release.jks
+
       # 三端单工程：Android 壳在仓库根的 :app（不再有 DengYing/ 子目录）
       - name: Build release APK
+        env:
+          RELEASE_STORE_FILE: keystore/dengying-release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew --no-daemon :app:assembleRelease
 
       - name: Verify APK is signed
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | tee certs.txt
+          grep -q "CN=DengYing" certs.txt || {
+            echo "::error::APK 没用固定 release 证书签名，装上去覆盖不了旧版本"
+            exit 1
+          }
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
