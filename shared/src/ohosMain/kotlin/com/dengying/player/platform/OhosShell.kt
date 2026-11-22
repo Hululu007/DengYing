@@ -110,6 +110,12 @@ object OhosShellControl {
     /** 把文本写进系统剪贴板。 */
     const val OP_COPY_TEXT = 2
 
+    /** 设置当前窗口亮度。arg 是 0.01..1 的浮点字符串（只影响本窗口，不改系统设置）。 */
+    const val OP_SET_BRIGHTNESS = 3
+
+    /** 撤掉窗口亮度覆写，交还系统亮度。arg 可为空。 */
+    const val OP_RESTORE_BRIGHTNESS = 4
+
     private var resolved = false
     private var callSymbol: CPointer<CFunction<(Int, CPointer<ByteVar>) -> Int>>? = null
 
@@ -119,7 +125,8 @@ object OhosShellControl {
      * @return 是否已投递给 ArkTS（true 只代表投递成功，不保证系统动作已完成）
      */
     fun call(op: Int, arg: String): Boolean {
-        if (op <= 0 || arg.isEmpty()) return false
+        // 不校验 arg 非空：OP_RESTORE_BRIGHTNESS 就是无参动作。
+        if (op <= 0) return false
         val fn = resolve() ?: return false
         return runCatching {
             memScoped {
@@ -149,4 +156,29 @@ object OhosShellControl {
 @kotlin.native.CName("dengy_set_app_version")
 fun setAppVersionFromShell(name: CPointer<ByteVar>?, code: Long, debug: Int) {
     OhosAppInfo.setVersion(name?.toKString() ?: "", code, debug != 0)
+}
+
+/**
+ * 壳推送的屏幕/音量真值（ArkTS → Kotlin）。
+ *
+ * 亮度、媒体音量只有 ArkTS 能读（`window.getWindowProperties`.brightness、
+ * `audioVolumeManager`），Kotlin 侧的手势需要一个「起点」，所以壳在
+ * onWindowStageCreate 与音量回调里各推一次。取不到时保留 NaN，调用方退化为 0.5。
+ */
+object OhosScreenLevels {
+    @Volatile
+    var brightness: Float = Float.NaN
+        private set
+
+    /** ArkTS 推一次真值；负值表示「读不到」（跟随系统亮度），不覆盖已有值。 */
+    fun setBrightness(brightness: Float) {
+        if (brightness >= 0f) this.brightness = brightness.coerceIn(0f, 1f)
+    }
+}
+
+/** 壳回调入口（C 侧 `dlsym(handle, "dengy_set_screen_info")` 取址调用）。 */
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
+@kotlin.native.CName("dengy_set_screen_info")
+fun setScreenInfoFromShell(brightness: Float) {
+    OhosScreenLevels.setBrightness(brightness)
 }

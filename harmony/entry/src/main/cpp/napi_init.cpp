@@ -816,6 +816,29 @@ napi_value SetLandscape(napi_env env, napi_callback_info info) {
 }
 
 
+
+// ---- 屏幕真值：ArkTS 把亮度/媒体音量推给 Kotlin ----------------
+// 窗口亮度只有 ArkUI 读得到（window.getWindowProperties().brightness），
+// 而 Kotlin 侧的手势需要一个真实起点。负数表示「跟随系统亮度」。
+// 音量不在此列：普通应用没有写系统媒体的权限（见 Platform.ohos.kt 的说明）。
+using SetScreenInfoFn = void (*)(float);
+
+napi_value SetScreenInfo(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  double brightness = -1.0;
+  if (argc >= 1 && args[0] != nullptr) napi_get_value_double(env, args[0], &brightness);
+  auto fn = ResolveTop<SetScreenInfoFn>("dengy_set_screen_info");
+  BRIDGE_LOG("setScreenInfo: brightness=%{public}f resolved=%{public}d",
+             static_cast<float>(brightness), fn != nullptr ? 1 : 0);
+  if (fn != nullptr) {
+    fn(static_cast<float>(brightness));
+  }
+  return nullptr;
+}
+
 // ---- 系统返回键：ArkTS 的 UIAbility.onBackPressed() 调本函数 ----
 // 方向是 ArkTS → Kotlin：libdengyui.so 里 ui 模块导出的 dengy_ui_back()
 // 返回 1 表示已有处理器（导航 popBackStack / 全屏退形态）消费了这次返回。
@@ -1058,6 +1081,7 @@ napi_value Init(napi_env env, napi_value exports) {
       {"setAppVersion", nullptr, SetAppVersion, nullptr, nullptr, nullptr,
        napi_default, nullptr},
       // 反向：Kotlin 经 dengy_shell_call 请求 ArkTS 打开链接 / 复制文本。
+    {"setScreenInfo", nullptr, SetScreenInfo, nullptr, nullptr, nullptr, napi_default, nullptr},
     {"dispatchBack", nullptr, DispatchBack, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"registerShellSink", nullptr, RegisterShellSink, nullptr, nullptr,
        nullptr, napi_default, nullptr},

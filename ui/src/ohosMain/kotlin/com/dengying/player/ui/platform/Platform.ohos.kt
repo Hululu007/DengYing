@@ -14,6 +14,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.dengying.player.platform.OhosScreenLevels
+import com.dengying.player.platform.OhosShellControl
 import com.dengying.player.platform.OhosWindowControl
 import com.dengying.player.player.OhosPlayerEngineHost
 import com.dengying.player.player.OhosVideoSurfaceBridge
@@ -113,45 +115,59 @@ actual fun ConsumePortraitOrientation() {
     SideEffect { OhosWindowControl.requestLandscape(false) }
 }
 
-/** 亮度：返回非 null 空实现实例（JVM 同口径），保证 UI 分支与桌面一致。 */
+/**
+ * 亮度：经壳通道（OP_SET_BRIGHTNESS）调到 ArkUI 的 `window.setWindowBrightness`。
+ *
+ * 契约「只影响当前窗口、不改系统设置」由 ArkTS 侧的窗口接口保证；起点优先用壳
+ * 推上来的真值（[OhosScreenLevels]），读不到退化为 0.5。`restore` 发 -1 让窗口
+ * 交还系统亮度，避免用户顶着改过的亮度去别的页面。
+ */
 actual class BrightnessController internal constructor() {
     private var last = Float.NaN
 
     actual fun current(): Float {
         if (!last.isNaN()) return last
-        last = 0.5f
+        val known = OhosScreenLevels.brightness
+        last = if (known.isNaN()) 0.5f else known
         return last
     }
 
     actual fun adjust(base: Float, fraction: Float): Float {
         val v = (base + fraction).coerceIn(0.01f, 1f)
         last = v
+        OhosShellControl.call(OhosShellControl.OP_SET_BRIGHTNESS, v.toString())
         return v
     }
 
     actual fun restore() {
         last = Float.NaN
+        OhosShellControl.call(OhosShellControl.OP_RESTORE_BRIGHTNESS, "")
     }
 }
 
 @Composable
 actual fun rememberBrightnessController(): BrightnessController? = BrightnessController()
 
+/**
+ * 媒体音量：**鸿蒙侧不提供**，保留类型只为对齐 expect。
+ *
+ * 原因（实测 + SDK 声明）：普通应用改系统媒体音量需要
+ * `ohos.permission.ACCESS_NOTIFICATION_POLICY`（受限能力），
+ * `AudioVolumeGroupManager` 只有读没有写；唯一能改的是播放器自身的音量
+ * （AVPlayer.setVolume），而 `PlayerEngine` 契约里没有音量方法。
+ * 与其给一个「滑了没反应」的手势，不如按契约返回 null 让 UI 关掉它 ——
+ * [rememberVolumeController] 就是这个口径。
+ */
 actual class VolumeController internal constructor() {
-    private companion object {
-        const val MAX_STEPS = 15
-    }
-
     actual fun currentFraction(): Float = 0.5f
 
-    actual fun adjust(base: Float, fraction: Float): Float {
-        val target = ((base + fraction) * MAX_STEPS).toInt().coerceIn(0, MAX_STEPS)
-        return target.toFloat() / MAX_STEPS
-    }
+    actual fun adjust(base: Float, fraction: Float): Float =
+        (base + fraction).coerceIn(0f, 1f)
 }
 
+/** 拿不到可写音量通道 → 返回 null，全屏音量手势按「不可用」处理。 */
 @Composable
-actual fun rememberVolumeController(): VolumeController? = VolumeController()
+actual fun rememberVolumeController(): VolumeController? = null
 
 /** 系统返回：注册进 [OhosBackStack]，由 ArkTS 的 `onBackPressed` 触发。 */
 @Composable

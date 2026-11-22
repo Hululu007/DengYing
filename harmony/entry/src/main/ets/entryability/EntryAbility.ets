@@ -91,11 +91,30 @@ export default class EntryAbility extends UIAbility {
             pasteboard.getSystemPasteboard().setData(data).catch((e: BusinessError) => {
               hilog.warn(DOMAIN, 'DengYing', 'copyText failed: %{public}s', JSON.stringify(e));
             });
+          } else if (op === 3) {
+            // 只改本窗口亮度：不改系统设置、不需要权限，退出播放页时由 op 4 交还。
+            mainWindow.setWindowBrightness(Number.parseFloat(arg)).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'setWindowBrightness failed: %{public}s', JSON.stringify(e));
+            });
+          } else if (op === 4) {
+            // -1 = 跟随系统亮度（撤掉窗口覆写）。
+            mainWindow.setWindowBrightness(-1).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'restore brightness failed: %{public}s', JSON.stringify(e));
+            });
           }
         } catch (e) {
           hilog.warn(DOMAIN, 'DengYing', 'shell sink failed: %{public}s', JSON.stringify(e));
         }
       });
+      // 窗口亮度真值推给 Kotlin（`OhosScreenLevels`）：全屏手势需要一个真实起点。
+      // 读不到就推 -1（跟随系统亮度），Kotlin 退化为 0.5 —— 不要为了「有值」编一个假起点。
+      // 音量没有同类推送：普通应用改不了系统媒体音量，Kotlin 侧已按「不可用」处理。
+      try {
+        const brightness: number = props.brightness;
+        dengying.setScreenInfo(brightness >= 0 ? brightness : -1);
+      } catch (e) {
+        hilog.warn(DOMAIN, 'DengYing', 'push screen info failed: %{public}s', JSON.stringify(e));
+      }
     } catch (e) {
       hilog.warn(DOMAIN, 'DengYing', 'setWindowLayoutFullScreen / orientation failed: %{public}s', JSON.stringify(e));
     }
