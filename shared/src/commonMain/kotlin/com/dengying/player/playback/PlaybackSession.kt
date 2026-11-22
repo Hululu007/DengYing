@@ -783,23 +783,32 @@ suspend fun findFullSource(
     PlaybackProbe.note("session-switch-source")
     if (vodName.isEmpty()) return null
     val alts = repo.findAltSources(repo.allSources(), source, vodName).take(altLimit)
-    return kotlinx.coroutines.coroutineScope {
+    return kotlinx.coroutines.supervisorScope {
         val deferred = alts.map { alt ->
-            // coroutineScope 接收者上的 async：候选随作用域自动取消
+            // supervisorScope 接收者上的 async：单个候选失败不连坐其余候选。
             async(ioDispatcher) {
-                val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
-                    ?: return@async null
-                val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, episodeIndex)
-                if (u.isEmpty()) return@async null
-                val oc = HlsUtil.resolvePlayUrlOrFail(u)
-                if (!oc.resolved) null else oc.url to ""
+                runCatching {
+                    val altSrc = com.dengying.player.core.CmsSources.byKey(alt.sourceKey)
+                        ?: return@runCatching null
+                    val u = repo.fetchAltPlayUrl(altSrc, alt.vodId, episodeIndex)
+                    if (u.isEmpty()) return@runCatching null
+                    val oc = HlsUtil.resolvePlayUrlOrFail(u)
+                    if (!oc.resolved) null else oc.url to ""
+                }.getOrNull()
             }
         }
-        for (d in deferred) {
-            val r = runCatching { d.await() }.getOrNull()
+        // 【谁先成功用谁】select 等待最早完成的候选，失败/空结果跳过继续等。
+        // 旧实现按列表顺序 await：排在前面的慢候选没返回前，后面已成功的
+        // 候选不会被采用（与上面的注释相反，真机表现为"明明有可用源还转圈"）。
+        val pending = deferred.toMutableList()
+        while (pending.isNotEmpty()) {
+            val finished = kotlinx.coroutines.selects.select<Int> {
+                pending.forEachIndexed { i, d -> d.onAwait { i } }
+            }
+            val r = pending.removeAt(finished).await()
             if (r != null) {
                 deferred.forEach { if (it.isActive) it.cancel() }
-                return@coroutineScope r
+                return@supervisorScope r
             }
         }
         null
@@ -894,5 +903,11 @@ suspend fun resolvePlayChain(
         return PlayChainResult(url, headers, previewOnly = false)
     }
 
-    return tryAltSources()?.let { PlayChainResult(it.first, it.second, previewOnly = false) }
+    // 没有试看链时的兜底同样要封顶：旧实现无上限，跨源搜索会把
+    // Semaphore(2) 一直占着，中心卡只能继续转圈。到点拿不到就返回 null，
+    // 让卡片继续转圈，把许可让给其他卡。
+    val alt = runCatching {
+        kotlinx.coroutines.withTimeoutOrNull(12_000) { tryAltSources() }
+    }.getOrNull()
+    return alt?.let { PlayChainResult(it.first, it.second, previewOnly = false) }
 }
