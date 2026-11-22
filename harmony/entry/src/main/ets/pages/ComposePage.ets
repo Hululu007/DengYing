@@ -81,7 +81,21 @@ struct ComposePage {
             pageId: 'Compose_0',
             controller: this.controller,
             libraryName: 'entry',
-            onBackPressed: () => this.controller !== undefined ? this.controller.onBackPress() : false
+            // 【两级】先走 CMP 自己的返回分发（controller.onBackPress），它内部会
+            // 调 Kotlin 的 BackHandler 链；这条链路在本工程实测会抛异常（日志
+            // `DY/Compose: onBackPress threw: {}`），抛出后 ArkUI 当 false 处理，
+            // 于是返回键直接把应用退到后台。所以 try/catch 兜住，再落到我们自己的
+            // 分发通道（dengy.dispatchBack，读 Kotlin 的 OhosBackStack）。
+            onBackPressed: () => {
+              try {
+                if (this.controller !== undefined && this.controller.onBackPress()) {
+                  return true;
+                }
+              } catch (e) {
+                hilog.warn(DOMAIN, TAG, 'onBackPress threw: %{public}s', JSON.stringify(e));
+              }
+              return dengying.dispatchBack() === 1;
+            }
           })
         } else {
           Text(this.errorMessage === '' ? 'controller pending' : this.errorMessage)

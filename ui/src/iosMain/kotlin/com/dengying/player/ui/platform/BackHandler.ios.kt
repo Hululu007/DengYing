@@ -18,3 +18,6 @@ import androidx.compose.runtime.Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     // 空实现：不注册任何回调。
 }
+
+/** iOS：没有系统返回键（左缘右滑由页面内的手势处理），不需要注册。 */
+actual val systemBackNeedsHost: Boolean = false

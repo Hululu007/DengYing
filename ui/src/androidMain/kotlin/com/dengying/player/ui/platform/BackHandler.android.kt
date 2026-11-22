@@ -16,3 +16,6 @@ import androidx.compose.runtime.Composable
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
 }
+
+/** Android：`NavHost` 已通过 `OnBackPressedDispatcher` 接管，不需要应用自己注册。 */
+actual val systemBackNeedsHost: Boolean = false

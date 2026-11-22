@@ -51,6 +51,7 @@ declare const dengying: {
    * 注册「壳动作」执行器（Kotlin → ArkTS 反向调用）。
    * op: 1=打开外部链接 2=写系统剪贴板；arg 为链接或文本。
    */
+  dispatchBack(): number;
   registerShellSink(sink: (op: number, arg: string) => void): void;
 
   // ---- fusion 渲染后端（rendererBackend=fusion-renderer）----

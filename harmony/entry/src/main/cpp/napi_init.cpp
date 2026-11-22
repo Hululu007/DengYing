@@ -815,6 +815,26 @@ napi_value SetLandscape(napi_env env, napi_callback_info info) {
   return nullptr;
 }
 
+
+// ---- 系统返回键：ArkTS 的 UIAbility.onBackPressed() 调本函数 ----
+// 方向是 ArkTS → Kotlin：libdengyui.so 里 ui 模块导出的 dengy_ui_back()
+// 返回 1 表示已有处理器（导航 popBackStack / 全屏退形态）消费了这次返回。
+// 返回 0 时 ArkTS 的 onBackPressed 返回 false，系统按默认行为退出应用。
+using DispatchBackFn = int32_t (*)();
+
+napi_value DispatchBack(napi_env env, napi_callback_info info) {
+  ClearPendingException(env);
+  size_t argc = 0;
+  napi_get_cb_info(env, info, &argc, nullptr, nullptr, nullptr);
+  int32_t handled = 0;
+  auto fn = ResolveTop<DispatchBackFn>("dengy_ui_back");
+  if (fn != nullptr) handled = fn();
+  BRIDGE_LOG("dispatchBack: handled=%{public}d", handled);
+  napi_value result = nullptr;
+  napi_create_int32(env, handled, &result);
+  return result;
+}
+
 // ---- 窗口方向（反向）：Kotlin 请求 ArkTS 改方向 ----
 // 与 HTTP 桥同构但方向相反：Kotlin 的 FullscreenState.enter/exit 需要 ArkUI 的
 // window 接口才能转屏/收系统栏，而 Kotlin 调不到 ArkTS。于是 ArkTS 在
@@ -1038,6 +1058,7 @@ napi_value Init(napi_env env, napi_value exports) {
       {"setAppVersion", nullptr, SetAppVersion, nullptr, nullptr, nullptr,
        napi_default, nullptr},
       // 反向：Kotlin 经 dengy_shell_call 请求 ArkTS 打开链接 / 复制文本。
+    {"dispatchBack", nullptr, DispatchBack, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"registerShellSink", nullptr, RegisterShellSink, nullptr, nullptr,
        nullptr, napi_default, nullptr},
       // fusion-renderer 的 6 个 NAPI：compose.har 的 Compose 组件 aboutToAppear

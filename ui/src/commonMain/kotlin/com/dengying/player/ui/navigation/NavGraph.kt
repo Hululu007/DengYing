@@ -32,7 +32,9 @@ import com.dengying.player.ui.pages.RegisterScreen
 import com.dengying.player.ui.pages.SearchScreen
 import com.dengying.player.ui.pages.SettingsScreen
 import com.dengying.player.ui.pages.SourceStatusScreen
+import com.dengying.player.ui.platform.PlatformBackHandler
 import com.dengying.player.ui.platform.rememberFullscreenState
+import com.dengying.player.ui.platform.systemBackNeedsHost
 import com.dengying.player.ui.UiDepsHolder
 import com.dengying.player.ui.update.UpdateChecker
 import com.dengying.player.ui.update.UpdateNoticeController
@@ -105,6 +107,14 @@ fun DengYingNavHost(
     // 只认冷启动：转屏/重建会让 NavHost 重组，但不应周期性再弹更新提示。
     LaunchedEffect(coldStartAutoCheck) {
         if (coldStartAutoCheck) UpdateNoticeController.autoCheckOnColdStart(deps)
+    }
+    // 【鸿蒙没有系统返回分发器】Android 的 NavHost 自己接了 OnBackPressedDispatcher，
+    // 这里只给 `systemBackNeedsHost` 的平台补一条路由级返回：有上一页时 popBackStack；
+    // 根页不注册 → dispatch 返回 false → 系统按默认行为退出应用（与 Android 根页一致）。
+    if (systemBackNeedsHost) {
+        PlatformBackHandler(enabled = nav.previousBackStackEntry != null) {
+            nav.popBackStack()
+        }
     }
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Routes.INDEX) {

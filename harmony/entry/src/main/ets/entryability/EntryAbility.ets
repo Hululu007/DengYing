@@ -120,4 +120,17 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     hilog.info(DOMAIN, 'DengYing', '%{public}s', 'Ability onBackground');
   }
+
+  /**
+   * 系统返回键。鸿蒙没有 Android 的 OnBackPressedDispatcher，页面返回只能由
+   * 应用自己接：Kotlin 侧（OhosBackStack，LIFO）决定这次返回是否被消费。
+   *
+   * 返回 true = 已消费（导航 popBackStack / 全屏先退形态），系统不再处理；
+   * 返回 false = 没人消费（停在根页），交回默认行为退到后台。
+   */
+  onBackPressed(): boolean {
+    const handled: number = dengying.dispatchBack();
+    hilog.info(DOMAIN, 'DengYing', 'onBackPressed handled=%{public}d', handled);
+    return handled === 1;
+  }
 }

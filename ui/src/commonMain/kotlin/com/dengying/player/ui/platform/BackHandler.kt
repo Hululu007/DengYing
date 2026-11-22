@@ -25,3 +25,15 @@ import androidx.compose.runtime.Composable
  */
 @Composable
 expect fun PlatformBackHandler(enabled: Boolean = true, onBack: () -> Unit)
+
+/**
+ * 系统返回键是否需要**应用自己**接（KMP P4-5）。
+ *
+ * Android 的 `NavHost` 把返回接到 `OnBackPressedDispatcher` 上，根页返回交给
+ * Activity 收尾，应用不需要额外注册；鸿蒙没有这个 dispatcher，系统返回键默认
+ * 直接让 UIAbility 退到后台，所以导航层必须自己注册一个 `popBackStack()`。
+ *
+ * 只在为 true 的平台上让 `NavGraph` 注册那条路由级处理器，Android 保持原样
+ * （否则会和 `NavHost` 自己的处理器抢，根页返回也不再退出应用）。
+ */
+expect val systemBackNeedsHost: Boolean
