@@ -73,6 +73,6 @@ harmony/  鸿蒙壳工程（DevEco Studio / hvigor），不参与 Gradle 构建
 
 ## 当前状态
 
-- **Android**：功能完整（搜索 / 详情 / 播放 / 收藏 / 历史 / GMS 投屏）；`:shared:jvmTest` 715 例、`:shared:testDebugUnitTest` 173 例、`:ui:testDebugUnitTest` 39 例、`:app:testDebugUnitTest` 37 例全绿（2026-11-22 实测）。
+- **Android**：功能完整（搜索 / 详情 / 播放 / 收藏 / 历史 / GMS 投屏）；`:shared:jvmTest` 717 例、`:shared:testDebugUnitTest` 173 例、`:ui:testDebugUnitTest` 57 例、`:app:testDebugUnitTest` 41 例全绿（2026-11-22 实测）。
 - **iOS**：已并入本工程，Windows 侧仅验证 klib 编译；framework 链接、Xcode 构建、模拟器与真机运行未验证，需 macOS。
 - **鸿蒙**：编译、链接、`.so` 导出、HAP 安装启动全部打通；首帧尚未上屏，仍在定位中（当前渲染的是最小验证界面 `SpikeScreen`，业务接线待首帧打通之后）。
