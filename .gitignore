@@ -88,3 +88,14 @@ hs_err_pid*.log
 *.cer
 *.jks
 *.keystore
+
+# ---- 本地 Agent 配置与项目技能：只在本机生效，不入库 ----
+/.agents/
+/.claude/
+/AGENTS.md
+/CLAUDE.md
+**/.agents/
+**/.claude/
+**/AGENTS.md
+**/CLAUDE.md
+**/.claude/settings.local.json
