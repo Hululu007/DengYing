@@ -77,7 +77,7 @@ actual fun VideoSurface(
                         player = bound
                         if (bound != null) boundRefs[bound] = (boundRefs[bound] ?: 0) + 1
                         com.dengying.player.player.PlaybackProbe.note(
-                            "surface-create", "bound=${bound != null} refs=${bound?.let { boundRefs[it] }}",
+                            "surface-create", "bound=${bound != null} refs=${bound?.let { boundRefs[it] }} eng=${engine?.hashCode()}",
                         )
                     }
                     onBind(pv.player != null)

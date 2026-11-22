@@ -419,9 +419,11 @@ fun IndexScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // 【必须补状态栏避让】MainActivity 调了 enableEdgeToEdge()，内容会铺到
-                // 状态栏底下。原工程的 EntryAbility 刻意不调 setWindowLayoutFullScreen，
-                // 理由正是"开启后顶部按钮会被状态栏遮挡导致点击无效"——本移植踩了同一个坑。
+                // 【必须补状态栏避让】三端内容都铺到状态栏底下：Android 用
+                // enableEdgeToEdge()，iOS 用 prefersStatusBarHidden/安全区外扩，
+                // 鸿蒙在 EntryAbility 调了 setWindowLayoutFullScreen(true)。
+                // 首页品牌条是普通页面（非全屏播放），仍要避让状态栏；
+                // 全屏播放的贴边口径见 InlinePlayer 的 6dp 规则。
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1509,8 +1511,21 @@ private fun DiscoverVideoCard(
                             if (cachedDetail == null) deps.detailCache.put(cacheKey, item)
                             // 【平滑交接】已装进预览引擎的片才带当前位置进详情，
                             // 解析中/失败的卡不带，详情页按自身逻辑处理。
+                            // 【引擎为准，不信状态位】`mediaReady` 是 UI 侧复合条件
+                            // （playingIdx+startedIdx+resolved 三者同时成立）；真机上
+                            // 出现过引擎明明装着这条流、`mediaReady` 仍为 false 的情况
+                            // （探针 [handoff-gate] ready=false urlLen=46 pos=0），
+                            // 于是详情页判定「没有交接」→ 冷启 setMedia 把**正在播的
+                            // 同一个引擎**重装一遍：画面黑一下、进度归零、控件失效。
+                            // 引擎里装着这张卡（中心卡 + currentUrl 非空）就必须交接。
+                            val engineHoldsCard = isCenter && !engine.currentUrl.isNullOrEmpty()
                             val startAtMs = DiscoverPlaybackRules.handoffStartAtMs(
-                                mediaReady, engine.currentPosition,
+                                mediaReady || engineHoldsCard, engine.currentPosition,
+                            )
+                            com.dengying.player.player.PlaybackProbe.note(
+                                "handoff-gate",
+                                "ready=$mediaReady urlLen=${engine.currentUrl?.length ?: -1} pos=${engine.currentPosition} " +
+                                    "start=$startAtMs sess=${com.dengying.player.playback.PlaybackSession.engineOrNull()?.hashCode()}",
                             )
                             // 【画面平移】只有「这张卡正在播」才交接几何：
                             // 详情页会把画面从卡片矩形动画到自己的播放位，

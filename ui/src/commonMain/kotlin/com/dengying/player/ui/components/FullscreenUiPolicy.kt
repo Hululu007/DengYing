@@ -36,26 +36,35 @@ internal fun toggleZoomSheet(open: Boolean, speedOpen: Boolean): Pair<Boolean, B
 internal fun toggleSpeedSheet(open: Boolean, zoomOpen: Boolean): Pair<Boolean, Boolean> =
     false to !open
 
-/** 单击画面之后的面板/控制层状态：(画面面板, 倍速面板, 控制层是否切换)。 */
+/** 单击画面之后对上下栏（控制层）的处理：翻转显隐，或直接收起。 */
+internal enum class ControlsAction {
+    /** 都没展开：照旧翻转显隐。 */
+    Toggle,
+
+    /** 有下拉展开：关下拉的同时把上下栏收起（不是保持，也不是翻转）。 */
+    Hide,
+}
+
+/** 单击画面之后的面板/控制层状态：(画面面板, 倍速面板, 控制层动作)。 */
 internal data class TapOutcome(
     val zoomOpen: Boolean,
     val speedOpen: Boolean,
-    val toggleControls: Boolean,
+    val controls: ControlsAction,
 )
 
 /**
  * 单击画面的判定（DVP §9）。
  *
- * 有面板打开时，点画面（= 面板外）的语义就是「收起面板」，不能顺手把控制层
- * 也翻掉：用户下一拍要点倍速键，控制层却在同一次点击里被隐藏，等于点了个空。
- * 所以：任一面板打开 → 两个都关、控制层保持；都没开 → 照旧切换控制层。
+ * 有面板打开时，点画面（= 面板外）的语义就是「收起面板」，且**连同上下栏
+ * 一起收起**（docs/17 §9.1）：用户点画面就是要看画面，面板和控制层一起让开。
+ * 两个面板都没开时照旧翻转控制层。
  * 双击（播放/暂停）不经过这里，行为不变。
  */
 internal fun resolveSurfaceTap(zoomOpen: Boolean, speedOpen: Boolean): TapOutcome =
     if (zoomOpen || speedOpen) {
-        TapOutcome(zoomOpen = false, speedOpen = false, toggleControls = false)
+        TapOutcome(zoomOpen = false, speedOpen = false, controls = ControlsAction.Hide)
     } else {
-        TapOutcome(zoomOpen = false, speedOpen = false, toggleControls = true)
+        TapOutcome(zoomOpen = false, speedOpen = false, controls = ControlsAction.Toggle)
     }
 
 /** 播放中、无下拉、未拖动、未 seek、无错误时，3 秒后自动隐藏上下栏。 */

@@ -248,6 +248,10 @@ fun InlinePlayer(
     // 全屏态是播放中 3 秒后淡出、点击画面重新显示——内嵌态初版**常驻**。
     // 现在用同一口径：播放中 3 秒后隐藏，暂停/缓冲/拖动时保持显示。
     var controlsVisible by remember { mutableStateOf(true) }
+    // 【用户主动藏起过低栏】docs/17 §9：加载/缓冲中点画面必须真的能收起上下栏。
+    // 没有这个标记时，下面的自动隐藏 effect 会在「非播放态保持可见」分支里
+    // 立刻把 controlsVisible 写回 true，用户点了等于没点。
+    var userHiddenControls by remember { mutableStateOf(false) }
     // 【controlsVisible 也必须是 key】否则用户点画面唤出控制栏后没有新的计时器：
     // 上一轮 LaunchedEffect 早已结束并隐藏，点击只是把状态置 true，不会再淡出。
     // 真机实录（2026-11-21 直播全屏）：点亮后 5 秒仍常驻。
@@ -260,6 +264,7 @@ fun InlinePlayer(
         errMsg,
         speedSheet,
         zoomSheet,
+        userHiddenControls,
     ) {
         if (!shouldAutoHideControls(
                 playing = isPlaying,
@@ -270,8 +275,10 @@ fun InlinePlayer(
                 dropdownOpen = speedSheet || zoomSheet,
             )
         ) {
-            // 非播放态（暂停/缓冲/出错/拖动/滑动 seek）或下拉展开时保持可见，否则用户找不到按钮
-            controlsVisible = true
+            // 非播放态（暂停/缓冲/出错/拖动/滑动 seek）或下拉展开时保持可见，否则用户找不到按钮。
+            // 【但用户亲手藏过就不再掀开】加载/缓冲中点画面收起上下栏是用户的
+            // 明确动作（docs/17 §9.3.3）；这里若无条件写 true，点击会被下一帧抹掉。
+            if (!userHiddenControls) controlsVisible = true
             return@LaunchedEffect
         }
         // 已隐藏就等待下一次点击；这里再置 true 会和「3 秒后隐藏」互相触发成死循环。
@@ -445,7 +452,20 @@ fun InlinePlayer(
                         val t = resolveSurfaceTap(zoomOpen = zoomSheet, speedOpen = speedSheet)
                         zoomSheet = t.zoomOpen
                         speedSheet = t.speedOpen
-                        if (t.toggleControls) controlsVisible = !controlsVisible
+                        when (t.controls) {
+                            // 【有下拉打开：关下拉 + 收起上下栏】docs/17 §9.1
+                            ControlsAction.Hide -> {
+                                userHiddenControls = true
+                                controlsVisible = false
+                            }
+                            // 没下拉：照旧翻转，并记住这一次是用户主动收起/唤出，
+                            // 让自动隐藏的 effect 别把用户藏起来的栏又掀开（§9.3.3/4）。
+                            ControlsAction.Toggle -> {
+                                val next = !controlsVisible
+                                controlsVisible = next
+                                userHiddenControls = !next
+                            }
+                        }
                     },
                     onDoubleTap = { if (!live) onTogglePlay() },
                     onLongPress = {
@@ -476,7 +496,11 @@ fun InlinePlayer(
         // AndroidView 从组合树移除会同时把 PlayerView 从窗口上摘下，
         // 故不会留下任何一帧。会话不动——回详情页/回全屏时重新挂载即可
         //（ENGINE 是全局单例，画面可重建，播放不会中断）。
-        if (!hidden) {
+        // 【没有引擎就不建渲染面】交接刚进来时 inlineEngine 还是 null，
+        // 先建一个空 PlayerView、等引擎接上再 `key(engine)` 重建一次——多出来
+        // 的那次创建会把画面输出从头配一遍（docs/17 §11.5 原因 3）。
+        // 空态/错误态/缓冲态由下方分支覆盖，不需要这块视图撑场。
+        if (!hidden && engine != null) {
             // 【P-06】hidden 时整个渲染面都不进组合（不是只不画浮层）——
             // 视图从组合树移除会同时把播放面从窗口上摘下，不留下任何一帧。
             // 会话不动：回详情页/回全屏时重新挂载即可（引擎是全局单例）。

@@ -206,6 +206,38 @@ class DetailViewModel(
     var inlineState by mutableStateOf(InlineState())
         private set
 
+    /**
+     * **预解析**的首集地址（FR-705）。
+     *
+     * 【为什么要预解析】真机探针显示：点击剧集后才开始解析，
+     * 要串行跑「token 换链 → 分享页解析 → 跨源搜索」，
+     * `[inline-alt-sources] n=5` 之后十几秒无输出，用户等不及返回
+     * 触发 `JobCancellationException`——**从头到尾没有画面**。
+     *
+     * 用户在详情页浏览（看简介、挑剧集）通常有几秒，这段时间足够预解析。
+     * 点击时直接用已就绪的地址，就是"秒播"。
+     *
+     * 只预解析**首集**（最可能被点的那个），不做全部——全集预解析会打爆网络。
+     *
+     * 【声明顺序是硬约束，同 [inlineState]】`init` 里的 `loadDetail()` 命中缓存时
+     * **同步**走到 [adoptDiscoverHandoff]，写入 `preResolved` / `preResolveIdx`。
+     * 这三行声明若留在 init 之后，构造期的属性初始化器会在其后覆盖掉交接写入
+     * （真机 22:45 实测：`detail-adopt-handoff idx=0` 之后 `playInline` 读到
+     * `preIdx=-1` → 交接地址没交给会话 → 进详情闪一次"正在解析播放地址…"）。
+     * 必须先于 init。
+     */
+    private var preResolved: Pair<String, String>? = null
+    private var preResolving = false
+    private var preResolveIdx = -1
+
+    /**
+     * 预解析代际：每次换源/换线路自增。
+     *
+     * 旧代际的解析结果回来时必须丢弃——否则换源后点第 1 集，会拿到上一个源
+     * 解析出的地址（表现是"点了播的是别的片/一直缓冲"）。
+     */
+    private var preResolveSeq = 0
+
     init {
         if (live) {
             // 直播直达：编译期预置地址，不过详情接口、不解析、不换源。
@@ -241,6 +273,17 @@ class DetailViewModel(
                     // 会话结束/换片：清掉"正在播"高亮，否则网格会一直亮着上一部片的集
                     if (state.playingEp != -1) state = state.copy(playingEp = -1)
                     return@collect
+                }
+                // 【引擎换了必须跟着换渲染面】会话可能把引擎从主引擎切到发现页
+                // 预览引擎（交接接管），而本页的 inlineEngine 是在 attachInlineSurface
+                // 那一刻定下的。不跟着换，InlinePlayer 仍绑在旧引擎上：
+                // 用户看到的画面在新引擎里播，播放/暂停按钮却发给旧引擎——
+                // 真机就是「按暂停没反应、视频自己一直在播」（docs/04 §16.99）。
+                com.dengying.player.playback.PlaybackSession.engineOrNull()?.let { live ->
+                    if (live !== inlineEngine) {
+                        bindInlineEngine(live)
+                        PlaybackProbe.note("inline-rebind", "eng=${live.hashCode()}")
+                    }
                 }
                 // 选中态只认本片的会话（vodId+source 双校验）。
                 // 每秒都有进度帧，必须带变化判断，否则整页每秒重组一次。
@@ -433,8 +476,14 @@ class DetailViewModel(
      * 首集地址已就绪，调用方不要再起解析链。
      */
     private fun adoptDiscoverHandoff(): Boolean {
-        val h = DiscoverHandoff.take() ?: return false
-        if (h.url.isBlank()) return false
+        val h = DiscoverHandoff.take() ?: run {
+            PlaybackProbe.note("detail-handoff-miss", "empty")
+            return false
+        }
+        if (h.url.isBlank()) {
+            PlaybackProbe.note("detail-handoff-miss", "url-blank")
+            return false
+        }
         // 串号保护：交接的片/源必须与本页一致，否则当普通进入处理。
         if (h.vodId != curVodId || h.source != curSource) {
             PlaybackProbe.note("detail-handoff-miss", "vod=${h.vodId != curVodId} src=${h.source != curSource}")
@@ -442,18 +491,22 @@ class DetailViewModel(
             engineHost.setHandoffInProgress(false)
             return false
         }
-        // 【前提】发现页用的是预览引擎，不建会话；交接能成立的前提就是
-        // 「此刻没有别的会话占着引擎」。有会话说明用户是从别处（播放页/
-        // 另一个详情）过来的，这条地址对不上，走正常解析。
-        if (com.dengying.player.playback.PlaybackSession.engineOrNull() != null) {
-            PlaybackProbe.note("detail-handoff-miss", "session-exists")
-            engineHost.setHandoffInProgress(false)
-            return false
+        // 【有旧会话也必须交接】旧实现在「会话已存在」时直接放弃交接：只要用户
+        // 之前播过任何东西（详情页返回、播放页回来都算），会话就一直活着，
+        // 于是交接 100% 失效 → 详情页冷启解析+setMedia，用户眼前正在播的那一帧
+        // 被掐掉（真机探针 `[detail-handoff-miss] session-exists`，docs/04 §16.99）。
+        // 现在把地址照常交给会话，由 PlaybackSession.play 决定「接管预览引擎还是换引擎」，
+        // 页面层不再替它做判断。
+        com.dengying.player.playback.PlaybackSession.engineOrNull()?.let {
+            PlaybackProbe.note("detail-handoff-with-session", "eng=${it.hashCode()}")
         }
         preResolved = h.url to h.headers
         preResolveIdx = 0
         handoffPending = true
-        PlaybackProbe.note("detail-adopt-handoff", "len=${h.url.length} pos=${h.positionMs}")
+        PlaybackProbe.note(
+            "detail-adopt-handoff",
+            "len=${h.url.length} pos=${h.positionMs} idx=$preResolveIdx",
+        )
         return true
     }
 
@@ -876,31 +929,6 @@ class DetailViewModel(
      * 用独立标志记录"我登记过"，注销时无条件减——与字段是否被清无关。
      */
     private var surfaceRegistered = false
-
-    /**
-     * **预解析**的首集地址（FR-705）。
-     *
-     * 【为什么要预解析】真机探针显示：点击剧集后才开始解析，
-     * 要串行跑「token 换链 → 分享页解析 → 跨源搜索」，
-     * `[inline-alt-sources] n=5` 之后十几秒无输出，用户等不及返回
-     * 触发 `JobCancellationException`——**从头到尾没有画面**。
-     *
-     * 用户在详情页浏览（看简介、挑剧集）通常有几秒，这段时间足够预解析。
-     * 点击时直接用已就绪的地址，就是"秒播"。
-     *
-     * 只预解析**首集**（最可能被点的那个），不做全部——全集预解析会打爆网络。
-     */
-    private var preResolved: Pair<String, String>? = null
-    private var preResolving = false
-    private var preResolveIdx = -1
-
-    /**
-     * 预解析代际：每次换源/换线路自增。
-     *
-     * 旧代际的解析结果回来时必须丢弃——否则换源后点第 1 集，会拿到上一个源
-     * 解析出的地址（表现是"点了播的是别的片/一直缓冲"）。
-     */
-    private var preResolveSeq = 0
 
     /** 用户手动选过线路：网络刷新不得把选择覆盖回默认线路（FR-316） */
     private var linePickedByUser = false
@@ -1499,7 +1527,21 @@ class DetailViewModel(
     fun toggleInlinePlay() {
         if (inlineState.live) return // 直播不可暂停（计划红线）
         val e = inlineEngine ?: return
-        if (inlineState.isPlaying) e.pause() else e.play()
+        // 【必须走会话】会话的 playIntent 是唯一真源：直连引擎 pause() 时
+        // 会话不知道用户暂停过，后台换源/试看升级收尾会再 play() 一次，
+        // 真机表现就是「按了暂停，视频自己又播起来」（docs/04 §16.99）。
+        val sessionEngine = com.dengying.player.playback.PlaybackSession.engineOrNull()
+        if (inlineState.isPlaying) {
+            com.dengying.player.playback.PlaybackSession.pause()
+            if (sessionEngine == null) e.pause()
+        } else {
+            com.dengying.player.playback.PlaybackSession.resume()
+            if (sessionEngine == null) e.play()
+        }
+        PlaybackProbe.note(
+            "inline-toggle",
+            "via=session wasPlaying=${inlineState.isPlaying} sess=${sessionEngine?.hashCode()} eng=${e.hashCode()}",
+        )
     }
 
     fun seekInline(positionMs: Long) {
@@ -1773,9 +1815,14 @@ class DetailViewModel(
      * 用户从全屏页返回时还能恢复原会话继续看。
      */
     fun pauseInline() {
-        inlineEngine?.pause()
+        // 同样走会话，保证 playIntent 记下「用户要暂停」，后台收尾不会复播。
+        if (com.dengying.player.playback.PlaybackSession.engineOrNull() != null) {
+            com.dengying.player.playback.PlaybackSession.pause()
+        } else {
+            inlineEngine?.pause()
+        }
         inlineState = inlineState.copy(isPlaying = false)
-        PlaybackProbe.note("inline-pause")
+        PlaybackProbe.note("inline-pause", "eng=${inlineEngine?.hashCode()} sess=${com.dengying.player.playback.PlaybackSession.engineOrNull()?.hashCode()}")
     }
 
     fun consumeInlineError() {

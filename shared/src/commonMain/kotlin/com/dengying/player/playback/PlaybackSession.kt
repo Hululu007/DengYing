@@ -46,6 +46,18 @@ object PlaybackSession {
 
     private const val TAG = "DY/Session"
 
+    /** tv189 免登录试看链时长（`end=300`，见 [resolvePlayChain]） */
+    private const val TRIAL_LENGTH_MS = 300_000L
+
+    /** 试看升级的提前量：剩这么多时再去换全片，留够跨源搜索与缓冲 */
+    private const val TRIAL_TAIL_MS = 40_000L
+
+    /** 试看升级的观察步长（进度 1s 一跳，细于它没有意义） */
+    private const val TRIAL_POLL_MS = 1_000L
+
+    /** 试看尾等上限：用户长时间暂停时不把协程无限挂着 */
+    private const val TRIAL_MAX_WAIT_MS = 6L * 60 * 60 * 1000
+
     enum class Status { Idle, Resolving, Buffering, Playing, Paused, Error }
 
     data class State(
@@ -110,11 +122,32 @@ object PlaybackSession {
         progressTicker = null
     }
 
-    /** 引擎监听是否已挂（引擎全局唯一，监听只挂一次） */
-    private var listenerBound = false
+    /** 会话挂在引擎上的监听实例（换引擎时要把它搬过去，见 [bindListener]） */
+    private var engineListener: PlayerListener? = null
+
+    /** 当前挂着的引擎（同一实例不重复 add） */
+    private var listenerEngine: PlayerEngine? = null
 
     /** 幂等：同一地址已 setMedia 过则跳过（防重复打断），但 play 照常恢复 */
     private var lastSetUrl: String = ""
+
+    /**
+     * 用户播放意图（唯一真源）。
+     *
+     * 【为什么要有它】`play()` 内部有多条后台链路会自己收尾：试看热升级、
+     * 解析失败换源、预解析回填。旧实现在这些收尾里直接 `engine.play()`，
+     * 于是用户刚在内嵌位按下暂停，几秒后后台换源完成又把画面拉起来
+     * （真机反馈「按了暂停不管用 / 视频自己又播了」，docs/04 §16.99）。
+     *
+     * 现在：只有 [play]（用户点了播放/点卡片起播）、[resume] 置 true，
+     * [pause] 置 false；所有后台收尾统一走 [applyIntent]，暂停态就保持暂停。
+     */
+    private var playIntent = true
+
+    /** 按用户意图起播或保持暂停：后台链路收尾必须走这里，不能直连 `play()` */
+    private fun applyIntent(e: PlayerEngine) {
+        if (playIntent) e.play() else e.pause()
+    }
 
     fun currentState(): State = _state.value
 
@@ -143,6 +176,8 @@ object PlaybackSession {
         live: Boolean = false,
     ) {
         val isLocal = localFile || rawUrl.startsWith("file://", ignoreCase = true)
+        // 走到这里 = 用户要播放（点卡片/点集/恢复），意图重置为「播」。
+        playIntent = true
         // Keep the last settled state before marking this request as Resolving.
         // Replaying the same URL does not call setMedia, so Media3 may not emit a
         // new READY event to clear a speculative Buffering state.
@@ -180,23 +215,53 @@ object PlaybackSession {
         val directMedia = live || isLocal
         val switchingEpisode = !prev.hasSession ||
             prev.vodId != vodId || prev.source != source || prev.episodeIndex != episodeIndex
-        _state.value = prev.copy(
-            live = live,
-            status = Status.Resolving,
-            url = rawUrl,
-            headers = "",
-            title = title,
-            vodName = vodName,
-            vodId = vodId,
-            source = source,
-            vodUri = vodUri,
-            episodeIndex = episodeIndex,
-            episodeName = episodeName,
-            errMsg = "",
-            buffering = false,
-            curTime = if (switchingEpisode) startAtMs else prev.curTime,
-            totalTime = if (switchingEpisode) 0L else prev.totalTime,
-        )
+        // 【发现页交接过门（docs/17 §11.5 原因 1）】即将播放的地址若已经装在
+        // 预览引擎里，这次 play 只是「换个宿主视图」，不是重新加载：
+        // 状态沿用引擎的真实状态（Playing/Paused），进度沿用引擎的位置。
+        //
+        // 判定必须写在这里而不是下面接管成功之后——会话先广播一次
+        // Resolving + totalTime=0，详情页 InlinePlayer 以 `totalTime <= 0`
+        // 判定「还没拿到时长」，会立刻画出一个加载圈：画面明明正播着，
+        // 用户却先看到一次「重新加载」。
+        val upfrontUrl = if (directMedia) rawUrl else preResolved ?: ""
+        val handoffPreview = previewHolding(upfrontUrl)
+        _state.value = if (handoffPreview != null) {
+            prev.copy(
+                live = live,
+                status = if (handoffPreview.isPlaying) Status.Playing else Status.Paused,
+                url = rawUrl,
+                headers = "",
+                title = title,
+                vodName = vodName,
+                vodId = vodId,
+                source = source,
+                vodUri = vodUri,
+                episodeIndex = episodeIndex,
+                episodeName = episodeName,
+                errMsg = "",
+                buffering = false,
+                curTime = handoffPreview.currentPosition,
+                totalTime = handoffPreview.duration.takeIf { it > 0 } ?: prev.totalTime,
+            )
+        } else {
+            prev.copy(
+                live = live,
+                status = Status.Resolving,
+                url = rawUrl,
+                headers = "",
+                title = title,
+                vodName = vodName,
+                vodId = vodId,
+                source = source,
+                vodUri = vodUri,
+                episodeIndex = episodeIndex,
+                episodeName = episodeName,
+                errMsg = "",
+                buffering = false,
+                curTime = if (switchingEpisode) startAtMs else prev.curTime,
+                totalTime = if (switchingEpisode) 0L else prev.totalTime,
+            )
+        }
 
         scope.launch {
             try {
@@ -233,18 +298,23 @@ object PlaybackSession {
                 // 的预览引擎时，直接接管它而不是 ensureEngine() 造/换主引擎。
                 // 后续 sameMedia 命中（lastSetUrl 已在发现页 setMedia 时写入）
                 // 会跳过 setMedia，画面不断、不重新加载。
-                if (engine == null) {
-                    val preview = host?.previewEngineIfAny()
-                    if (preview != null && preview.currentUrl == url) {
-                        engine = preview
-                        adoptedPreview = preview
-                        if (!listenerBound) {
-                            listenerBound = true
-                            bindListener(preview)
-                        }
-                        lastSetUrl = url
-                        PlaybackProbe.note("session-adopt-preview", "len=${url.length}")
-                    }
+                // 【换引擎也允许接管】旧实现只在 `engine == null` 时考虑接管。
+                // 真机上会话常常还握着主引擎（上一个片/上一次详情留下的），
+                // 而发现页预览引擎正播着这一条 → 接管被跳过 → 主引擎 setMedia
+                // 从零起播，屏幕上那块画面却还挂在预览引擎上：声音/画面/控件
+                // 三套状态各说各话。现在只要「预览引擎里就是这条流」，就把会话
+                // 搬到预览引擎上，旧引擎先暂停（同一时刻只允许一个引擎出声）。
+                val preview = host?.previewEngineIfAny()?.takeIf { it.currentUrl == url }
+                if (preview != null && engine !== preview) {
+                    engine?.takeIf { it !== preview }?.pause()
+                    engine = preview
+                    adoptedPreview = preview
+                    bindListener(preview)
+                    lastSetUrl = url
+                    PlaybackProbe.note(
+                        "session-adopt-preview",
+                        "len=${url.length} eng=${preview.hashCode()} sameUrl=true playing=${preview.isPlaying}",
+                    )
                 }
                 val eng = ensureEngine()
                 val sameMedia = lastSetUrl == url && engine != null
@@ -263,12 +333,26 @@ object PlaybackSession {
                 if (!preserveSettledState) {
                     _state.value = _state.value.copy(status = Status.Buffering, buffering = true)
                 }
+                // 【没接管就必须让预览引擎闭嘴】发现页的预览引擎和我们用的不是同一个
+                // 实例时，它会继续解码、继续出声——真机「进详情后视频还在播、控制不住」
+                // 的一半来源就是这个隐形引擎（docs/04 §16.99）。接管成功时不动它。
+                if (adoptedPreview == null) {
+                    host?.previewEngineIfAny()?.let { preview ->
+                        if (preview !== eng) {
+                            preview.pause()
+                            PlaybackProbe.note(
+                                "session-pause-preview",
+                                "previewEng=${preview.hashCode()} mainEng=${eng.hashCode()}",
+                            )
+                        }
+                    }
+                }
                 if (!sameMedia) {
-                    PlaybackProbe.note("session-setMedia", "len=${url.length} start=$startAtMs")
+                    PlaybackProbe.note("session-setMedia", "len=${url.length} start=$startAtMs eng=${eng.hashCode()}")
                     eng.setMedia(url, headers, startAtMs)
                     lastSetUrl = url
                 } else {
-                    PlaybackProbe.note("session-skip-setMedia", "same url")
+                    PlaybackProbe.note("session-skip-setMedia", "same url eng=${eng.hashCode()}")
                     // 【接管预览引擎时不要 seek】引擎里这一条正播着，位置就是用户
                     // 刚才在发现页看到的那一帧；再 seek 到详情传的进度会黑一帧。
                     if (startAtMs > 0 && adoptedPreview == null) eng.seekTo(startAtMs)
@@ -284,12 +368,17 @@ object PlaybackSession {
                 // 【接管预览引擎时不补 play()】它本来就在播；用户自己暂停过就保持暂停。
                 // 旧实现无条件 play() 会把"暂停"顶成"播放"，并让引擎多走一次起播。
                 if (adoptedPreview == null) {
-                    eng.play()
+                    applyIntent(eng)
                 } else {
+                    // 【接管后按意图对齐播放状态】旧实现只记探针、什么都不做：
+                    // 预览引擎此刻若是暂停（发现页切卡/表面归零的瞬时暂停），
+                    // 会话状态就停在 Paused，而画面冻结、按钮与真实状态对不上。
+                    // 用户点卡片进来就是要看，这里按 intent 起播（状态由监听回调刷新）。
                     PlaybackProbe.note(
                         "session-adopt-keep",
                         "playing=${adoptedPreview.isPlaying}",
                     )
+                    applyIntent(adoptedPreview)
                 }
 
                 // 【试看热升级】试看链已让用户看得到（毫秒级起播），全片搜索
@@ -301,9 +390,16 @@ object PlaybackSession {
                 // 全程对着黑屏转圈。先播再换，起播延迟与搜索耗时彻底解耦。
                 //
                 // 预算 20s：这是"后台升级"，慢一点无妨，覆盖降级轮（最多 3 轮）。
+                //
+                // 【接管发现页预览时先不换全片（docs/17 §11.5 原因 2）】用户刚
+                // 看着画面从发现页卡片滑到详情位，紧接着 setMedia 换全片会把它
+                // 打断成一次缓冲，恰好抵消掉刚做好的平滑进场。改成等这条试看链
+                // 播到尾声再升级（用户中途换集/手动换源会重新走 play()）。
                 if (previewOnly) {
                     val previewUrl = url
+                    val waitTrialTail = adoptedPreview != null
                     scope.launch {
+                        if (waitTrialTail && !awaitTrialTail(previewUrl)) return@launch
                         val alt = runCatching {
                             kotlinx.coroutines.withTimeoutOrNull(20_000) {
                                 findFullSource(
@@ -336,7 +432,8 @@ object PlaybackSession {
                             status = Status.Buffering,
                             buffering = true,
                         )
-                        e2.play()
+                        // 用户暂停过就一直暂停：后台升级只换媒体，不夺回播放权。
+                        applyIntent(e2)
                     }
                 }
             } catch (e: Exception) {
@@ -431,12 +528,15 @@ object PlaybackSession {
     )
 
     fun pause() {
-        PlaybackProbe.note("session-pause")
+        PlaybackProbe.note("session-pause", "eng=${engine?.hashCode()}")
+        // 用户暂停 = 意图翻转，后台收尾（换源/升级）不得再把画面拉起来。
+        playIntent = false
         engine?.pause()
     }
 
     fun resume() {
-        PlaybackProbe.note("session-resume")
+        PlaybackProbe.note("session-resume", "eng=${engine?.hashCode()}")
+        playIntent = true
         engine?.play()
     }
 
@@ -494,21 +594,67 @@ object PlaybackSession {
         this.host = host
     }
 
+    /**
+     * 宿主手里的预览引擎是否**正装着** [url]（发现页→详情交接的判据）。
+     *
+     * 只看事实、不看 UI 侧的一次性交接标记：会话还没有引擎、地址非空、
+     * 预览引擎的 `currentUrl` 完全一致。命中即意味着这次 play 不需要解析、
+     * 不需要 setMedia——引擎里播的和用户刚才看到的是同一段流，
+     * 状态不该回到 Resolving（docs/17 §11.5）。
+     */
+    private fun previewHolding(url: String): PlayerEngine? {
+        if (url.isEmpty() || engine != null) return null
+        val preview = host?.previewEngineIfAny() ?: return null
+        return preview.takeIf { it.currentUrl == url }
+    }
+
+    /**
+     * 等试看链播到尾声（剩 [TRIAL_TAIL_MS]）再让调用方换全片。
+     *
+     * 用于接管发现页预览引擎的场景：用户刚经历「画面从卡片滑到详情位」，
+     * 这时 setMedia 换全片会立刻黑一下（docs/17 §11.5 原因 2）。
+     *
+     * @return false = 期间会话换了地址 / 引擎不在了 / 等太久（用户一直暂停），
+     *         调用方必须放弃这次升级；之后换集或换源会重新走 [play]。
+     */
+    private suspend fun awaitTrialTail(url: String): Boolean {
+        var waited = 0L
+        while (true) {
+            if (_state.value.url != url) return false
+            val e = engine ?: return false
+            val total = e.duration.takeIf { it > 0 } ?: TRIAL_LENGTH_MS
+            if (total - e.currentPosition <= TRIAL_TAIL_MS) return true
+            if (waited >= TRIAL_MAX_WAIT_MS) return false
+            kotlinx.coroutines.delay(TRIAL_POLL_MS)
+            waited += TRIAL_POLL_MS
+        }
+    }
+
     private fun ensureEngine(): PlayerEngine {
         engine?.let { return it }
         val h = host
             ?: error("PlaybackSession.init(host) 未被调用：平台壳必须在播放前注入引擎宿主")
         val e = h.engine()
         engine = e
-        if (!listenerBound) {
-            listenerBound = true
-            bindListener(e)
-        }
+        // bindListener 自身幂等（同一引擎重复调用会直接返回），换引擎时会搬监听。
+        bindListener(e)
         return e
     }
 
     private fun bindListener(e: PlayerEngine) {
-        e.addListener(object : PlayerListener {
+        val existing = engineListener
+        if (existing != null) {
+            // 【换引擎要搬监听】会话可能从主引擎切到发现页预览引擎（交接），
+            // 旧实现用 `listenerBound` 布尔只挂一次，切过去后新引擎的事件全丢：
+            // status 卡在 Buffering、totalTime 不更新，用户看到「一直在加载」。
+            val from = listenerEngine
+            if (from === e) return
+            if (from != null) from.removeListener(existing)
+            e.addListener(existing)
+            listenerEngine = e
+            return
+        }
+        val l = object : PlayerListener {
             override fun onReady(durationMs: Long) {
                 PlaybackProbe.note("session-ready", "dur=$durationMs")
                 _state.value = _state.value.copy(
@@ -552,7 +698,10 @@ object PlaybackSession {
             }
 
             override fun onVideoSize(width: Int, height: Int) {}
-        })
+        }
+        engineListener = l
+        listenerEngine = e
+        e.addListener(l)
     }
 }
 

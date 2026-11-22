@@ -53,25 +53,25 @@ class FullscreenUiPolicyTest {
     }
 
     @Test
-    fun `tap with a sheet open only closes the sheets`() {
+    fun `tap with a sheet open also hides the controls`() {
         val zoom = resolveSurfaceTap(zoomOpen = true, speedOpen = false)
         assertFalse(zoom.zoomOpen)
         assertFalse(zoom.speedOpen)
-        // 关键：这一次点击不能同时翻控制层，否则面板收了、控制行也藏了
-        assertFalse(zoom.toggleControls)
+        // docs/17 §9.1：关下拉的同时收起上下栏，不是"保持原样"
+        assertEquals(ControlsAction.Hide, zoom.controls)
 
         val speed = resolveSurfaceTap(zoomOpen = false, speedOpen = true)
         assertFalse(speed.zoomOpen)
         assertFalse(speed.speedOpen)
-        assertFalse(speed.toggleControls)
+        assertEquals(ControlsAction.Hide, speed.controls)
     }
 
     @Test
-    fun `tap with both sheets open closes both`() {
+    fun `tap with both sheets open closes both and hides controls`() {
         val both = resolveSurfaceTap(zoomOpen = true, speedOpen = true)
         assertFalse(both.zoomOpen)
         assertFalse(both.speedOpen)
-        assertFalse(both.toggleControls)
+        assertEquals(ControlsAction.Hide, both.controls)
     }
 
     @Test
@@ -79,7 +79,7 @@ class FullscreenUiPolicyTest {
         val none = resolveSurfaceTap(zoomOpen = false, speedOpen = false)
         assertFalse(none.zoomOpen)
         assertFalse(none.speedOpen)
-        assertTrue(none.toggleControls)
+        assertEquals(ControlsAction.Toggle, none.controls)
     }
 
     @Test
