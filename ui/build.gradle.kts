@@ -22,7 +22,10 @@ plugins {
  *
  * ## target 与产物
  *
- * - `androidTarget` / `jvm`：JVM 侧，跑 :app 与 :ui:commonTest。
+ * - `androidTarget`：JVM 侧入口，跑 :app 与 :ui 的单测（:ui:testDebugUnitTest）。
+ *   本模块**不能**声明 `jvm` target：CPF 的 `org.jetbrains.compose.*` 只发布
+ *   androidJvm / ohos / uikit 变体，没有 jvm 变体，声明后 commonMain 的 Compose
+ *   依赖在 jvm 侧解析直接失败（No matching variant ... only androidJvm/metadata/ohos）。
  * - `ohosArm64` / `ohosX64`：**各自产出一个 sharedLib**（`libdengyui.so`），
  *   由 harmony 壳工程用 dlopen/dlsym 加载。这就是「复用 Compose UI」在鸿蒙侧
  *   的落地形态 —— 不是重新实现一遍 UI，而是把同一份 commonMain 编成 K/N .so。
@@ -55,10 +58,6 @@ kotlin {
     }
 
     androidTarget {
-        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
-    }
-
-    jvm {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
 
@@ -111,7 +110,6 @@ kotlin {
             dependsOn(commonMain.get())
         }
         androidMain.get().dependsOn(jvmSharedMain)
-        jvmMain.get().dependsOn(jvmSharedMain)
 
         val ohosMain by creating {
             dependsOn(commonMain.get())
