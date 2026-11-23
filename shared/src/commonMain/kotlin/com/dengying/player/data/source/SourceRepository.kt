@@ -269,7 +269,7 @@ class SourceRepository {
      *  - 每源返回即经 `onPartial` 回调上屏（tier 靠前源 ~1s 出结果，体感秒搜）
      *  - 总预算 [PageBudget.PAGE_BUDGET_MS] 兜底：到点用已有结果返回
      *
-     * @param onPartial 部分结果回调（已折叠去重、按相关度重排；同分保持到达顺序）
+     * @param onPartial 部分结果回调（已折叠去重、每批按相关度重排；同分保持到达顺序）
      */
     suspend fun searchAll(
         sources: List<CmsSource>,
@@ -316,14 +316,12 @@ class SourceRepository {
                     }
                 }
                 if (added > 0) {
-                    // 增量上屏只重排第一批：后续源继续 rank 会把已经看到的结果
-                    // 插到顶部，列表自己往上长，用户被迫回头找刚才那条。
-                    // 相关度排序不放整段流式过程，留到最终结果一次性做。
-                    if (merged.size == added) {
-                        SearchRelevance.rank(merged, keyword).also { ranked ->
-                            merged.clear()
-                            merged.addAll(ranked)
-                        }
+                    // 每批结果都按相关度重排：后续源出现更匹配的结果时必须进头部，
+                    // 首位永远是当前已见结果里最符合关键词的。旧结果被挤到后面属于
+                    // 搜索相关度收紧，不是插队；只把完全相同的结果保持原顺序。
+                    SearchRelevance.rank(merged, keyword).also { ranked ->
+                        merged.clear()
+                        merged.addAll(ranked)
                     }
                     onPartial?.invoke(merged.toList())
                 }
