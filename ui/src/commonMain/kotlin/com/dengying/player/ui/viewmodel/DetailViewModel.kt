@@ -280,7 +280,7 @@ class DetailViewModel(
                 // 用户看到的画面在新引擎里播，播放/暂停按钮却发给旧引擎——
                 // 真机就是「按暂停没反应、视频自己一直在播」（docs/04 §16.99）。
                 com.dengying.player.playback.PlaybackSession.engineOrNull()?.let { live ->
-                    if (live !== inlineEngine) {
+                    if (inlineSurfaceAttached && live !== inlineEngine) {
                         bindInlineEngine(live)
                         PlaybackProbe.note("inline-rebind", "eng=${live.hashCode()}")
                     }
@@ -885,6 +885,20 @@ class DetailViewModel(
     var inlineEngine: com.dengying.player.player.PlayerEngine? = null
         private set
 
+    /** 交接窗口里「只显示」的那台预览引擎；守卫重复写 [inlineState]（见 attachInlineSurface） */
+    private var previewDisplayEngine: com.dengying.player.player.PlayerEngine? = null
+
+    /**
+     * 内嵌位是否已经绑过一次渲染面（[attachInlineSurface] 走过）。
+     *
+     * 【为什么需要】会话状态收集器在 `init` 里就订阅了，**构造期**会立刻收到一次
+     * 当前状态；此时 `inlineListener` 还是 null（声明在 init 之后），跟着会话换引擎
+     * 就会 `addListener(null)` → 启动即崩（真机 `NullPointerException:
+     * method Media3Engine.addListener, parameter listener`，docs/04 §16.99）。
+     * 组合期的 `attachInlineSurface` 才是真正绑定入口，只有它跑过之后才允许跟换。
+     */
+    private var inlineSurfaceAttached = false
+
     /**
      * 【视图宿主绑定】把会话的引擎接到本页内嵌位（FR-711）。
      *
@@ -896,24 +910,61 @@ class DetailViewModel(
      */
     fun attachInlineSurface() {
         val s = com.dengying.player.playback.PlaybackSession.currentState()
-        if (!s.hasSession) return
+        val sessionEngine = com.dengying.player.playback.PlaybackSession.engineOrNull()
+        // 【交接窗口先显示发现页那台引擎】用户要的效果是「视频平移进内嵌位」：
+        // 会话此刻还没建立（playInline 要等选集/点击流程），若这里直接早退，
+        // 内嵌位会先画一帧「选择下方剧集开始播放」的空态占位，再被视频顶掉
+        // —— 真机/模拟器上就是「先进详情短暂空白、然后才播」。
+        // 预览引擎是**同一条视频的同一台播放器**，把它先交给内嵌位渲染，
+        // 画面从第一帧起就是发现页那一帧（会话随后接管同一对象，不会重建）。
+        val display = sessionEngine ?: if (handoffPending) engineHost.previewEngineIfAny() else null
+        if (!s.hasSession && display == null) return
+        if (display != null && !s.hasSession) {
+            // 只显示、不管播放：进度/总时长/播放态直接读引擎，避免 InlinePlayer
+            // 因为 `totalTime <= 0` 又叠一层缓冲转圈。
+            // 只在「第一次挂上这台引擎」时写一次：attachInlineSurface 由组合期
+            // 调用，每次重组都会进来，无守卫会不停写 inlineState → 重组 → 再写。
+            if (display !== previewDisplayEngine) {
+                previewDisplayEngine = display
+                inlineState = inlineState.copy(
+                    active = true,
+                    isPlaying = display.isPlaying,
+                    curTime = display.currentPosition,
+                    totalTime = display.duration.takeIf { it > 0 } ?: inlineState.totalTime,
+                    buffering = false,
+                    hidden = false,
+                )
+                PlaybackProbe.note(
+                    "inline-attach-preview",
+                    "eng=${display.hashCode()} playing=${display.isPlaying}",
+                )
+            }
+        } else {
+            previewDisplayEngine = null
+        }
         // 会话已经建起来 = 发现页那条流已被接管（或走了正常解析），交接窗口结束：
         // 壳层恢复正常「表面归零就暂停」，本页解除自动换源封锁。
-        if (handoffPending) {
+        if (handoffPending && s.hasSession) {
             handoffPending = false
             PlaybackProbe.note("detail-handoff-settled", "status=${s.status}")
             viewModelScope.launch { maybeAutoPickBestSource() }
         }
-        engineHost.setHandoffInProgress(false)
         // 会话可能接管了发现页的预览引擎（平滑交接），此时必须显示会话的引擎，
         // 而不是宿主主实例——否则画面全黑（时间轴照走）。
-        val e = com.dengying.player.playback.PlaybackSession.engineOrNull() ?: engineHost.peek() ?: return
-        if (inlineEngine === e) return
-        bindInlineEngine(e)
+        val e = display ?: engineHost.peek() ?: return
+        // 走到这里 = 组合期绑定入口已经执行过，之后允许会话换引擎时跟着换（见字段说明）
+        inlineSurfaceAttached = true
+        if (inlineEngine !== e) bindInlineEngine(e)
         if (!surfaceRegistered) {
             surfaceRegistered = true
             engineHost.surfaceActive()
         }
+        // 【顺序是硬的】先登记本页表面，再解除交接窗口。反过来的话，发现页表面
+        // 归零的那一刻（切页瞬间）壳层看到「无表面 + 交接已结束」就把预览引擎
+        // 暂停掉——再进详情时先停一下、等会话重新 play 才动（用户看到的
+        // 「暂停一会、图标还是播放」正是这个窗口）。会话还没建立时更不允许解除：
+        // 那时没有任何一方会把它重新拉起来。
+        if (s.hasSession) engineHost.setHandoffInProgress(false)
         PlaybackProbe.note("inline-surface-bind", "status=${s.status}")
     }
 
@@ -1787,6 +1838,8 @@ class DetailViewModel(
      */
     fun releaseInline() {
         bindInlineEngine(null)
+        inlineSurfaceAttached = false
+        previewDisplayEngine = null
         preResolved = null
         preResolveIdx = -1
 
@@ -1806,6 +1859,11 @@ class DetailViewModel(
         if (s.hasSession && engineHost.surfaceCount() == 0) {
             com.dengying.player.playback.PlaybackSession.stop()
         }
+
+        // 【交接窗口属于「发现页→详情」这一次点击，本页卸载就收掉】
+        // 只在显示态进入（会话始终没建立）时尤其不能留：标志一旦卡住，壳层
+        // 就长期不再执行「表面归零就暂停」，后台留声（docs/04 §16.99 的老问题）。
+        engineHost.setHandoffInProgress(false)
     }
 
     /**

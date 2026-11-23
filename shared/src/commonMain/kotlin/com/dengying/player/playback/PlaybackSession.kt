@@ -225,10 +225,19 @@ object PlaybackSession {
         // 用户却先看到一次「重新加载」。
         val upfrontUrl = if (directMedia) rawUrl else preResolved ?: ""
         val handoffPreview = previewHolding(upfrontUrl)
-        _state.value = if (handoffPreview != null) {
+        // 【同一条流正在这台引擎上播】再进详情（发现页 → 详情 → 返回 → 再进）时
+        // `engine != null` 且 URL 没变：这不是换集，画面是连续的，写 Resolving
+        // 会让详情页先闪一帧「正在解析播放地址…」并把 totalTime 清 0。
+        val holding = handoffPreview ?: engineHolding(upfrontUrl)
+        _state.value = if (holding != null) {
             prev.copy(
                 live = live,
-                status = if (handoffPreview.isPlaying) Status.Playing else Status.Paused,
+                // 【状态按用户意图写，不按引擎瞬时值】交接进来的引擎如果刚好被
+                // 发现页「表面归零」暂停了一瞬，按 isPlaying 写就会广播 Paused：
+                // 详情页按钮画成 ▶，而下一秒 applyIntent 又把画面放起来，于是
+                // 「图标是播放态、视频在播」一直对不上（用户 m01692 的原话）。
+                // play() 入口已置 playIntent=true，这里直接沿用它。
+                status = if (playIntent) Status.Playing else Status.Paused,
                 url = rawUrl,
                 headers = "",
                 title = title,
@@ -240,8 +249,8 @@ object PlaybackSession {
                 episodeName = episodeName,
                 errMsg = "",
                 buffering = false,
-                curTime = handoffPreview.currentPosition,
-                totalTime = handoffPreview.duration.takeIf { it > 0 } ?: prev.totalTime,
+                curTime = holding.currentPosition,
+                totalTime = holding.duration.takeIf { it > 0 } ?: prev.totalTime,
             )
         } else {
             prev.copy(
@@ -322,8 +331,10 @@ object PlaybackSession {
                 // 引擎里这一条已经在播了，会话只是换了个宿主视图。
                 // 沿用旧逻辑（previousStatus 还是 Idle）会先广播 Buffering、
                 // 把详情页 UI 打成"正在缓冲…"，用户看到的就是"切页重新加载"。
+                // 同上一处：接管后紧接着就会 applyIntent(adoptedPreview)，
+                // 状态必须按意图写，否则接管瞬间的瞬时暂停会把 UI 定成 Paused。
                 val adoptedStatus = adoptedPreview?.let {
-                    if (it.isPlaying) Status.Playing else Status.Paused
+                    if (playIntent) Status.Playing else Status.Paused
                 }
                 val preserveSettledState = (adoptedStatus != null) || (
                     sameMedia &&
@@ -352,10 +363,28 @@ object PlaybackSession {
                     eng.setMedia(url, headers, startAtMs)
                     lastSetUrl = url
                 } else {
-                    PlaybackProbe.note("session-skip-setMedia", "same url eng=${eng.hashCode()}")
+                    PlaybackProbe.note(
+                        "session-skip-setMedia",
+                        "same url eng=${eng.hashCode()} pos=${eng.currentPosition} start=$startAtMs",
+                    )
                     // 【接管预览引擎时不要 seek】引擎里这一条正播着，位置就是用户
                     // 刚才在发现页看到的那一帧；再 seek 到详情传的进度会黑一帧。
-                    if (startAtMs > 0 && adoptedPreview == null) eng.seekTo(startAtMs)
+                    //
+                    // 同理：引擎已经停在这个点上（发现页交接传的就是它自己的位置）
+                    // 也不能 seek——ExoPlayer 收到同位置 seek 仍会 flush 解码器、
+                    // 走一次 BUFFERING，真机表现就是「再进详情先暂停一会儿，
+                    // 图标还是播放态，等缓冲完才继续」（用户 m01692 的第二条）。
+                    // 只有用户/换集真的要求跳到别处（偏差 >1.5s）才动。
+                    //
+                    // 【别倒回正在播的那条流】发现页交接时 `startAtMs` 记录的是点击那一
+                    // 刻的位置，详情解析要花几秒，引擎这会儿已经往前走了 2-3 秒；按旧
+                    // 逻辑 seek 回 37.6s 等于把用户看着的画面倒带，并触发一次 BUFFERING。
+                    // 引擎正在播同一集 = 播放是连续的，位置以引擎为准，不 seek。
+                    val drift = kotlin.math.abs(eng.currentPosition - startAtMs)
+                    val playingNow = eng.isPlaying
+                    if (startAtMs > 0 && adoptedPreview == null && !playingNow && drift > 1500L) {
+                        eng.seekTo(startAtMs)
+                    }
                 }
                 _state.value = _state.value.copy(
                     url = url,
@@ -607,6 +636,15 @@ object PlaybackSession {
         val preview = host?.previewEngineIfAny() ?: return null
         return preview.takeIf { it.currentUrl == url }
     }
+
+    /**
+     * 会话自己的引擎里已经装着这条地址（发现页 → 详情 → 返回 → 再进）。
+     *
+     * 与 [previewHolding] 的区别：那台是还没接管的预览引擎，这台是**当前**引擎。
+     * 两者都表示「画面是连续的」，不能写 Resolving、不能清 totalTime。
+     */
+    private fun engineHolding(url: String): PlayerEngine? =
+        engine?.takeIf { url.isNotEmpty() && lastSetUrl == url }
 
     /**
      * 等试看链播到尾声（剩 [TRIAL_TAIL_MS]）再让调用方换全片。
