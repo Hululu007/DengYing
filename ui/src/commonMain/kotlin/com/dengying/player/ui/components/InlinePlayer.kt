@@ -509,7 +509,7 @@ fun InlinePlayer(
             // 用「影视名 + 集名 + 集下标」当 key：换集即销毁重建渲染面，新集出画前是黑底。
             // 集下标是必需的（DVP §3）：跨集/跨源时集名可能相同或为空，只按集名做
             // key 会让渲染面不重建，引擎换了而 Surface 还挂在旧视图上（换集黑屏）。
-            key(title, episodeName, episodeIndex) {
+            key(engine, title, episodeName, episodeIndex) {
                 VideoSurface(
                     engine = engine,
                     modifier = Modifier.fillMaxSize(),

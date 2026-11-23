@@ -135,7 +135,10 @@ fun DetailScreen(
     liveHeaders: String = "",
 ) {
     val vm: DetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-        key = "detail_$source$vodId",
+        // 带上交接位置：同一部片从发现页带断点再进，也必须是一个全新的 VM，
+        // 否则复用旧 VM 会保留 handoffUsed/autoPlayed/adoptedFromDiscovery，
+        // 新一次交接被当成"已经消费过"，回页既不按新位置起播也不恢复原位续播。
+        key = "detail_${source}_${vodId}_$startAtMs",
     ) {
         val deps = UiDepsHolder.get()
         DetailViewModel(

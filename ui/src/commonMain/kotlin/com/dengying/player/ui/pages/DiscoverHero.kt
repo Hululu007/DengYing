@@ -15,7 +15,8 @@ package com.dengying.player.ui.pages
  * 用 `graphicsLayer` 从「卡片矩形」动画到「自己的布局矩形」，画面本体全程
  * 是同一个引擎、同一段媒体（交接不重载），视觉上就是「画面从卡片滑到详情位」。
  *
- * 只交接一次：详情页消费后清空，避免返回时误用陈旧矩形。
+ * 几何只在启动动画时取走一次；真正的视频交接状态由 [DiscoverHandoff] 持有，
+ * 要等详情页会话建立后才消费。两者分开，避免动画先取几何时把地址一起清掉。
  */
 internal object DiscoverHero {
 
@@ -27,7 +28,7 @@ internal object DiscoverHero {
         rect = intArrayOf(left, top, width, height)
     }
 
-    /** 取走交接矩形（取一次即清空）。 */
+    /** 取走交接矩形；地址负载由 [DiscoverHandoff] 独立消费，不受动画影响。 */
     fun take(): IntArray? = rect.also { rect = null }
 
     /** 没有交接（非发现页进入）时清掉，防止旧矩形串到别的入口。 */

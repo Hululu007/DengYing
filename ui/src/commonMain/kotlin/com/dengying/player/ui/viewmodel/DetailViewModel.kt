@@ -37,6 +37,7 @@ import kotlinx.coroutines.withTimeout
 import com.dengying.player.ui.UiDeps
 import com.dengying.player.ui.navigation.Routes
 import com.dengying.player.ui.pages.DiscoverHandoff
+import com.dengying.player.ui.pages.DiscoverPlaybackRules
 import com.dengying.player.ui.prefs.PlaybackPrefs
 
 /**
@@ -147,6 +148,9 @@ class DetailViewModel(
      * 否则每次换集都会跳回发现页看到的那一刻。
      */
     private var handoffUsed = false
+
+    /** 本页是否真的从发现页接手了那台预览引擎；决定返回时是否要交还原位播放。 */
+    private var adoptedFromDiscovery = false
 
     /**
      * 发现页 → 详情的交接是否还在窗口内（DVP §10/§11）。
@@ -289,22 +293,28 @@ class DetailViewModel(
                 // 每秒都有进度帧，必须带变化判断，否则整页每秒重组一次。
                 val playingEp = if (s.vodId == curVodId && s.source == curSource) s.episodeIndex else -1
                 if (state.playingEp != playingEp) state = state.copy(playingEp = playingEp)
+                if (!DiscoverPlaybackRules.shouldActivateInlineSession(
+                        sessionBelongsToPage = playingEp >= 0,
+                        adoptedFromDiscovery = adoptedFromDiscovery,
+                        displayEngineActive = displayEngineActive,
+                    )
+                ) return@collect
                 inlineState = inlineState.copy(
                     active = true,
-                    title = s.title,
-                    episodeName = s.episodeName,
-                    episodeIndex = s.episodeIndex,
-                    live = s.live,
-                    isPlaying = s.status == com.dengying.player.playback.PlaybackSession.Status.Playing,
-                    curTime = s.curTime,
-                    totalTime = s.totalTime,
-                    buffering = s.buffering,
-                    status = when (s.status) {
+                    title = if (playingEp >= 0) s.title else inlineState.title,
+                    episodeName = if (playingEp >= 0) s.episodeName else inlineState.episodeName,
+                    episodeIndex = if (playingEp >= 0) s.episodeIndex else inlineState.episodeIndex,
+                    live = if (playingEp >= 0) s.live else inlineState.live,
+                    isPlaying = playingEp >= 0 && s.status == com.dengying.player.playback.PlaybackSession.Status.Playing,
+                    curTime = if (playingEp >= 0) s.curTime else inlineState.curTime,
+                    totalTime = if (playingEp >= 0) s.totalTime else inlineState.totalTime,
+                    buffering = playingEp >= 0 && s.buffering,
+                    status = if (playingEp >= 0) when (s.status) {
                         com.dengying.player.playback.PlaybackSession.Status.Resolving -> "正在解析播放地址…"
                         com.dengying.player.playback.PlaybackSession.Status.Buffering -> "正在缓冲…"
                         else -> ""
-                    },
-                    errMsg = s.errMsg,
+                    } else "",
+                    errMsg = if (playingEp >= 0) s.errMsg else "",
                 )
             }
         }
@@ -491,6 +501,12 @@ class DetailViewModel(
             engineHost.setHandoffInProgress(false)
             return false
         }
+        val preview = engineHost.previewEngineIfAny()
+        if (preview == null || preview.currentUrl != h.url) {
+            PlaybackProbe.note("detail-handoff-miss", "reason=preview-mismatch len=${h.url.length}")
+            engineHost.setHandoffInProgress(false)
+            return false
+        }
         // 【有旧会话也必须交接】旧实现在「会话已存在」时直接放弃交接：只要用户
         // 之前播过任何东西（详情页返回、播放页回来都算），会话就一直活着，
         // 于是交接 100% 失效 → 详情页冷启解析+setMedia，用户眼前正在播的那一帧
@@ -503,6 +519,7 @@ class DetailViewModel(
         preResolved = h.url to h.headers
         preResolveIdx = 0
         handoffPending = true
+        adoptedFromDiscovery = true
         PlaybackProbe.note(
             "detail-adopt-handoff",
             "len=${h.url.length} pos=${h.positionMs} idx=$preResolveIdx",
@@ -900,6 +917,29 @@ class DetailViewModel(
     private var inlineSurfaceAttached = false
 
     /**
+     * 内嵌位当前是否已经接上可显示的播放器。
+     *
+     * 非交接的普通详情入口在选集前不显示任何引擎（避免旧片最后一帧）；此时
+     * `inlineEngine` 为 null，`active` 必须保持 false，让 `InlinePlayer` 画空态。
+     * 会话 collect 会先于 `attachInlineSurface` 运行，不能只看会话存在就置激活态。
+     */
+    private var displayEngineActive: Boolean = false
+
+    /**
+     * 会话属于本片时，内嵌位是否可以直接挂播放器渲染面。
+     *
+     * 发现页交接进来时会话已持有同一台预览引擎，画面必须连续；普通详情入口
+     * 若在选集前就挂上全局引擎，渲染面会保留上一次播放的最后一帧，直到新片
+     * 首帧到达（用户看到的就是“新详情占位显示旧视频”）。普通入口只允许
+     * [playInline] 明确建立本片会话后再显示播放器。
+     */
+    private val canShowSessionEngine: Boolean
+        get() = adoptedFromDiscovery ||
+            com.dengying.player.playback.PlaybackSession.currentState().let { state ->
+                state.hasSession && state.vodId == curVodId && state.source == curSource
+            }
+
+    /**
      * 【视图宿主绑定】把会话的引擎接到本页内嵌位（FR-711）。
      *
      * 单会话架构下引擎归 `PlaybackSession` 所有，本页**只借用**它来显示。
@@ -911,6 +951,7 @@ class DetailViewModel(
     fun attachInlineSurface() {
         val s = com.dengying.player.playback.PlaybackSession.currentState()
         val sessionEngine = com.dengying.player.playback.PlaybackSession.engineOrNull()
+            ?.takeIf { canShowSessionEngine }
         // 【交接窗口先显示发现页那台引擎】用户要的效果是「视频平移进内嵌位」：
         // 会话此刻还没建立（playInline 要等选集/点击流程），若这里直接早退，
         // 内嵌位会先画一帧「选择下方剧集开始播放」的空态占位，再被视频顶掉
@@ -926,6 +967,7 @@ class DetailViewModel(
             // 调用，每次重组都会进来，无守卫会不停写 inlineState → 重组 → 再写。
             if (display !== previewDisplayEngine) {
                 previewDisplayEngine = display
+                displayEngineActive = true
                 inlineState = inlineState.copy(
                     active = true,
                     isPlaying = display.isPlaying,
@@ -941,6 +983,7 @@ class DetailViewModel(
             }
         } else {
             previewDisplayEngine = null
+            displayEngineActive = false
         }
         // 会话已经建起来 = 发现页那条流已被接管（或走了正常解析），交接窗口结束：
         // 壳层恢复正常「表面归零就暂停」，本页解除自动换源封锁。
@@ -951,7 +994,9 @@ class DetailViewModel(
         }
         // 会话可能接管了发现页的预览引擎（平滑交接），此时必须显示会话的引擎，
         // 而不是宿主主实例——否则画面全黑（时间轴照走）。
-        val e = display ?: engineHost.peek() ?: return
+        // 非发现页入口且当前会话不是本片时，绝不把宿主主引擎借给本页：
+        // 那台引擎可能还留着上一部片的最后一帧。空态/缓冲态由 InlinePlayer 绘制。
+        val e = display ?: sessionEngine ?: return
         // 走到这里 = 组合期绑定入口已经执行过，之后允许会话换引擎时跟着换（见字段说明）
         inlineSurfaceAttached = true
         if (inlineEngine !== e) bindInlineEngine(e)
@@ -1473,6 +1518,7 @@ class DetailViewModel(
             progressJob = null
         }
         inlineEngine = eng
+        displayEngineActive = eng != null && (canShowSessionEngine || handoffPending)
         if (eng != null) eng.addListener(inlineListener)
     }
 
@@ -1774,6 +1820,13 @@ class DetailViewModel(
             )
             return
         }
+        if (!canShowSessionEngine) {
+            PlaybackProbe.note(
+                "inline-resume-skip",
+                "reason=session-not-for-page vod=${s.vodId} source=${s.source}",
+            )
+            return
+        }
 
         val e = engineHost.peek()
         if (e == null) {
@@ -1837,6 +1890,12 @@ class DetailViewModel(
      * 现在不再依赖任何"引擎引用是否为空"的推断，直接问会话："全屏页接管了吗？"
      */
     fun releaseInline() {
+        val previewForDiscovery = engineHost.previewEngineIfAny()
+        val handoffToDiscovery = adoptedFromDiscovery &&
+            DiscoverPlaybackRules.shouldResumeDiscoveryAfterDetail(
+                adoptedFromDiscovery = adoptedFromDiscovery,
+                previewMediaAvailable = previewForDiscovery?.currentUrl?.isNotBlank() == true,
+            )
         bindInlineEngine(null)
         inlineSurfaceAttached = false
         previewDisplayEngine = null
@@ -1860,10 +1919,16 @@ class DetailViewModel(
             com.dengying.player.playback.PlaybackSession.stop()
         }
 
-        // 【交接窗口属于「发现页→详情」这一次点击，本页卸载就收掉】
-        // 只在显示态进入（会话始终没建立）时尤其不能留：标志一旦卡住，壳层
-        // 就长期不再执行「表面归零就暂停」，后台留声（docs/04 §16.99 的老问题）。
-        engineHost.setHandoffInProgress(false)
+        if (handoffToDiscovery && previewForDiscovery != null) {
+            // 详情会话已结束，但发现页原位那台预览引擎还持有同一条流；返回时
+            // 显式恢复播放。交接窗口不能留：发现页重新挂上表面后若再次滑走，
+            // 壳层必须照常执行「表面归零就暂停」，否则后台留声。
+            previewForDiscovery.play()
+            PlaybackProbe.note("detail-return-preview-resumed", "")
+        } else {
+            engineHost.setHandoffInProgress(false)
+        }
+        adoptedFromDiscovery = false
     }
 
     /**

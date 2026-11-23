@@ -105,4 +105,72 @@ class DiscoverPlaybackRulesTest {
         assertEquals(-1L, DiscoverPlaybackRules.handoffStartAtMs(false, 12_345L))
         assertEquals(-1L, DiscoverPlaybackRules.handoffStartAtMs(true, -1L))
     }
+
+    @Test
+    fun 返回发现页只在接过本卡媒体时恢复原位播放() {
+        assertTrue(
+            DiscoverPlaybackRules.shouldResumeDiscoveryAfterDetail(
+                adoptedFromDiscovery = true,
+                previewMediaAvailable = true,
+            ),
+        )
+        assertFalse(
+            DiscoverPlaybackRules.shouldResumeDiscoveryAfterDetail(
+                adoptedFromDiscovery = false,
+                previewMediaAvailable = true,
+            ),
+        )
+        assertFalse(
+            DiscoverPlaybackRules.shouldResumeDiscoveryAfterDetail(
+                adoptedFromDiscovery = true,
+                previewMediaAvailable = false,
+            ),
+        )
+    }
+
+    @Test
+    fun 详情路由交接位置识别() {
+        assertTrue(DiscoverPlaybackRules.isDiscoveryHandoffRoute("detail?vodId=1&startAtMs=0"))
+        assertTrue(
+            DiscoverPlaybackRules.isDiscoveryHandoffRoute(
+                "detail?vodId=1&startAtMs=12345&autoPlay=true",
+            ),
+        )
+        assertFalse(DiscoverPlaybackRules.isDiscoveryHandoffRoute("detail?vodId=1&startAtMs=-1"))
+        assertFalse(DiscoverPlaybackRules.isDiscoveryHandoffRoute("detail?vodId=1"))
+        assertEquals(12345L, DiscoverPlaybackRules.routeStartAtMs("detail?startAtMs=12345&x=1"))
+        assertEquals(-1L, DiscoverPlaybackRules.routeStartAtMs("detail?startAtMs=bad"))
+    }
+
+    @Test
+    fun 普通详情入口不被别的片会话激活() {
+        assertFalse(
+            DiscoverPlaybackRules.shouldActivateInlineSession(
+                sessionBelongsToPage = false,
+                adoptedFromDiscovery = false,
+                displayEngineActive = false,
+            ),
+        )
+        assertTrue(
+            DiscoverPlaybackRules.shouldActivateInlineSession(
+                sessionBelongsToPage = true,
+                adoptedFromDiscovery = false,
+                displayEngineActive = false,
+            ),
+        )
+        assertTrue(
+            DiscoverPlaybackRules.shouldActivateInlineSession(
+                sessionBelongsToPage = false,
+                adoptedFromDiscovery = true,
+                displayEngineActive = false,
+            ),
+        )
+        assertTrue(
+            DiscoverPlaybackRules.shouldActivateInlineSession(
+                sessionBelongsToPage = false,
+                adoptedFromDiscovery = false,
+                displayEngineActive = true,
+            ),
+        )
+    }
 }

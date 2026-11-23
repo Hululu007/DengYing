@@ -23,6 +23,8 @@ import com.dengying.player.ui.components.LocalGlassBackdrop
 import com.dengying.player.ui.components.glassBackdrop
 import com.dengying.player.ui.pages.DetailScreen
 import com.dengying.player.ui.pages.DownloadsScreen
+import com.dengying.player.ui.pages.DiscoverHero
+import com.dengying.player.ui.pages.DiscoverPlaybackRules
 import com.dengying.player.ui.pages.FavoritesScreen
 import com.dengying.player.ui.pages.HistoryScreen
 import com.dengying.player.ui.pages.IndexScreen
@@ -137,7 +139,12 @@ fun DengYingNavHost(
                 onOpenSourceStatus = { nav.navigate(Routes.SOURCE_STATUS) },
                 onOpenLiveChannels = { nav.navigate(Routes.LIVE_CHANNELS) },
                 onOpenLogin = { nav.navigate(Routes.LOGIN) },
-                onOpenDetail = { route -> nav.navigate(route) },
+                onOpenDetail = { route ->
+                    if (!DiscoverPlaybackRules.isDiscoveryHandoffRoute(route)) {
+                        DiscoverHero.clear()
+                    }
+                    nav.navigate(route)
+                },
             )
         }
 
@@ -149,7 +156,12 @@ fun DengYingNavHost(
         ) { entry ->
             SearchScreen(
                 onBack = { nav.popBackStack() },
-                onOpenDetail = { route -> nav.navigate(route) },
+                onOpenDetail = { route ->
+                    if (!DiscoverPlaybackRules.isDiscoveryHandoffRoute(route)) {
+                        DiscoverHero.clear()
+                    }
+                    nav.navigate(route)
+                },
                 // 从首页榜单点进来的关键词；空串 = 普通进页
                 initialKeyword = entry.arguments?.stringArg("kw") ?: "",
             )

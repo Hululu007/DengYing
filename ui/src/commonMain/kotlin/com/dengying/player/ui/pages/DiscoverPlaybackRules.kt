@@ -68,4 +68,39 @@ internal object DiscoverPlaybackRules {
      */
     fun handoffStartAtMs(mediaReady: Boolean, positionMs: Long): Long =
         if (mediaReady && positionMs >= 0L) positionMs else -1L
+
+    /**
+     * 从详情返回发现页后是否要显式恢复预览引擎播放。
+     *
+     * 发现页 → 详情的平滑交接会把会话迁移到详情会话；详情销毁时会话必须结束，
+     * 但发现页原位那台预览引擎仍持有同一条流和位置。若只重建渲染面，
+     * 表面计数归零时的暂停不会自动撤销，用户看到的就是「画面回来了但不播」。
+     * 只有确实接手过发现页媒体、且仍有可播地址时才恢复，避免新详情误唤醒旧片。
+     */
+    fun shouldResumeDiscoveryAfterDetail(
+        adoptedFromDiscovery: Boolean,
+        previewMediaAvailable: Boolean,
+    ): Boolean = adoptedFromDiscovery && previewMediaAvailable
+
+    /** 从完整详情路由里读出发现页交接位置；没带或解析失败视为无交接。 */
+    fun routeStartAtMs(route: String): Long =
+        route.substringAfter("startAtMs=", "")
+            .substringBefore('&')
+            .toLongOrNull() ?: -1L
+
+    /** 该详情入口是否由发现页平滑交接发起（位置 >= 0）。 */
+    fun isDiscoveryHandoffRoute(route: String): Boolean = routeStartAtMs(route) >= 0L
+
+    /**
+     * 会话状态能否激活详情页内嵌位。
+     *
+     * 普通详情入口建立本片会话前，内嵌位必须保持“选择下方剧集”空态；若会话
+     * 属于其它片，则更不能把本页拖进缓冲/控制栏形态。交接预览已挂到本页时，
+     * 即使会话尚未建立也保持显示，确保画面连续。
+     */
+    fun shouldActivateInlineSession(
+        sessionBelongsToPage: Boolean,
+        adoptedFromDiscovery: Boolean,
+        displayEngineActive: Boolean,
+    ): Boolean = sessionBelongsToPage || adoptedFromDiscovery || displayEngineActive
 }

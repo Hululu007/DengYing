@@ -1559,6 +1559,7 @@ private fun DiscoverVideoCard(
                             val startAtMs = DiscoverPlaybackRules.handoffStartAtMs(
                                 mediaReady || engineHoldsCard, engine.currentPosition,
                             )
+                            if (startAtMs < 0L) DiscoverHero.clear()
                             com.dengying.player.player.PlaybackProbe.note(
                                 "handoff-gate",
                                 "ready=$mediaReady urlLen=${engine.currentUrl?.length ?: -1} pos=${engine.currentPosition} " +
