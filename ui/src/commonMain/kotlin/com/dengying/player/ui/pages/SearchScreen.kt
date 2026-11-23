@@ -2,6 +2,7 @@ package com.dengying.player.ui.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,6 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -69,9 +72,45 @@ fun SearchScreen(
 
     // 【新一次搜索必须回到列表顶部】LazyColumn 会保留上一次的滚动位置，
     // 上一次搜完往下翻过之后，再搜新词就停在中部，看起来像"页面自己跳走了"。
-    // 用 searching 的上升沿复位，输入过程中不打断。
-    androidx.compose.runtime.LaunchedEffect(s.searching) {
-        if (s.searching) listState.scrollToItem(0)
+    // 以每次实际搜索递增的 searchId 复位：连续换词时 searching 可能一直是 true，
+    // 若监听布尔上升沿就漏掉复位。
+    androidx.compose.runtime.LaunchedEffect(s.searchId) {
+        if (s.searchId > 0) listState.requestScrollToItem(0)
+    }
+
+    // 【搜索进行中的重排也要让最匹配项留在顶部】上面只覆盖新一次搜索。
+    // 同一次搜索的后到结果会按相关度插到列表前面，必须让视口跟着新的首条走。
+    // 这里用 `requestScrollToItem` 而不是 `scrollToItem`：后者在列表按 key 锚定
+    // 之后才生效，旧的第一个可见项会被留在原处，新首位反而被顶到视口上方
+    // （真机表现就是"还在往上插内容"）。`requestScrollToItem` 在下次测量前
+    // 落位并丢掉旧锚点，列表不会再把它拽回去。
+    //
+    // "用户是否已经下滑"只能靠真实拖动判定：按 key 锚定后旧首项可能已经在
+    // 索引 5，用 firstVisibleItemIndex 判断会把停在顶部的用户误判成翻过很远。
+    var userScrolledAway by androidx.compose.runtime.remember(s.searchId) {
+        androidx.compose.runtime.mutableStateOf(false)
+    }
+    val dragging by listState.interactionSource.collectIsDraggedAsState()
+    androidx.compose.runtime.LaunchedEffect(s.searchId) {
+        androidx.compose.runtime.snapshotFlow {
+            dragging && listState.firstVisibleItemIndex > 0
+        }.collect { away ->
+            if (away) userScrolledAway = true
+        }
+    }
+
+    val topResultKey = s.results.firstOrNull()?.let {
+        "${it._source}_${it.vod_id}_${it.vod_name}"
+    }
+    androidx.compose.runtime.LaunchedEffect(s.searchId, topResultKey) {
+        if (
+            SearchResultViewportRules.shouldFollowTopChange(
+                topChanged = topResultKey != null,
+                userScrolledAway = userScrolledAway,
+            )
+        ) {
+            listState.requestScrollToItem(0)
+        }
     }
 
     // 进页面就聚焦输入框，手机键盘随即弹出----用户是来打字的，

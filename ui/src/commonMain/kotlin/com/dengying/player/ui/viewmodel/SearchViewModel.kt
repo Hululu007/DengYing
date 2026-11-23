@@ -33,6 +33,8 @@ class SearchViewModel(
 
     data class UiState(
         val keyword: String = "",
+        /** 每次实际发起搜索递增，供页面复位列表滚动位置。 */
+        val searchId: Int = 0,
         val results: List<VideoItem> = emptyList(),
         val searching: Boolean = false,
         val searched: Boolean = false,
@@ -124,6 +126,7 @@ class SearchViewModel(
         val token = session.begin(kw)
         val count = searchSourceCount()
         state = state.copy(
+            searchId = token,
             searching = true,
             searched = true,
             tip = SearchNotice.searchingText(count),

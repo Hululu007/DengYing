@@ -115,6 +115,20 @@ class SearchRelevanceTest {
     }
 
     @Test
+    fun `完整关键词命中排在单字宽匹配前面`() {
+        val result = SearchRelevance.rank(
+            listOf(
+                item("逆世界"),
+                item("逆修仙途"),
+                item("仙逆"),
+                item("仙逆第二季"),
+            ),
+            "仙逆",
+        )
+        assertEquals(listOf("仙逆", "仙逆第二季"), names(result).take(2))
+    }
+
+    @Test
     fun `单字关键词不在演员字段误加成`() {
         val result = SearchRelevance.rank(
             listOf(item("庆余年"), item("庆余年", actor = "张若昀")),

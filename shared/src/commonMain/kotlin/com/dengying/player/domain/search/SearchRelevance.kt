@@ -62,7 +62,14 @@ object SearchRelevance {
                 if (tokens.isEmpty()) 0
                 else {
                     val hit = tokens.count { title.contains(it) }
-                    (40.0 * hit / tokens.size).toInt()
+                    val tokenScore = (40.0 * hit / tokens.size).toInt()
+                    // 无空格的中文关键词不能只靠分词：「仙逆」必须高于只命中「逆」的结果。
+                    // 逐字覆盖只作弱分，封顶低于完整子串命中（60），避免单字宽匹配插到精确结果前面。
+                    val charScore = if (kw.length >= 2 && !kw.contains(' ')) {
+                        val matched = kw.count { title.contains(it) }
+                        (30.0 * matched / kw.length).toInt()
+                    } else 0
+                    maxOf(tokenScore, charScore)
                 }
             }
         }
