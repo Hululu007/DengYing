@@ -315,7 +315,18 @@ class SourceRepository {
                         added++
                     }
                 }
-                if (added > 0) onPartial?.invoke(SearchRelevance.rank(merged, keyword))
+                if (added > 0) {
+                    // 增量上屏只重排第一批：后续源继续 rank 会把已经看到的结果
+                    // 插到顶部，列表自己往上长，用户被迫回头找刚才那条。
+                    // 相关度排序不放整段流式过程，留到最终结果一次性做。
+                    if (merged.size == added) {
+                        SearchRelevance.rank(merged, keyword).also { ranked ->
+                            merged.clear()
+                            merged.addAll(ranked)
+                        }
+                    }
+                    onPartial?.invoke(merged.toList())
+                }
             }
         }
 
