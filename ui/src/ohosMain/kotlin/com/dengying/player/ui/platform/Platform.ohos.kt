@@ -95,10 +95,12 @@ actual fun VideoSurface(
  */
 actual class FullscreenState internal constructor() {
     actual fun enter(landscape: Boolean) {
+        OhosShellControl.call(OhosShellControl.OP_KEEP_SCREEN_ON, "")
         OhosWindowControl.requestLandscape(landscape)
     }
 
     actual fun exit() {
+        OhosShellControl.call(OhosShellControl.OP_RESTORE_SCREEN_ON, "")
         OhosWindowControl.requestLandscape(false)
     }
 }

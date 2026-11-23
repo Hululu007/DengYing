@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
  *  2. **[enter] 只请求，不保证生效**；[exit] 是"显式回竖屏"，不是"恢复进入前的
  *     快照"。用户进入前本就是横屏时（平板/支架），恢复快照等于把用户锁在横屏。
  *  3. actual 必须幂等且**不得抛异常**：拿不到窗口时静默降级。
+ *  4. 全屏期间保持屏幕常亮（防系统息屏倒计时），[exit] 时必须恢复；
+ *     不支持的平台静默降级。
  */
 expect class FullscreenState {
     /**

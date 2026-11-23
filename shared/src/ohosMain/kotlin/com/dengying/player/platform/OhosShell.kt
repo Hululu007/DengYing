@@ -116,6 +116,12 @@ object OhosShellControl {
     /** 撤掉窗口亮度覆写，交还系统亮度。arg 可为空。 */
     const val OP_RESTORE_BRIGHTNESS = 4
 
+    /** 全屏期间保持屏幕常亮。arg 可为空。 */
+    const val OP_KEEP_SCREEN_ON = 5
+
+    /** 退出全屏，恢复系统息屏策略。arg 可为空。 */
+    const val OP_RESTORE_SCREEN_ON = 6
+
     private var resolved = false
     private var callSymbol: CPointer<CFunction<(Int, CPointer<ByteVar>) -> Int>>? = null
 

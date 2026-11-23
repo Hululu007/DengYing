@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -88,6 +89,7 @@ actual fun rememberFullscreenState(): FullscreenState {
         object : androidx.activity.OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+                clearKeepScreenOn(activity)
             }
         }
     }
@@ -114,6 +116,7 @@ actual fun ConsumePortraitOrientation() {
         // RESUMED，SideEffect 自然重新收敛竖屏。
         if (owner.lifecycle.currentState == androidx.lifecycle.Lifecycle.State.RESUMED) {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+            clearKeepScreenOn(activity)
         }
     }
 }
@@ -139,11 +142,20 @@ actual class FullscreenState internal constructor(
             // 竖向视频：保持竖屏方向，只由 SideEffect 隐藏系统栏
             ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
         }
+        // 全屏期间保持屏幕常亮，避免系统息屏倒计时打断播放。
+        // 这是窗口级标志，不需要 WAKE_LOCK 权限，进程退出后系统自动清理。
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     actual fun exit() {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_PORTRAIT
+        clearKeepScreenOn(activity)
     }
+}
+
+/** 清掉常亮标志；拿不到 Activity 时静默降级。 */
+private fun clearKeepScreenOn(activity: Activity?) {
+    activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 }
 
 /** 从 Context 往上找 Activity（Compose 里拿到的常是 ContextWrapper） */

@@ -101,6 +101,17 @@ export default class EntryAbility extends UIAbility {
             mainWindow.setWindowBrightness(-1).catch((e: BusinessError) => {
               hilog.warn(DOMAIN, 'DengYing', 'restore brightness failed: %{public}s', JSON.stringify(e));
             });
+          } else if (op === 5) {
+            // 全屏播放期间保持屏幕常亮，防系统息屏倒计时（与 Android
+            // FLAG_KEEP_SCREEN_ON / iOS idleTimerDisabled 同一语义）。
+            mainWindow.setWindowKeepScreenOn(true).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'keep screen on failed: %{public}s', JSON.stringify(e));
+            });
+          } else if (op === 6) {
+            // 退出全屏后恢复系统息屏策略。
+            mainWindow.setWindowKeepScreenOn(false).catch((e: BusinessError) => {
+              hilog.warn(DOMAIN, 'DengYing', 'restore screen on failed: %{public}s', JSON.stringify(e));
+            });
           }
         } catch (e) {
           hilog.warn(DOMAIN, 'DengYing', 'shell sink failed: %{public}s', JSON.stringify(e));

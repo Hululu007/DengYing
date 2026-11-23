@@ -67,6 +67,8 @@ import platform.UIKit.UIWindowSceneGeometryPreferencesIOS
 actual class FullscreenState internal constructor() {
 
     actual fun enter(landscape: Boolean) {
+        // 全屏期间保持屏幕常亮，避免系统息屏倒计时打断播放。
+        UIApplication.sharedApplication.idleTimerDisabled = true
         IosOrientationLock.request(
             if (landscape) UIInterfaceOrientationMaskLandscape else UIInterfaceOrientationMaskPortrait,
         )
@@ -74,6 +76,7 @@ actual class FullscreenState internal constructor() {
 
     actual fun exit() {
         // 语义是「显式回竖屏」，不是「恢复进入前的快照」（commonMain 契约）
+        UIApplication.sharedApplication.idleTimerDisabled = false
         IosOrientationLock.request(UIInterfaceOrientationMaskPortrait)
     }
 }
