@@ -102,3 +102,6 @@ hs_err_pid*.log
 **/AGENTS.md
 **/CLAUDE.md
 **/.claude/settings.local.json
+
+# ---- 本地临时文件：不入库 ----
+.tmp/

@@ -41,7 +41,12 @@ actual object PosterFetch {
                 setRequestProperty("Accept", "image/*")
                 posterReferer(url)?.let { setRequestProperty("Referer", it) }
             }
-            if (conn.responseCode !in 200..299) return@withContext null
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                // 非 2xx 以前静默返回 null，真机海报全兜底时无法区分 418 防盗链 / 404 / 5xx。
+                Log.w("DY/Net", "poster HTTP $code ${url.take(100)}")
+                return@withContext null
+            }
             // 预分配 + 大缓冲：海报 50-200KB，readBytes() 内部 8KB 缓冲要读几十次；
             // 且 ByteArrayOutputStream 默认 32 字节起步倍增扩容会多次复制。
             // Content-Length 由 CDN 报，超过上限就退回默认策略防坏头撑爆内存。
